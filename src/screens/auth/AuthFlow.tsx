@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { APP_NAME, M } from "../../theme";
+import { M } from "../../theme";
 import { useAuth } from "../../lib/auth";
 import { AppLogo } from "../../components/AppLogo";
 
@@ -133,13 +133,8 @@ export function AuthFlow() {
       }}
     >
       <div style={{ width: "100%", maxWidth: 400 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
-          <AppLogo size={44} />
-          <div>
-            <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 22, lineHeight: 1.1, letterSpacing: 0.3 }}>
-              {APP_NAME}
-            </div>
-          </div>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 28 }}>
+          <AppLogo size={52} />
         </div>
 
         <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 26, marginBottom: 18 }}>{titles[step]}</div>
