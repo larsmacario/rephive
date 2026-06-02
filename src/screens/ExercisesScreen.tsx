@@ -1,0 +1,258 @@
+import { useEffect, useMemo, useState } from "react";
+import type { LibraryExercise } from "../data";
+import { deleteExercise, useExercises } from "../lib/db";
+import { normalizeMuscleGroup, metricShort } from "../lib/exerciseCatalog";
+import { MuscleGroupFilterChips } from "../components/MuscleGroupFilterChips";
+import { M } from "../theme";
+import { Icon } from "../components/Icon";
+import { AlertSheet } from "../components/AlertSheet";
+import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
+import { ExerciseFormSheet } from "../components/ExerciseFormSheet";
+
+export interface ExercisesScreenProps {
+  refreshKey?: number;
+}
+
+export function ExercisesScreen({ refreshKey = 0 }: ExercisesScreenProps) {
+  const { data: exercises, loading, error, reload } = useExercises();
+  const [query, setQuery] = useState("");
+  const [groupFilter, setGroupFilter] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<LibraryExercise | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LibraryExercise | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [alertSheet, setAlertSheet] = useState<{ title: string; message: string } | null>(null);
+
+  useEffect(() => {
+    reload();
+  }, [refreshKey, reload]);
+
+  const list = exercises ?? [];
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return list.filter((ex) => {
+      if (groupFilter && normalizeMuscleGroup(ex.group) !== groupFilter) return false;
+      if (q && !ex.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [list, query, groupFilter]);
+
+  const ownedCount = list.filter((e) => e.userId !== null).length;
+
+  const openCreate = () => {
+    setEditing(null);
+    setFormOpen(true);
+  };
+
+  const openEdit = (ex: LibraryExercise) => {
+    if (!ex.userId) return;
+    setEditing(ex);
+    setFormOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget?.userId || deleteBusy) return;
+    const ex = deleteTarget;
+    setDeleteBusy(true);
+    try {
+      await deleteExercise(ex.id);
+      setDeleteTarget(null);
+      reload();
+    } catch (e) {
+      setAlertSheet({
+        title: "Löschen fehlgeschlagen",
+        message: e instanceof Error ? e.message : "Löschen fehlgeschlagen.",
+      });
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" }}>
+      <div
+        style={{
+          padding: "4px 22px 12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div>
+          <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 30, lineHeight: 1 }}>Übungen</div>
+          <div style={{ fontSize: 12.5, color: M.mut, marginTop: 3, fontWeight: 600 }}>
+            {loading ? "…" : `${list.length} Übungen · ${ownedCount} eigene`}
+          </div>
+        </div>
+        <button
+          onClick={openCreate}
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 14,
+            border: "none",
+            background: M.acc,
+            color: M.accInk,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+          }}
+        >
+          <Icon name="plus" size={24} stroke={2.6} />
+        </button>
+      </div>
+
+      <div style={{ padding: "0 22px 10px" }}>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Suchen…"
+          style={{
+            width: "100%",
+            padding: "11px 14px",
+            borderRadius: 12,
+            border: "1px solid " + M.line,
+            background: M.card,
+            color: M.fg,
+            fontSize: 14,
+            outline: "none",
+            boxSizing: "border-box",
+          }}
+        />
+        <div style={{ marginTop: 10 }}>
+          <MuscleGroupFilterChips groupFilter={groupFilter} onGroupFilterChange={setGroupFilter} />
+        </div>
+      </div>
+
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          padding: "0 22px 16px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+        }}
+      >
+        {loading && <div style={{ color: M.mut, fontSize: 14 }}>Übungen werden geladen…</div>}
+        {error && <div style={{ color: "#ff8a8a", fontSize: 14 }}>{error}</div>}
+        {!loading && filtered.length === 0 && (
+          <div style={{ color: M.mut, fontSize: 14, textAlign: "center", marginTop: 24 }}>
+            Keine Übungen gefunden.
+          </div>
+        )}
+        {filtered.map((ex) => {
+          const isOwned = ex.userId !== null;
+          return (
+            <div
+              key={ex.id}
+              style={{
+                background: M.card,
+                border: "1px solid " + M.line2,
+                borderLeft: isOwned ? "3px solid " + M.acc : "1px solid " + M.line2,
+                borderRadius: 14,
+                padding: "12px 14px",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => openEdit(ex)}
+                disabled={!isOwned}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  background: "none",
+                  border: "none",
+                  cursor: isOwned ? "pointer" : "default",
+                  textAlign: "left",
+                  padding: 0,
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: M.disp,
+                    fontWeight: 700,
+                    fontSize: 18,
+                    lineHeight: 1.1,
+                    color: M.fg,
+                  }}
+                >
+                  {ex.name}
+                </div>
+                <div style={{ fontSize: 12.5, color: M.mut, marginTop: 4, fontWeight: 600 }}>
+                  {ex.group} · {ex.equip} · {metricShort(ex.metric)}
+                </div>
+                {!isOwned && (
+                  <span
+                    style={{
+                      display: "inline-block",
+                      marginTop: 6,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: 0.8,
+                      color: M.mut2,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Standard
+                  </span>
+                )}
+              </button>
+              {isOwned && (
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(ex)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: M.mut2,
+                    display: "flex",
+                    padding: 4,
+                  }}
+                  aria-label="Löschen"
+                >
+                  <Icon name="trash" size={18} stroke={2} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <ExerciseFormSheet
+        open={formOpen}
+        exercise={editing}
+        onClose={() => setFormOpen(false)}
+        onSaved={() => reload()}
+      />
+
+      {alertSheet && (
+        <AlertSheet
+          title={alertSheet.title}
+          message={alertSheet.message}
+          onClose={() => setAlertSheet(null)}
+        />
+      )}
+      {deleteTarget && (
+        <DeleteConfirmDialog
+          title="Übung löschen?"
+          message={
+            <>
+              Möchtest du <strong style={{ color: M.fg }}>{deleteTarget.name}</strong> wirklich löschen?
+            </>
+          }
+          busy={deleteBusy}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+    </div>
+  );
+}

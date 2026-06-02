@@ -1,0 +1,44 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #0a0a0a;
+  color: #eef2ec;
+  font-family: "Archivo", system-ui, sans-serif;
+  overscroll-behavior: none;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Lime accent, themeable. */
+:root {
+  --mom-acc: oklch(0.87 0.21 143);
+}
+
+input::placeholder {
+  color: rgba(238, 242, 236, 0.32);
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Hide scrollbars but keep scrolling (mobile-app feel). */
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+* {
+  scrollbar-width: none;
+}

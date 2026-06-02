@@ -1,0 +1,412 @@
+import { useEffect, useRef, useState } from "react";
+import { M, mKind } from "../theme";
+import {
+  fmt,
+  fmtUp,
+  TIMER_MODES,
+  useTimer,
+  type TimerCfg,
+  type TimerMode,
+} from "../lib/engine";
+import type { SaveSessionInput } from "../lib/db";
+import { buildTimerSessionInput } from "../lib/timerSession";
+import { usePreferences } from "../lib/preferences";
+import { useActiveTimer } from "../lib/activeTimer";
+import { useIntervalTimerSounds } from "../lib/useTimerSounds";
+import { contentMaxWidth, useBreakpoint } from "../lib/responsive";
+import { Icon } from "../components/Icon";
+import { Ring } from "../components/Ring";
+import { TimerConfigPanel } from "../components/TimerConfigPanel";
+import { TimerLeaveSheet } from "../components/TimerLeaveSheet";
+
+type TimerLeaveAction = { kind: "mode"; mode: TimerMode } | { kind: "reset" };
+
+export interface TimerScreenProps {
+  onSaveSession: (input: SaveSessionInput) => Promise<void>;
+}
+
+export function TimerScreen({ onSaveSession }: TimerScreenProps) {
+  const breakpoint = useBreakpoint();
+  const maxW = contentMaxWidth(breakpoint);
+  const { preferences, updatePreferences } = usePreferences();
+  const [mode, setMode] = useState<TimerMode>("emom");
+  const cfgs = preferences.timerDefaults;
+  const cfg = cfgs[mode];
+  const setCfg = (p: Partial<TimerCfg>) =>
+    updatePreferences({
+      timerDefaults: {
+        [mode]: { ...cfgs[mode], ...p },
+      },
+    });
+  const T = useTimer(mode, cfg);
+  const { setActive: setTimerActive } = useActiveTimer();
+  useIntervalTimerSounds(T, preferences.timerSounds, cfg.cap);
+
+  useEffect(() => {
+    setTimerActive(!T.idle);
+    return () => setTimerActive(false);
+  }, [T.idle, setTimerActive]);
+
+  const savedRunRef = useRef(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [leaveAction, setLeaveAction] = useState<TimerLeaveAction | null>(null);
+
+  const requestMode = (next: TimerMode) => {
+    if (next === mode) return;
+    if (!T.idle) {
+      setLeaveAction({ kind: "mode", mode: next });
+      return;
+    }
+    setMode(next);
+  };
+
+  const requestReset = () => {
+    if (!T.idle) {
+      setLeaveAction({ kind: "reset" });
+      return;
+    }
+    T.reset();
+  };
+
+  const confirmLeaveAction = () => {
+    if (!leaveAction) return;
+    if (leaveAction.kind === "mode") {
+      setMode(leaveAction.mode);
+    } else {
+      T.reset();
+    }
+    setLeaveAction(null);
+  };
+
+  const leaveCopy =
+    leaveAction?.kind === "mode"
+      ? {
+          message: "Ein Timer läuft. Beim Modus-Wechsel wird der Timer gestoppt.",
+          confirmLabel: "MODUS WECHSELN",
+        }
+      : leaveAction?.kind === "reset"
+        ? {
+            message: "Ein Timer läuft. Beim Zurücksetzen geht der aktuelle Fortschritt verloren.",
+            confirmLabel: "ZURÜCKSETZEN",
+          }
+        : null;
+
+  useEffect(() => {
+    savedRunRef.current = false;
+    setSaveStatus("idle");
+    setSaveError(null);
+  }, [mode]);
+
+  const resetTimer = T.reset;
+
+  useEffect(() => {
+    if (!T.done || savedRunRef.current) return;
+
+    savedRunRef.current = true;
+    const input = buildTimerSessionInput(mode, cfg, {
+      elapsedSec: T.elapsedSec,
+      round: T.round,
+      taps: T.taps,
+      bigSeconds: T.bigSeconds,
+      countUp: T.countUp,
+    });
+
+    let cancelled = false;
+    setSaveStatus("saving");
+    setSaveError(null);
+
+    void (async () => {
+      try {
+        await onSaveSession(input);
+        if (cancelled) return;
+        setSaveStatus("saved");
+        resetTimer();
+      } catch (e) {
+        if (cancelled) return;
+        savedRunRef.current = false;
+        setSaveStatus("error");
+        setSaveError(e instanceof Error ? e.message : "Speichern fehlgeschlagen");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [T.done, T.elapsedSec, T.round, T.taps, T.bigSeconds, T.countUp, mode, cfg, onSaveSession, resetTimer]);
+
+  const col = mKind(T.kind);
+  const big = T.countUp && T.phase !== "prep" ? fmtUp(T.bigSeconds) : fmt(T.bigSeconds);
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        padding: "6px 22px 10px",
+        minHeight: 0,
+        width: "100%",
+        maxWidth: maxW,
+        margin: maxW ? "0 auto" : undefined,
+        position: "relative",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          gap: 6,
+          background: M.panel,
+          padding: 5,
+          borderRadius: 14,
+          border: "1px solid " + M.line2,
+        }}
+      >
+        {TIMER_MODES.map((m) => (
+          <button
+            key={m.id}
+            onClick={() => requestMode(m.id)}
+            style={{
+              flex: 1,
+              padding: "9px 0",
+              borderRadius: 10,
+              border: "none",
+              cursor: "pointer",
+              fontFamily: M.disp,
+              fontWeight: 700,
+              fontSize: 15,
+              letterSpacing: 0.6,
+              background: mode === m.id ? M.acc : "transparent",
+              color: mode === m.id ? M.accInk : M.mut,
+              transition: "all .15s",
+            }}
+          >
+            {m.name}
+          </button>
+        ))}
+      </div>
+      <div
+        style={{
+          textAlign: "center",
+          marginTop: 7,
+          fontSize: 11,
+          letterSpacing: 1.5,
+          color: M.mut,
+          fontWeight: 600,
+        }}
+      >
+        {TIMER_MODES.find((m) => m.id === mode)!.blurb.toUpperCase()}
+      </div>
+      {(saveStatus === "saved" || saveStatus === "error") && (
+        <div
+          style={{
+            textAlign: "center",
+            marginTop: 6,
+            fontSize: 12,
+            fontWeight: 600,
+            color: saveStatus === "saved" ? M.acc : "#ff8a8a",
+          }}
+        >
+          {saveStatus === "saved" ? "Im Verlauf gespeichert" : saveError}
+        </div>
+      )}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: 0,
+        }}
+      >
+        <Ring
+          size={232}
+          stroke={12}
+          progress={T.kind === "prep" ? 1 - T.segProgress : T.segProgress}
+          color={col}
+          track={"rgba(255,255,255,.06)"}
+          glow={T.running ? col : null}
+        >
+          <span style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 14, letterSpacing: 3, color: col }}>
+            {T.label}
+          </span>
+          <span
+            style={{
+              fontFamily: M.disp,
+              fontWeight: 700,
+              fontSize: 84,
+              lineHeight: 0.9,
+              marginTop: 6,
+              fontVariantNumeric: "tabular-nums",
+              letterSpacing: -1,
+              color: M.fg,
+            }}
+          >
+            {big}
+          </span>
+          {(mode === "emom" || mode === "tabata") && T.phase !== "prep" && (
+            <span style={{ fontFamily: M.disp, fontWeight: 600, fontSize: 16, letterSpacing: 1.5, color: M.mut, marginTop: 6 }}>
+              RUNDE {String(T.round).padStart(2, "0")}{" "}
+              <span style={{ color: M.mut2 }}>/ {String(T.rounds).padStart(2, "0")}</span>
+            </span>
+          )}
+          {mode === "amrap" && T.phase !== "prep" && (
+            <span style={{ fontFamily: M.disp, fontWeight: 600, fontSize: 16, letterSpacing: 1, color: M.mut, marginTop: 6 }}>
+              {T.taps} <span style={{ color: M.mut2 }}>RUNDEN</span>
+            </span>
+          )}
+        </Ring>
+      </div>
+      <div
+        style={{
+          minHeight: 50,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 4,
+        }}
+      >
+        {mode === "amrap" && (
+          <button
+            onClick={T.addTap}
+            disabled={!T.running}
+            style={{
+              flex: 1,
+              padding: "14px 0",
+              borderRadius: 14,
+              border: "1px solid " + M.line,
+              cursor: T.running ? "pointer" : "default",
+              background: T.running ? M.accSoft : M.card,
+              color: T.running ? M.acc : M.mut2,
+              fontFamily: M.disp,
+              fontWeight: 700,
+              fontSize: 18,
+              letterSpacing: 1,
+            }}
+          >
+            + RUNDE ABSCHLIESSEN
+          </button>
+        )}
+        {mode === "fortime" && (
+          <button
+            onClick={T.finish}
+            disabled={!T.running}
+            style={{
+              flex: 1,
+              padding: "14px 0",
+              borderRadius: 14,
+              border: "none",
+              cursor: T.running ? "pointer" : "default",
+              background: T.running ? M.acc : M.card,
+              color: T.running ? M.accInk : M.mut2,
+              fontFamily: M.disp,
+              fontWeight: 700,
+              fontSize: 18,
+              letterSpacing: 1,
+            }}
+          >
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Icon name="flag" size={17} stroke={2.4} />
+              ZEIT STOPPEN
+            </span>
+          </button>
+        )}
+        {(mode === "emom" || mode === "tabata") && (
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap", justifyContent: "center" }}>
+            {Array.from({ length: T.rounds }, (_, i) => (
+              <span
+                key={i}
+                style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: 5,
+                  background:
+                    i + 1 < T.round || T.done
+                      ? M.acc
+                      : i + 1 === T.round && T.phase !== "prep"
+                        ? col
+                        : "rgba(255,255,255,.14)",
+                  boxShadow:
+                    i + 1 === T.round && T.running && T.phase !== "prep"
+                      ? `0 0 8px ${col}`
+                      : "none",
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+      <TimerConfigPanel mode={mode} cfg={cfg} setCfg={setCfg} disabled={!T.idle} />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 26,
+          marginTop: 12,
+        }}
+      >
+        <button
+          onClick={requestReset}
+          style={{
+            width: 54,
+            height: 54,
+            borderRadius: 27,
+            border: "1px solid " + M.line,
+            background: M.card,
+            color: M.mut,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+          }}
+        >
+          <Icon name="reset" size={21} stroke={2} />
+        </button>
+        <button
+          onClick={T.toggle}
+          disabled={T.done}
+          style={{
+            width: 82,
+            height: 82,
+            borderRadius: 41,
+            border: "none",
+            cursor: T.done ? "default" : "pointer",
+            background: T.done ? M.card : M.acc,
+            color: T.done ? M.mut2 : M.accInk,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: T.running ? `0 0 0 6px ${M.accSoft}, 0 0 26px ${M.accSoft}` : "none",
+            transition: "box-shadow .2s",
+          }}
+        >
+          <Icon name={T.running ? "pause" : "play"} size={36} style={{ marginLeft: T.running ? 0 : 4 }} />
+        </button>
+        <div
+          style={{
+            width: 54,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 2,
+            color: M.mut,
+          }}
+        >
+          <Icon name="bolt" size={19} color={M.acc} />
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>
+            {T.running ? "LIVE" : T.done ? "FERTIG" : "BEREIT"}
+          </span>
+        </div>
+      </div>
+      {leaveAction && leaveCopy && (
+        <TimerLeaveSheet
+          message={leaveCopy.message}
+          confirmLabel={leaveCopy.confirmLabel}
+          onConfirm={confirmLeaveAction}
+          onCancel={() => setLeaveAction(null)}
+        />
+      )}
+    </div>
+  );
+}
