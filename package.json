@@ -1,9 +1,9 @@
 {
-  "name": "trackmyworkout",
+  "name": "rephive",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Track Your Workout · mobile-first Workout-Tracker (Vite + React + TS, Capacitor-ready)",
+  "description": "rephive · mobile-first Workout-Tracker (Vite + React + TS, Capacitor-ready)",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

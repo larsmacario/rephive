@@ -7,7 +7,7 @@ type AppLogoProps = {
   style?: React.CSSProperties;
 };
 
-export function AppLogo({ variant = "icon", size = 44, alt = "Track Your Workout", style }: AppLogoProps) {
+export function AppLogo({ variant = "icon", size = 44, alt = "rephive", style }: AppLogoProps) {
   const src = variant === "wordmark" ? LOGO_WORDMARK : LOGO_ICON;
 
   return (

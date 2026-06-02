@@ -1,4 +1,4 @@
-# Projekt: Track Your Workout
+# Projekt: rephive
 
 ## Ziel
 Workout-Tracker für Gym-/Bodybuilding-Nutzer: Workouts planen, live tracken, Interval-Timer.
@@ -45,7 +45,7 @@ Mobile-first; soll später ohne Rewrite zur nativen App (Capacitor) werden.
 - `src/App.tsx` — Auth-Gate + ResponsiveProvider
 
 ## Entscheidungen & Constraints
-- Quelle ist ein Claude-Design-Bundle (urspr. Richtung „A · MOMENTUM"); UI pixel-genau übernommen. App-Name: **Track Your Workout**.
+- Quelle ist ein Claude-Design-Bundle (urspr. Richtung „A · MOMENTUM"); UI pixel-genau übernommen. App-Name: **rephive**.
 - Bewusst KEIN Phone-Mockup — nur das App-UI.
 - Keine Browser-Dialogs (`alert`/`confirm`): Löschen über `DeleteConfirmDialog`; sonstige Bestätigungen über `ConfirmSheet`; Hinweise/Fehler über `AlertSheet`.
 - Breakpoints: Mobil <768, Tablet 768–1023, Desktop ≥1024; Nav: FloatNav unten (Mobile/Tablet) bzw. links (Desktop), kein SideNav/BottomNav mehr.

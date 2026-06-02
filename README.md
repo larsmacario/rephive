@@ -1,4 +1,4 @@
-# Track Your Workout
+# rephive
 
 Mobile-first Workout-Tracker (dark, Lime-Akzent). Workouts planen,
 live tracken und Interval-Timer (EMOM · AMRAP · TABATA · For Time).

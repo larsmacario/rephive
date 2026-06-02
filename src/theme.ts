@@ -1,9 +1,9 @@
 import type { CSSProperties } from "react";
 
-// Track Your Workout — design tokens (dark, neon-lime, Saira Condensed display / Archivo body).
-export const APP_NAME = "Track Your Workout";
+// rephive — design tokens (dark, neon-lime, Saira Condensed display / Archivo body).
+export const APP_NAME = "rephive";
 /** PWA home-screen label (max. ~12 Zeichen empfohlen). */
-export const APP_NAME_SHORT = "Track Workout";
+export const APP_NAME_SHORT = "rephive";
 /** Quadratisches App-Icon (Favicon-Set). */
 export const LOGO_ICON = "/favicon/favicon-96x96.png";
 /** Wordmark mit „YOUR“ in Akzentfarbe. */

@@ -1,5 +1,5 @@
 /**
- * One Rep Max (1RM) calculation utilities for Track Your Workout.
+ * One Rep Max (1RM) calculation utilities for rephive.
  * 
  * Provides formulas: Epley, Brzycki, Lander, Lombardi, and their average.
  */
