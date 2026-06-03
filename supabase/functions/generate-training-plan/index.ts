@@ -29,7 +29,10 @@ const TRAINING_PLAN_TOOL = {
             workout: {
               type: "object",
               properties: {
-                name: { type: "string" },
+                name: {
+                  type: "string",
+                  description: "Nur beschreibender Einheitsname (z.B. Push, Oberkörper) — ohne Tag-Nummer oder Tag-Präfix",
+                },
                 sub: { type: "string" },
                 tags: { type: "array", items: { type: "string" } },
                 durationMin: { type: "number" },
@@ -71,8 +74,28 @@ const TRAINING_PLAN_TOOL = {
           required: ["isRestDay"],
         },
       },
+      advice: {
+        type: "object",
+        description: "Begleitende Empfehlungen (nur Text + Plan-Nutzungsdauer in Wochen, keine kg/kcal).",
+        properties: {
+          trainingFocus: { type: "string" },
+          nutritionTips: { type: "string" },
+          recoveryTips: { type: "string" },
+          hydrationTips: { type: "string" },
+          planDuration: {
+            type: "object",
+            properties: {
+              weeksMin: { type: "number" },
+              weeksMax: { type: "number" },
+              note: { type: "string" },
+            },
+            required: ["weeksMin", "weeksMax", "note"],
+          },
+        },
+        required: ["trainingFocus", "nutritionTips", "recoveryTips", "hydrationTips", "planDuration"],
+      },
     },
-    required: ["name", "sub", "days"],
+    required: ["name", "sub", "days", "advice"],
   },
 };
 
@@ -163,6 +186,7 @@ Hier sind die Anamnesedaten des Nutzers:
 - Fitness-Ziel: ${translateGoal(fitnessGoal)}
 - Trainingserfahrung: ${translateExperience(experienceLevel)}
 - Geplante Trainingstage: ${weeklyDays || 3} Tage pro Woche
+- Trainingsstruktur: ${translateTrainingSplitPreference(anamnesis)}
 - Trainingsort/Equipment: ${translateLocation(anamnesis?.trainingLocation)} ${
         anamnesis?.trainingLocation === "home_equipment" && anamnesis?.homeEquipment?.length > 0
           ? `(Verfügbare Geräte zu Hause: ${anamnesis.homeEquipment.map((id: string) => translateEquip(id)).join(", ")})`
@@ -174,6 +198,13 @@ Hier sind die Anamnesedaten des Nutzers:
           ? anamnesis.otherSports.map((s: any) => `${s.sport} (${s.frequency}x/Woche)`).join(", ")
           : "Keine"
       }
+- Zeit pro Trainingseinheit: ${anamnesis?.minutesPerSession ? `${anamnesis.minutesPerSession} Minuten` : "Keine Angabe (ca. 60 Min annehmen)"}
+- Beruf / Alltagsaktivität: ${translateOccupation(anamnesis?.occupation)}${anamnesis?.shiftWork ? " (Schichtarbeit)" : ""}
+- Durchschnittlicher Schlaf: ${anamnesis?.sleepHours != null ? `${anamnesis.sleepHours} Stunden/Nacht` : "Keine Angabe"}
+- Stresslevel: ${translateStress(anamnesis?.stressLevel)}
+- Ernährungspräferenz: ${translateDiet(anamnesis?.dietPreference)}${
+        anamnesis?.dietAllergies?.length ? ` (Allergien/Unverträglichkeiten: ${anamnesis.dietAllergies.join(", ")})` : ""
+      }
 
 ${feedbackText ? `PRÄFERENZEN & FEEDBACK ZU ÜBUNGEN:\n${feedbackText}\n` : ""}
 ${historyText ? `TRAININGS-HISTORIE (nur für Übungsauswahl und Feedback, KEINE kg-Werte übernehmen!):\n${historyText}\n` : ""}
@@ -183,13 +214,17 @@ Erstelle einen logischen Trainingsplan mit genau ${weeklyDays || 3} aktiven Trai
 
 Wichtige Regeln:
 1. Nutze das Tool create_training_plan — kein Freitext.
-2. Maximal 4 Übungen pro Workout, je 3 Sätze. Kurze notes (max. 90 Zeichen, keine Anführungszeichen).
+2. Übungsanzahl an minutesPerSession koppeln: 30 Min → max. 3 Übungen, 45 Min → max. 4, 60 Min → max. 4, 90 Min → max. 5. Je 3 Sätze. Kurze notes (max. 90 Zeichen).
 3. sets[].kg IMMER 0 — schätze NIEMals absolute kg-Werte aus Körpergewicht oder Historie.
-4. note PFLICHT pro Übung: Satzanzahl, Wdh.-Ziel und Intensität als % des 1RM (z.B. 3x8 @ 75% 1RM oder 3 Sätze · 8 Wdh. · 80% 1RM).
+4. note PFLICHT pro Übung: Satzanzahl, Wdh.-Ziel und Intensität als % des 1RM (z.B. 3x8 @ 75% 1RM).
 5. Richtwerte Ziel → typische % 1RM: Kraft 85–95%, Hypertrophie 70–80%, Ausdauer/Technik 60–70%, Anfänger eher 65–75%.
 6. Schmerzzonen und Feedback (Dislike/Schmerzen) strikt beachten.
 7. metric immer "weight_reps". Übungsnamen auf Deutsch.
-8. Trainings-Historie nur für Übungsauswahl und Feedback — keine kg-Vorgaben daraus ableiten.`;
+8. Wenig Schlaf (<7h) oder Stress ≥ 8/10 → konservativeres Volumen, mehr Ruhetage in den notes.
+9. advice-Objekt PFLICHT: trainingFocus, nutritionTips (diätpräferenz-konform, keine Kalorienzahlen), recoveryTips, hydrationTips.
+10. advice.planDuration: weeksMin/weeksMax empfehlen — Anfänger oder Stress ≥ 8/wenig Schlaf: 10–14 Wochen; Fortgeschritten: 8–12; Advanced: 4–8. note: 1–2 Sätze wann Plan wechseln (Plateau, Deload), kein medizinischer Rat.
+11. Trainingsstruktur strikt umsetzen: full_body → jeder aktive Tag ein Ganzkörper-Workout (deutsche Namen z. B. „Ganzkörper A/B“); split + N → genau N verschiedene Split-Einheiten pro Woche rotieren (2er: Ober-/Unterkörper; 3er: Push/Pull/Beine; 4er–6er: passende Muskelgruppen-Namen). workout.name beschreibt nur die Einheit, nicht den Wochentag.
+12. workout.name NIEMALS mit „Tag 1“, „Tag 2“, „Tag A“ o. Ä. beginnen — keine Tag-Nummern im Namen (Reihenfolge ergibt sich aus dem Plan). Beispiele erlaubt: „Unterkörper“, „Push“, „Rücken & Bizeps“. Verboten: „Tag 3 – Brust, Trizeps“.`;
 
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -231,7 +266,11 @@ Wichtige Regeln:
       }
     }
 
-    normalizePlanSets(planData, fitnessGoal, experienceLevel);
+    normalizePlanSets(planData, fitnessGoal, experienceLevel, anamnesis?.minutesPerSession);
+    sanitizePlanWorkoutNames(planData);
+    if (!planData.advice) {
+      planData.advice = buildDefaultAdvice(experienceLevel, fitnessGoal, anamnesis);
+    }
 
     // Übungen in die exercises-Tabelle eintragen, wenn sie global nicht existieren
     if (planData && planData.days) {
@@ -332,6 +371,157 @@ function translateExperience(exp?: string): string {
   }
 }
 
+function translateOccupation(occ?: string): string {
+  switch (occ) {
+    case "sedentary":
+      return "Überwiegend sitzend (Büro)";
+    case "standing":
+      return "Überwiegend stehend";
+    case "physical":
+      return "Körperlich belastend";
+    default:
+      return "Keine Angabe";
+  }
+}
+
+function isHighStress(level: unknown): boolean {
+  if (typeof level === "number") return level >= 8;
+  return level === "high";
+}
+
+function translateStress(level: unknown): string {
+  if (typeof level === "number" && !Number.isNaN(level)) {
+    const n = Math.round(level);
+    if (n >= 1 && n <= 10) return `${n}/10`;
+    return "Keine Angabe";
+  }
+  switch (level) {
+    case "low":
+      return "Niedrig (3/10)";
+    case "medium":
+      return "Mittel (5/10)";
+    case "high":
+      return "Hoch (8/10)";
+    default:
+      return "Keine Angabe";
+  }
+}
+
+function translateDiet(pref?: string): string {
+  switch (pref) {
+    case "vegetarian":
+      return "Vegetarisch";
+    case "vegan":
+      return "Vegan";
+    case "pescetarian":
+      return "Pescetarisch";
+    case "omnivore":
+      return "Alles (Omnivor)";
+    default:
+      return "Keine Angabe";
+  }
+}
+
+function translateTrainingStructure(structure?: string): string {
+  switch (structure) {
+    case "full_body":
+      return "Ganzkörper (jede Einheit trainiert den ganzen Körper)";
+    case "split":
+      return "Split-Training (Muskelgruppen aufgeteilt)";
+    default:
+      return "Keine Angabe";
+  }
+}
+
+function translateSplitDays(days?: number | null): string {
+  switch (days) {
+    case 2:
+      return "2er-Split (Oberkörper / Unterkörper)";
+    case 3:
+      return "3er-Split (Push / Pull / Beine)";
+    case 4:
+      return "4er-Split (z. B. Brust+Tri / Rücken+Bi / Beine / Schultern+Arme)";
+    case 5:
+      return "5er-Split (klassische 5-Tage-Rotation)";
+    case 6:
+      return "6er-Split (ein Hauptfokus pro Tag)";
+    default:
+      return "Keine Angabe";
+  }
+}
+
+function translateTrainingSplitPreference(anamnesis?: { trainingStructure?: string; trainingSplitDays?: number | null }): string {
+  const structure = anamnesis?.trainingStructure;
+  if (structure === "full_body") return translateTrainingStructure("full_body");
+  if (structure === "split") {
+    return `${translateTrainingStructure("split")} — ${translateSplitDays(anamnesis?.trainingSplitDays)}`;
+  }
+  return "Keine Angabe (KI wählt passend zur Frequenz)";
+}
+
+function getSplitWorkoutLabel(anamnesis: { trainingStructure?: string; trainingSplitDays?: number | null } | undefined, workoutIndex: number): string {
+  if (anamnesis?.trainingStructure !== "split") {
+    const fullBodyLabels = ["Ganzkörper A", "Ganzkörper B", "Ganzkörper C"];
+    return fullBodyLabels[(workoutIndex - 1) % fullBodyLabels.length];
+  }
+  const splitMaps: Record<number, string[]> = {
+    2: ["Oberkörper", "Unterkörper"],
+    3: ["Push", "Pull", "Beine"],
+    4: ["Brust & Trizeps", "Rücken & Bizeps", "Beine", "Schultern & Arme"],
+    5: ["Brust", "Rücken", "Beine", "Schultern", "Arme"],
+    6: ["Brust", "Rücken", "Beine", "Schultern", "Bizeps", "Trizeps"],
+  };
+  const n = anamnesis?.trainingSplitDays ?? 3;
+  const labels = splitMaps[n] || splitMaps[3];
+  return labels[(workoutIndex - 1) % labels.length];
+}
+
+function buildDefaultAdvice(experienceLevel?: string, fitnessGoal?: string, anamnesis?: any): any {
+  const goalName = translateGoal(fitnessGoal);
+  const diet = translateDiet(anamnesis?.dietPreference);
+  let weeksMin = 8;
+  let weeksMax = 12;
+  let durationNote = "Nutze diesen Plan etwa 8–12 Wochen, danach Deload oder Planwechsel.";
+
+  if (experienceLevel === "beginner" || isHighStress(anamnesis?.stressLevel) || (anamnesis?.sleepHours != null && anamnesis.sleepHours < 7)) {
+    weeksMin = 10;
+    weeksMax = 14;
+    durationNote = "Als Anfänger oder bei hoher Belastung: 10–14 Wochen für stabile Gewöhnung, dann neu bewerten.";
+  } else if (experienceLevel === "advanced") {
+    weeksMin = 4;
+    weeksMax = 8;
+    durationNote = "Kürzerer Mesozyklus (4–8 Wochen), danach Variation oder angepasster Plan.";
+  }
+
+  return {
+    trainingFocus: `Fokus auf ${goalName} mit sauberer Technik und progressiver Steigerung.`,
+    nutritionTips: `Ernährung (${diet}): proteinreiche Mahlzeiten passend zu deinem Ziel, ohne Kalorien zu schätzen.`,
+    recoveryTips: "Ruhetage einhalten, Schlaf priorisieren und Belastung aus Beruf und anderen Sportarten beachten.",
+    hydrationTips: "Ausreichend über den Tag trinken, besonders vor und nach dem Training.",
+    planDuration: { weeksMin, weeksMax, note: durationNote },
+  };
+}
+
+/** Entfernt KI-typische Präfixe wie „Tag 1 – …“ aus Workout-Namen. */
+function sanitizeWorkoutName(name: string): string {
+  const trimmed = (name ?? "").trim();
+  if (!trimmed) return trimmed;
+  const cleaned = trimmed
+    .replace(/^Tag\s+(?:\d+|[A-Z])\s*[–—\-:.]\s*/iu, "")
+    .replace(/^Workout\s+\d+\s*[–—\-:.]\s*/iu, "")
+    .trim();
+  return cleaned || trimmed;
+}
+
+function sanitizePlanWorkoutNames(planData: { days?: { isRestDay?: boolean; workout?: { name?: string } }[] }): void {
+  if (!planData?.days) return;
+  for (const day of planData.days) {
+    if (!day.isRestDay && day.workout?.name) {
+      day.workout.name = sanitizeWorkoutName(day.workout.name);
+    }
+  }
+}
+
 function translateLocation(loc?: string): string {
   switch (loc) {
     case "gym":
@@ -375,15 +565,26 @@ function defaultRepsForGoal(fitnessGoal?: string): number {
   }
 }
 
-function normalizePlanSets(planData: any, fitnessGoal?: string, experienceLevel?: string): void {
+function maxExercisesForSession(minutes?: number | null): number {
+  if (!minutes || minutes <= 35) return 3;
+  if (minutes <= 50) return 4;
+  if (minutes <= 75) return 4;
+  return 5;
+}
+
+function normalizePlanSets(planData: any, fitnessGoal?: string, experienceLevel?: string, minutesPerSession?: number | null): void {
   if (!planData?.days) return;
 
   const pct = defaultOneRmPercent(fitnessGoal, experienceLevel);
   const reps = defaultRepsForGoal(fitnessGoal);
   const fallbackNote = `3x${reps} @ ${pct}% 1RM`;
+  const maxEx = maxExercisesForSession(minutesPerSession);
 
   for (const day of planData.days) {
     if (day.isRestDay || !day.workout?.exercises) continue;
+    if (day.workout.exercises.length > maxEx) {
+      day.workout.exercises = day.workout.exercises.slice(0, maxEx);
+    }
     for (const ex of day.workout.exercises) {
       if (!ex.note || !/\d+\s*%\s*1RM/i.test(ex.note)) {
         ex.note = fallbackNote;
@@ -464,6 +665,7 @@ function generateMockPlan(data: any): any {
   };
 
   const activePool = exercisePool[data.anamnesis?.trainingLocation || "gym"] || exercisePool.gym;
+  const sessionMins = data.anamnesis?.minutesPerSession ?? 60;
 
   // Erstelle die Tage
   for (let i = 0; i < 7; i++) {
@@ -476,7 +678,8 @@ function generateMockPlan(data: any): any {
       });
     } else {
       const workoutNum = days.filter(d => !d.isRestDay).length + 1;
-      
+      const workoutLabel = getSplitWorkoutLabel(data.anamnesis, workoutNum);
+
       // Filtere Übungen nach Schmerzpunkten
       let exercises = [...activePool];
       if (painZones.includes("knees")) {
@@ -510,13 +713,20 @@ function generateMockPlan(data: any): any {
         isRestDay: false,
         note: `Trainingseinheit ${workoutNum} für dein Ziel: ${goalName}`,
         workout: {
-          name: `KI Workout ${workoutNum} (${locationName.split(" ")[0]})`,
-          sub: `Einheit ${workoutNum} - Fokus Kraft & Koordination`,
+          name: workoutLabel,
+          sub: `${workoutLabel} · ${locationName.split(" ")[0]}`,
           tags: ["KI", "Premium"],
-          durationMin: 50,
+          durationMin: sessionMins,
           exercises: selectedExs
         }
       });
+    }
+  }
+
+  const maxEx = maxExercisesForSession(sessionMins);
+  for (const day of days) {
+    if (!day.isRestDay && day.workout?.exercises && day.workout.exercises.length > maxEx) {
+      day.workout.exercises = day.workout.exercises.slice(0, maxEx);
     }
   }
 
@@ -525,6 +735,7 @@ function generateMockPlan(data: any): any {
     sub: mode === "adapt" 
       ? `Periodisierte Anpassung für ${locationName}. Berücksichtigt Feedback & Verlauf.` 
       : `Individuell erstellt für ${locationName}. Rücksicht auf Schmerzpunkte: ${painZones.length > 0 ? painZones.join(", ") : "Keine"}.`,
-    days
+    days,
+    advice: buildDefaultAdvice(data.experienceLevel, data.fitnessGoal, data.anamnesis),
   };
 }

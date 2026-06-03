@@ -3,7 +3,31 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import type { Tables, Json } from "./database.types";
 import { type WorkoutSet } from "./engine";
-import type { LibraryExercise, LibraryWorkout, HistoryEntry, LibraryPlan, PlanDay, SessionExercise } from "../data";
+import type {
+  LibraryExercise,
+  LibraryWorkout,
+  HistoryEntry,
+  LibraryPlan,
+  PlanDay,
+  PlanSummary,
+  PlanSummaryAdvice,
+  PlanSummaryNutrition,
+  SessionExercise,
+} from "../data";
+import type { AnamnesisData } from "./preferences";
+import { normalizeStressLevel } from "./preferences";
+import { activityFactor, ageFromBirthDate } from "./nutrition";
+
+/** Entfernt KI-typische Präfixe wie „Tag 1 – …“ aus Workout-Namen. */
+export function sanitizeAiWorkoutName(name: string): string {
+  const trimmed = (name ?? "").trim();
+  if (!trimmed) return trimmed;
+  const cleaned = trimmed
+    .replace(/^Tag\s+(?:\d+|[A-Z])\s*[–—\-:.]\s*/iu, "")
+    .replace(/^Workout\s+\d+\s*[–—\-:.]\s*/iu, "")
+    .trim();
+  return cleaned || trimmed;
+}
 import { parseExerciseMetric } from "./exerciseCatalog";
 import type { ExerciseMetric } from "./exerciseCatalog";
 import { useAuth } from "./auth";
@@ -91,6 +115,7 @@ function mapWorkoutRow(w: DbWorkout, exercises: DbWorkoutExercise[]): LibraryWor
         name: e.name,
         note: e.note ?? undefined,
         supersetId: e.superset_id ?? undefined,
+        catalogExerciseId: e.catalog_exercise_id ?? undefined,
         metric: parseExerciseMetric(e.metric_type),
         sets: parseSets(e.sets).map((s) => ({ ...s, done: false } satisfies WorkoutSet)),
       })),
@@ -241,6 +266,7 @@ function mapExerciseRow(e: Tables<"exercises">): LibraryExercise {
     equip: e.equipment,
     userId: e.user_id,
     metric: parseExerciseMetric(e.metric_type),
+    youtubeUrl: e.youtube_url ?? null,
   };
 }
 
@@ -255,6 +281,7 @@ export interface ExerciseInput {
   muscleGroup: string;
   equipment: string;
   metric: ExerciseMetric;
+  youtubeUrl?: string | null;
 }
 
 export async function createExercise(userId: string, input: ExerciseInput): Promise<string> {
@@ -266,6 +293,7 @@ export async function createExercise(userId: string, input: ExerciseInput): Prom
       muscle_group: input.muscleGroup,
       equipment: input.equipment,
       metric_type: input.metric,
+      youtube_url: input.youtubeUrl ?? null,
     })
     .select("id")
     .single();
@@ -281,6 +309,7 @@ export async function updateExercise(exerciseId: string, input: ExerciseInput): 
       muscle_group: input.muscleGroup,
       equipment: input.equipment,
       metric_type: input.metric,
+      youtube_url: input.youtubeUrl ?? null,
     })
     .eq("id", exerciseId);
   if (error) throw error;
@@ -437,6 +466,7 @@ export interface CreateWorkoutInput {
     name: string;
     note?: string;
     supersetId?: string;
+    catalogExerciseId?: string | null;
     metric: ExerciseMetric;
     sets: SetTemplate[];
   }[];
@@ -462,6 +492,7 @@ export async function createWorkout(userId: string, input: CreateWorkoutInput): 
     name: e.name,
     note: e.note ?? null,
     superset_id: e.supersetId ?? null,
+    catalog_exercise_id: e.catalogExerciseId ?? null,
     metric_type: e.metric,
     sets: e.sets as unknown as Json,
   }));
@@ -493,6 +524,7 @@ export async function updateWorkout(workoutId: string, input: CreateWorkoutInput
     name: e.name,
     note: e.note ?? null,
     superset_id: e.supersetId ?? null,
+    catalog_exercise_id: e.catalogExerciseId ?? null,
     metric_type: e.metric,
     sets: e.sets as unknown as Json,
   }));
@@ -573,6 +605,139 @@ async function fetchWorkoutSummaries(workoutIds: string[]): Promise<Map<string, 
   return map;
 }
 
+function defaultPlanDurationAdvice(
+  experienceLevel?: "beginner" | "intermediate" | "advanced" | null
+): PlanSummaryAdvice["planDuration"] {
+  switch (experienceLevel) {
+    case "beginner":
+      return {
+        weeksMin: 10,
+        weeksMax: 14,
+        note: "Als Anfänger brauchst du Zeit für Technik und Gewöhnung. Wechsle den Plan nach 10–14 Wochen oder bei deutlichem Plateau.",
+      };
+    case "advanced":
+      return {
+        weeksMin: 4,
+        weeksMax: 8,
+        note: "Als erfahrener Athlet lohnt sich ein Planwechsel oder Deload alle 4–8 Wochen, um Progression zu halten.",
+      };
+    case "intermediate":
+    default:
+      return {
+        weeksMin: 8,
+        weeksMax: 12,
+        note: "Nutze diesen Plan etwa 8–12 Wochen. Danach Deload, Ziel-Check oder einen angepassten Plan.",
+      };
+  }
+}
+
+function normalizePlanAdvice(
+  raw: unknown,
+  experienceLevel?: "beginner" | "intermediate" | "advanced" | null
+): PlanSummaryAdvice {
+  const fallbackDuration = defaultPlanDurationAdvice(experienceLevel);
+  const obj = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  const durationRaw =
+    obj.planDuration && typeof obj.planDuration === "object" && !Array.isArray(obj.planDuration)
+      ? (obj.planDuration as Record<string, unknown>)
+      : null;
+  const weeksMin =
+    typeof durationRaw?.weeksMin === "number" && durationRaw.weeksMin > 0
+      ? Math.round(durationRaw.weeksMin)
+      : fallbackDuration.weeksMin;
+  const weeksMax =
+    typeof durationRaw?.weeksMax === "number" && durationRaw.weeksMax >= weeksMin
+      ? Math.round(durationRaw.weeksMax)
+      : fallbackDuration.weeksMax;
+
+  return {
+    trainingFocus: typeof obj.trainingFocus === "string" ? obj.trainingFocus : "Fokus auf saubere Technik und progressive Steigerung.",
+    nutritionTips: typeof obj.nutritionTips === "string" ? obj.nutritionTips : "Ernähre dich proteinreich und ausgewogen zu deinem Ziel.",
+    recoveryTips: typeof obj.recoveryTips === "string" ? obj.recoveryTips : "Achte auf ausreichend Schlaf und Ruhetage im Plan.",
+    hydrationTips: typeof obj.hydrationTips === "string" ? obj.hydrationTips : "Trinke über den Tag verteilt ausreichend Wasser, besonders rund ums Training.",
+    planDuration: {
+      weeksMin,
+      weeksMax,
+      note: typeof durationRaw?.note === "string" ? durationRaw.note : fallbackDuration.note,
+    },
+  };
+}
+
+function parsePlanSummary(raw: Json | null | undefined): PlanSummary | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const obj = raw as Record<string, unknown>;
+  const nutrition = obj.nutrition;
+  const inputs = obj.inputs;
+  const advice = obj.advice;
+  if (!nutrition || typeof nutrition !== "object" || Array.isArray(nutrition)) return null;
+  const n = nutrition as Record<string, unknown>;
+  if (
+    typeof n.bmr !== "number" ||
+    typeof n.tdee !== "number" ||
+    typeof n.targetKcal !== "number" ||
+    typeof n.protein_g !== "number" ||
+    typeof n.carbs_g !== "number" ||
+    typeof n.fat_g !== "number" ||
+    typeof n.water_ml !== "number"
+  ) {
+    return null;
+  }
+  const nutritionParsed: PlanSummaryNutrition = {
+    bmr: n.bmr,
+    tdee: n.tdee,
+    targetKcal: n.targetKcal,
+    protein_g: n.protein_g,
+    carbs_g: n.carbs_g,
+    fat_g: n.fat_g,
+    water_ml: n.water_ml,
+  };
+  const inputsObj = inputs && typeof inputs === "object" && !Array.isArray(inputs) ? (inputs as Record<string, unknown>) : {};
+  const expLevel =
+    inputsObj.experienceLevel === "beginner" ||
+    inputsObj.experienceLevel === "intermediate" ||
+    inputsObj.experienceLevel === "advanced"
+      ? inputsObj.experienceLevel
+      : undefined;
+  return {
+    nutrition: nutritionParsed,
+    inputs: {
+      gender:
+        inputsObj.gender === "male" || inputsObj.gender === "female" || inputsObj.gender === "other"
+          ? inputsObj.gender
+          : null,
+      age: typeof inputsObj.age === "number" ? inputsObj.age : 30,
+      heightCm: typeof inputsObj.heightCm === "number" ? inputsObj.heightCm : null,
+      weightKg: typeof inputsObj.weightKg === "number" ? inputsObj.weightKg : null,
+      fitnessGoal:
+        inputsObj.fitnessGoal === "muscle_building" ||
+        inputsObj.fitnessGoal === "fat_loss" ||
+        inputsObj.fitnessGoal === "fitness" ||
+        inputsObj.fitnessGoal === "strength"
+          ? inputsObj.fitnessGoal
+          : null,
+      activityLevel: typeof inputsObj.activityLevel === "number" ? inputsObj.activityLevel : 1.375,
+      minutesPerSession: typeof inputsObj.minutesPerSession === "number" ? inputsObj.minutesPerSession : null,
+      occupation:
+        inputsObj.occupation === "sedentary" ||
+        inputsObj.occupation === "standing" ||
+        inputsObj.occupation === "physical"
+          ? inputsObj.occupation
+          : null,
+      sleepHours: typeof inputsObj.sleepHours === "number" ? inputsObj.sleepHours : null,
+      stressLevel: normalizeStressLevel(inputsObj.stressLevel),
+      dietPreference:
+        inputsObj.dietPreference === "omnivore" ||
+        inputsObj.dietPreference === "vegetarian" ||
+        inputsObj.dietPreference === "vegan" ||
+        inputsObj.dietPreference === "pescetarian"
+          ? inputsObj.dietPreference
+          : null,
+    },
+    advice: normalizePlanAdvice(advice, expLevel),
+    createdAt: typeof obj.createdAt === "string" ? obj.createdAt : new Date().toISOString(),
+  };
+}
+
 function mapPlanRow(plan: DbPlan, days: DbPlanDay[], workoutSummaries: Map<string, { name: string; tags: string[]; dur: number; exerciseCount: number }>): LibraryPlan {
   return {
     id: plan.id,
@@ -580,6 +745,7 @@ function mapPlanRow(plan: DbPlan, days: DbPlanDay[], workoutSummaries: Map<strin
     sub: plan.sub,
     isActive: plan.is_active,
     currentDay: plan.current_day,
+    summary: parsePlanSummary(plan.summary),
     days: days
       .sort((a, b) => a.position - b.position)
       .map((d): PlanDay => {
@@ -639,6 +805,7 @@ export interface CreatePlanInput {
   sub?: string;
   days: CreatePlanDayInput[];
   activate?: boolean;
+  summary?: PlanSummary | null;
 }
 
 async function deactivateAllPlans(userId: string): Promise<void> {
@@ -661,6 +828,7 @@ export async function createPlan(userId: string, input: CreatePlanInput): Promis
       sub: input.sub ?? "",
       is_active: input.activate ?? false,
       current_day: 0,
+      summary: input.summary ? (input.summary as unknown as Json) : null,
     })
     .select("id")
     .single();
@@ -1159,23 +1327,21 @@ export async function generateAndSaveAITrainingPlan(
   userId: string,
   input: {
     gender: "male" | "female" | "other" | null;
+    birthDate?: string | null;
     heightCm: number | null;
     weightKg: number | null;
     fitnessGoal: "muscle_building" | "fat_loss" | "fitness" | "strength" | null;
     experienceLevel: "beginner" | "intermediate" | "advanced" | null;
     weeklyDays: number;
-    anamnesis: {
-      painZones: string[];
-      trainingLocation: "gym" | "home_equipment" | "bodyweight";
-      otherSports: { sport: string; frequency: number }[];
-      kfa?: number | null;
-    };
+    anamnesis: AnamnesisData;
+    nutrition: PlanSummaryNutrition;
     recentSessions?: any[];
     exerciseFeedback?: any;
   }
 ): Promise<string> {
+  const { nutrition, birthDate, ...edgeInput } = input;
   const { data, error } = await supabase.functions.invoke("generate-training-plan", {
-    body: input,
+    body: edgeInput,
   });
   if (error) {
     if (error instanceof FunctionsHttpError) {
@@ -1211,7 +1377,7 @@ export async function generateAndSaveAITrainingPlan(
     } else {
       // Workout erstellen
       const workoutId = await createWorkout(userId, {
-        name: day.workout.name,
+        name: sanitizeAiWorkoutName(day.workout.name),
         sub: day.workout.sub || "",
         tags: day.workout.tags || [],
         durationMin: day.workout.durationMin || 45,
@@ -1232,12 +1398,38 @@ export async function generateAndSaveAITrainingPlan(
     }
   }
 
-  // Jetzt den Gesamtplan erstellen und aktivieren
+  const actLevel = activityFactor({
+    weeklyDays: input.weeklyDays,
+    minutesPerSession: input.anamnesis.minutesPerSession,
+    occupation: input.anamnesis.occupation,
+    otherSports: input.anamnesis.otherSports,
+  });
+
+  const summary: PlanSummary = {
+    nutrition,
+    inputs: {
+      gender: input.gender,
+      age: ageFromBirthDate(birthDate),
+      heightCm: input.heightCm,
+      weightKg: input.weightKg,
+      fitnessGoal: input.fitnessGoal,
+      activityLevel: actLevel,
+      minutesPerSession: input.anamnesis.minutesPerSession,
+      occupation: input.anamnesis.occupation,
+      sleepHours: input.anamnesis.sleepHours,
+      stressLevel: input.anamnesis.stressLevel,
+      dietPreference: input.anamnesis.dietPreference,
+    },
+    advice: normalizePlanAdvice(data.advice, input.experienceLevel),
+    createdAt: new Date().toISOString(),
+  };
+
   const planId = await createPlan(userId, {
     name: data.name || "KI Trainingsplan",
     sub: data.sub || "",
     days: planDays,
     activate: true,
+    summary,
   });
 
   return planId;

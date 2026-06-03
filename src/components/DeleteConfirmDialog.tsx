@@ -1,5 +1,6 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { M } from "../theme";
+import { BottomSheet } from "./BottomSheet";
 
 export interface DeleteConfirmDialogProps {
   title: string;
@@ -11,66 +12,6 @@ export interface DeleteConfirmDialogProps {
   step2Title?: string;
   step2Message?: ReactNode;
 }
-
-const overlayStyle: CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  background: "rgba(5,7,5,.65)",
-  backdropFilter: "blur(4px)",
-  zIndex: 30,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 22,
-};
-
-const panelStyle: CSSProperties = {
-  width: "100%",
-  maxWidth: 340,
-  background: M.panel,
-  border: "1px solid " + M.line,
-  borderRadius: 20,
-  padding: "22px 20px 18px",
-};
-
-const cancelBtnStyle: CSSProperties = {
-  flex: 1,
-  padding: "12px 0",
-  borderRadius: 12,
-  border: "1px solid " + M.line,
-  background: "transparent",
-  color: M.fg,
-  fontFamily: M.body,
-  fontWeight: 600,
-  fontSize: 14,
-  cursor: "pointer",
-};
-
-const continueBtnStyle: CSSProperties = {
-  flex: 1,
-  padding: "12px 0",
-  borderRadius: 12,
-  border: "none",
-  background: M.card,
-  color: M.fg,
-  fontFamily: M.disp,
-  fontWeight: 700,
-  fontSize: 15,
-  cursor: "pointer",
-};
-
-const deleteBtnStyle: CSSProperties = {
-  flex: 1,
-  padding: "12px 0",
-  borderRadius: 12,
-  border: "none",
-  background: "#c44",
-  color: "#fff",
-  fontFamily: M.disp,
-  fontWeight: 700,
-  fontSize: 15,
-  cursor: "pointer",
-};
 
 export function DeleteConfirmDialog({
   title,
@@ -102,28 +43,58 @@ export function DeleteConfirmDialog({
   };
 
   return (
-    <div style={overlayStyle} onClick={handleCancel}>
-      <div onClick={(e) => e.stopPropagation()} style={panelStyle}>
-        <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 22, lineHeight: 1.15 }}>{displayTitle}</div>
-        <div style={{ color: M.mut, fontSize: 14, marginTop: 10, lineHeight: 1.45 }}>{displayMessage}</div>
-        <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-          <button type="button" onClick={handleCancel} style={cancelBtnStyle}>
-            Abbrechen
-          </button>
-          <button
-            type="button"
-            disabled={busy && isFinalStep}
-            onClick={handlePrimary}
-            style={{
-              ...(isFinalStep ? deleteBtnStyle : continueBtnStyle),
-              cursor: busy && isFinalStep ? "wait" : "pointer",
-              opacity: busy && isFinalStep ? 0.7 : 1,
-            }}
-          >
-            {busy && isFinalStep ? "…" : isFinalStep ? "Löschen" : "Weiter"}
-          </button>
-        </div>
-      </div>
-    </div>
+    <BottomSheet
+      open
+      onClose={handleCancel}
+      position="absolute"
+      zIndex={40}
+      wrapScroll={false}
+      aria-label={displayTitle}
+    >
+      <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 22, marginBottom: 8, flexShrink: 0 }}>{displayTitle}</div>
+      <div style={{ color: M.mut, fontSize: 14, marginBottom: 18, lineHeight: 1.45, flexShrink: 0 }}>{displayMessage}</div>
+      <button
+        type="button"
+        disabled={busy && isFinalStep}
+        onClick={handlePrimary}
+        style={{
+          width: "100%",
+          padding: "14px 0",
+          borderRadius: 14,
+          border: "none",
+          background: isFinalStep ? "#c44" : M.card,
+          color: isFinalStep ? "#fff" : M.fg,
+          fontFamily: M.disp,
+          fontWeight: 700,
+          fontSize: 17,
+          letterSpacing: isFinalStep ? 0 : undefined,
+          cursor: busy && isFinalStep ? "wait" : "pointer",
+          opacity: busy && isFinalStep ? 0.7 : 1,
+          marginBottom: 10,
+          flexShrink: 0,
+        }}
+      >
+        {busy && isFinalStep ? "…" : isFinalStep ? "Löschen" : "Weiter"}
+      </button>
+      <button
+        type="button"
+        onClick={handleCancel}
+        style={{
+          width: "100%",
+          padding: "12px 0",
+          borderRadius: 14,
+          border: "none",
+          background: "transparent",
+          color: M.mut,
+          fontFamily: M.body,
+          fontWeight: 600,
+          fontSize: 15,
+          cursor: "pointer",
+          flexShrink: 0,
+        }}
+      >
+        Abbrechen
+      </button>
+    </BottomSheet>
   );
 }

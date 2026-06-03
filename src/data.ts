@@ -13,6 +13,7 @@ export interface LibraryWorkout {
     name: string;
     note?: string;
     supersetId?: string;
+    catalogExerciseId?: string | null;
     metric: ExerciseMetric;
     sets: WorkoutSet[];
   }[];
@@ -25,6 +26,7 @@ export interface LibraryExercise {
   equip: string;
   userId: string | null;
   metric: ExerciseMetric;
+  youtubeUrl?: string | null;
 }
 
 export interface SessionExercise {
@@ -67,6 +69,49 @@ export interface PlanDay {
   workout?: PlanDayWorkoutSummary;
 }
 
+export interface PlanSummaryNutrition {
+  bmr: number;
+  tdee: number;
+  targetKcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  water_ml: number;
+}
+
+export interface PlanSummaryInputs {
+  gender: "male" | "female" | "other" | null;
+  age: number;
+  heightCm: number | null;
+  weightKg: number | null;
+  fitnessGoal: "muscle_building" | "fat_loss" | "fitness" | "strength" | null;
+  activityLevel: number;
+  minutesPerSession?: number | null;
+  occupation?: "sedentary" | "standing" | "physical" | null;
+  sleepHours?: number | null;
+  stressLevel?: number | null;
+  dietPreference?: "omnivore" | "vegetarian" | "vegan" | "pescetarian" | null;
+}
+
+export interface PlanSummaryAdvice {
+  trainingFocus: string;
+  nutritionTips: string;
+  recoveryTips: string;
+  hydrationTips: string;
+  planDuration: {
+    weeksMin: number;
+    weeksMax: number;
+    note: string;
+  };
+}
+
+export interface PlanSummary {
+  nutrition: PlanSummaryNutrition;
+  inputs: PlanSummaryInputs;
+  advice: PlanSummaryAdvice;
+  createdAt: string;
+}
+
 export interface LibraryPlan {
   id: string;
   name: string;
@@ -74,6 +119,7 @@ export interface LibraryPlan {
   isActive: boolean;
   currentDay: number;
   days: PlanDay[];
+  summary: PlanSummary | null;
 }
 
 /** Default global workout id (Push Day) for the home screen. */
@@ -86,6 +132,7 @@ export const startSession = (w: LibraryWorkout): Workout => normalizeWorkout({
   exercises: w.exercises.map((e) => ({
     ...e,
     supersetId: e.supersetId,
+    catalogExerciseId: e.catalogExerciseId ?? undefined,
     metric: e.metric,
     sets: e.sets.map((s) => ({ ...s, done: false })),
   })),
@@ -99,6 +146,7 @@ export function normalizeWorkout(session: Workout): Workout {
     ...session,
     exercises: session.exercises.map((e) => ({
       ...e,
+      catalogExerciseId: e.catalogExerciseId,
       metric: e.metric ?? "weight_reps",
     })),
   };

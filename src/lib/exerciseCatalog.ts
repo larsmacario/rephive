@@ -21,6 +21,11 @@ export const MUSCLE_GROUPS = [...UPPER_BODY_GROUPS, ...LOWER_BODY_GROUPS] as con
 
 export const DEFAULT_MUSCLE_GROUP: MuscleGroup = "Brust";
 
+/** Empty value for required catalog dropdowns before the user picks an option. */
+export const CATALOG_UNSELECTED = "";
+
+export const CATALOG_PLACEHOLDER_LABEL = "Bitte wählen";
+
 export const LEGACY_MUSCLE_GROUP_MAP: Partial<Record<string, MuscleGroup>> = {
   Rücken: "Latissimus",
   Beine: "Quadrizeps",

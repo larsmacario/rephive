@@ -138,6 +138,7 @@ export type Database = {
           muscle_group: string
           name: string
           user_id: string | null
+          youtube_url: string | null
         }
         Insert: {
           created_at?: string
@@ -147,6 +148,7 @@ export type Database = {
           muscle_group: string
           name: string
           user_id?: string | null
+          youtube_url?: string | null
         }
         Update: {
           created_at?: string
@@ -156,6 +158,7 @@ export type Database = {
           muscle_group?: string
           name?: string
           user_id?: string | null
+          youtube_url?: string | null
         }
         Relationships: []
       }
@@ -206,6 +209,7 @@ export type Database = {
           is_active: boolean
           name: string
           sub: string
+          summary: Json | null
           user_id: string
         }
         Insert: {
@@ -215,6 +219,7 @@ export type Database = {
           is_active?: boolean
           name: string
           sub?: string
+          summary?: Json | null
           user_id: string
         }
         Update: {
@@ -224,6 +229,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           sub?: string
+          summary?: Json | null
           user_id?: string
         }
         Relationships: []
@@ -372,6 +378,7 @@ export type Database = {
       }
       workout_exercises: {
         Row: {
+          catalog_exercise_id: string | null
           id: string
           metric_type: string
           name: string
@@ -382,6 +389,7 @@ export type Database = {
           workout_id: string
         }
         Insert: {
+          catalog_exercise_id?: string | null
           id?: string
           metric_type?: string
           name: string
@@ -392,6 +400,7 @@ export type Database = {
           workout_id: string
         }
         Update: {
+          catalog_exercise_id?: string | null
           id?: string
           metric_type?: string
           name?: string
@@ -402,6 +411,13 @@ export type Database = {
           workout_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "workout_exercises_catalog_exercise_id_fkey"
+            columns: ["catalog_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workout_exercises_workout_id_fkey"
             columns: ["workout_id"]

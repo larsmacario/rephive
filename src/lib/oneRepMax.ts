@@ -1,8 +1,52 @@
 /**
  * One Rep Max (1RM) calculation utilities for rephive.
- * 
+ *
  * Provides formulas: Epley, Brzycki, Lander, Lombardi, and their average.
  */
+
+import { getMetricSpec, type ExerciseMetric } from "./exerciseCatalog";
+
+export const ONE_RM_DEFAULT_WEIGHT = 100;
+export const ONE_RM_DEFAULT_REPS = 5;
+
+export interface OneRmPrefillSet {
+  kg: number;
+  reps: number;
+}
+
+export interface OneRmPrefillExercise {
+  metric: ExerciseMetric;
+  sets: OneRmPrefillSet[];
+}
+
+export interface OneRmPrefill {
+  weight: number;
+  reps: number;
+}
+
+/** Default inputs when no exercise or non-kg/reps metric. */
+export function getDefaultOneRmPrefill(): OneRmPrefill {
+  return { weight: ONE_RM_DEFAULT_WEIGHT, reps: ONE_RM_DEFAULT_REPS };
+}
+
+/**
+ * Prefill weight/reps from the open exercise (last set with kg+reps, else last set).
+ */
+export function getOneRmPrefillFromExercise(exercise: OneRmPrefillExercise | undefined): OneRmPrefill {
+  if (!exercise?.sets.length) return getDefaultOneRmPrefill();
+
+  const spec = getMetricSpec(exercise.metric);
+  if (!spec.showKg || !spec.showReps) return getDefaultOneRmPrefill();
+
+  const withValues = [...exercise.sets].reverse().find((s) => s.kg > 0 && s.reps > 0);
+  const set = withValues ?? exercise.sets[exercise.sets.length - 1];
+  if (!set) return getDefaultOneRmPrefill();
+
+  const weight = set.kg > 0 ? set.kg : ONE_RM_DEFAULT_WEIGHT;
+  const reps = set.reps > 0 ? Math.max(1, Math.min(30, Math.round(set.reps))) : ONE_RM_DEFAULT_REPS;
+
+  return { weight, reps };
+}
 
 export interface OneRepMaxEstimates {
   epley: number;

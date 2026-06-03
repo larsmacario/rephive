@@ -13,6 +13,7 @@ import {
 } from "../lib/exerciseSets";
 import { Icon } from "../components/Icon";
 import { ExerciseSetConfigurator } from "../components/ExerciseSetConfigurator";
+import { BottomSheet } from "../components/BottomSheet";
 import { ExercisePickerSheet } from "../components/ExercisePickerSheet";
 import { PlanDayAccordion } from "../components/PlanDayAccordion";
 
@@ -25,6 +26,7 @@ interface BuilderDay {
 interface BuilderItem extends LibraryExercise {
   setMode: SetMode;
   setRows: TemplateSet[];
+  catalogExerciseId?: string;
 }
 
 type SheetMode = "pick" | "create";
@@ -113,7 +115,14 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
     setNewWorkoutItems((items) => [
       ...items,
       {
-        ...ex,
+        id: crypto.randomUUID(),
+        catalogExerciseId: ex.id,
+        name: ex.name,
+        group: ex.group,
+        equip: ex.equip,
+        userId: ex.userId,
+        metric: ex.metric,
+        youtubeUrl: ex.youtubeUrl,
         setMode: "uniform" as const,
         setRows: buildUniformTemplateSets(
           preferences.defaultSets,
@@ -152,6 +161,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
         exercises: newWorkoutItems.map((x) => ({
           name: x.name,
           note: `${x.group} · ${x.equip}`,
+          catalogExerciseId: x.catalogExerciseId ?? null,
           metric: x.metric,
           sets: x.setRows.map((s) => ({ reps: s.reps, kg: s.kg, done: false })),
         })),
@@ -420,36 +430,15 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
         </button>
       </div>
 
-      {sheetOpen && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "rgba(5,7,5,.6)",
-            backdropFilter: "blur(4px)",
-            zIndex: 20,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "flex-end",
-          }}
-          onClick={closeSheet}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: M.panel,
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              borderTop: "1px solid " + M.line,
-              maxHeight: "85%",
-              display: "flex",
-              flexDirection: "column",
-              padding: "16px 18px 24px",
-            }}
-          >
-            <div style={{ width: 40, height: 4, borderRadius: 2, background: M.line, margin: "0 auto 14px" }} />
-
-            {sheetMode === "pick" ? (
+      <BottomSheet
+        open={sheetOpen}
+        onClose={closeSheet}
+        position="absolute"
+        zIndex={20}
+        maxHeight="85%"
+        aria-label={sheetMode === "pick" ? "Tag hinzufügen" : "Neues Workout erstellen"}
+      >
+        {sheetMode === "pick" ? (
               <>
                 <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 22, marginBottom: 12 }}>Tag hinzufügen</div>
 
@@ -733,10 +722,8 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
                   onLibraryChange={() => reloadExercises()}
                 />
               </>
-            )}
-          </div>
-        </div>
-      )}
+        )}
+      </BottomSheet>
     </div>
   );
 }

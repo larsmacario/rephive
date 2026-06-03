@@ -35,6 +35,7 @@ export interface Exercise {
   name: string;
   note?: string;
   supersetId?: string;
+  catalogExerciseId?: string;
   metric: ExerciseMetric;
   sets: WorkoutSet[];
 }
@@ -403,11 +404,19 @@ export function useWorkout(initial: Workout, opts?: WorkoutOptions) {
     setWo((w) => ({ ...w, name: name.trim() || w.name }));
   };
 
-  const addExercise = (name: string, note?: string, metric: ExerciseMetric = DEFAULT_EXERCISE_METRIC) => {
+  const addExercise = (
+    name: string,
+    note?: string,
+    metric: ExerciseMetric = DEFAULT_EXERCISE_METRIC,
+    catalogExerciseId?: string,
+  ) => {
     const id = crypto.randomUUID();
     setWo((w) => ({
       ...w,
-      exercises: [...w.exercises, { id, name: name.trim(), note, metric, sets: [] }],
+      exercises: [
+        ...w.exercises,
+        { id, name: name.trim(), note, metric, catalogExerciseId, sets: [] },
+      ],
     }));
     return id;
   };

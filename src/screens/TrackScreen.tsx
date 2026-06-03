@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { M } from "../theme";
 import type { LibraryExercise } from "../data";
 import { fmt, fmtUp, useWorkout, type Workout } from "../lib/engine";
@@ -14,6 +14,10 @@ import { MStat } from "../components/widgets";
 import { WorkoutFinishSheet } from "../components/WorkoutFinishSheet";
 import { ExercisePickerSheet } from "../components/ExercisePickerSheet";
 import { ExerciseHistorySheet } from "../components/ExerciseHistorySheet";
+import { ExerciseVideoSheet } from "../components/ExerciseVideoSheet";
+import { resolveExerciseVideoUrl } from "../lib/youtube";
+import { OneRmCalculatorSheet } from "../components/OneRmCalculatorSheet";
+import { getOneRmPrefillFromExercise } from "../lib/oneRepMax";
 import { SupersetBlock, supersetLinkButtonStyle } from "../components/SupersetBlock";
 import {
   isLinkedWithPrevious,
@@ -64,8 +68,15 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
   const [finishSheet, setFinishSheet] = useState(false);
   const [picker, setPicker] = useState(false);
   const [historyExercise, setHistoryExercise] = useState<string | null>(null);
+  const [videoExercise, setVideoExercise] = useState<{ name: string; youtubeUrl: string } | null>(null);
+  const [oneRmOpen, setOneRmOpen] = useState(false);
   const pct = W.totalSets ? Math.round((W.doneSets / W.totalSets) * 100) : 0;
   const exLibrary = library ?? [];
+
+  const oneRmPrefill = useMemo(() => {
+    const ex = W.wo.exercises.find((e) => e.id === open);
+    return getOneRmPrefillFromExercise(ex);
+  }, [W.wo.exercises, open]);
 
   useEffect(() => {
     const tick = () => setElapsedSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
@@ -82,7 +93,7 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
   };
 
   const addFromLibrary = (ex: LibraryExercise) => {
-    const id = W.addExercise(ex.name, `${ex.group} · ${ex.equip}`, ex.metric);
+    const id = W.addExercise(ex.name, `${ex.group} · ${ex.equip}`, ex.metric, ex.id);
     W.addSet(id);
     setOpen(id);
     setPicker(false);
@@ -217,7 +228,10 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
             </div>
           )}
         </div>
-        <div
+        <button
+          type="button"
+          aria-label="1RM-Rechner"
+          onClick={() => setOneRmOpen(true)}
           style={{
             width: 38,
             height: 38,
@@ -227,11 +241,13 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: M.mut,
+            color: M.acc,
+            cursor: "pointer",
+            flexShrink: 0,
           }}
         >
-          <Icon name="timer" size={19} stroke={2} />
-        </div>
+          <Icon name="calculator" size={19} stroke={2} />
+        </button>
       </div>
       <div style={{ padding: "0 18px 12px" }}>
         <div style={{ display: "flex", gap: 10 }}>
@@ -304,6 +320,7 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
           const done = ex.sets.filter((s) => s.done).length;
           const complete = ex.sets.length > 0 && done === ex.sets.length;
           const linked = isLinkedWithPrevious(W.wo.exercises, ex.id);
+          const videoUrl = resolveExerciseVideoUrl(ex, exLibrary);
           return (
             <div
               key={ex.id}
@@ -371,6 +388,27 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
                     {done}/{ex.sets.length} Sätze
                   </div>
                 </div>
+                {videoUrl && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setVideoExercise({ name: ex.name, youtubeUrl: videoUrl });
+                    }}
+                    aria-label="Video ansehen"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: M.mut2,
+                      display: "flex",
+                      padding: 4,
+                      opacity: 0.85,
+                    }}
+                  >
+                    <Icon name="play" size={16} color={M.mut2} />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -563,32 +601,8 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
             </SupersetBlock>
           );
         })}
-        {/* Das alte ÜBUNG HINZUFÜGEN-Button wurde entfernt, da sich nun ein neuer, dezenterer Button unten über dem Beenden-Button befindet */}
       </div>
       <div style={{ margin: "0 18px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
-        <button
-          onClick={() => setPicker(true)}
-          style={{
-            width: "100%",
-            padding: "12px 0",
-            borderRadius: 14,
-            border: "1px solid " + M.line,
-            background: "transparent",
-            color: M.fg,
-            fontFamily: M.disp,
-            fontWeight: 700,
-            fontSize: 15,
-            letterSpacing: 0.5,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-          }}
-        >
-          <Icon name="plus" size={16} stroke={2.4} color={M.acc} /> WEITERE ÜBUNG HINZUFÜGEN
-        </button>
-
         {W.restActive ? (
           <div
             style={{
@@ -623,26 +637,48 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
             </button>
           </div>
         ) : (
-          <button
-            disabled={finishing}
-            onClick={() => setFinishSheet(true)}
-            style={{
-              width: "100%",
-              padding: "15px 0",
-              borderRadius: 16,
-              border: "none",
-              background: M.cardHi,
-              color: M.fg,
-              fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 19,
-              letterSpacing: 1,
-              cursor: finishing ? "wait" : "pointer",
-              opacity: finishing ? 0.7 : 1,
-            }}
-          >
-            WORKOUT BEENDEN
-          </button>
+          <div style={{ display: "flex", gap: 10, alignItems: "stretch" }}>
+            <button
+              disabled={finishing}
+              onClick={() => setFinishSheet(true)}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                padding: "15px 0",
+                borderRadius: 16,
+                border: "none",
+                background: M.cardHi,
+                color: M.fg,
+                fontFamily: M.disp,
+                fontWeight: 700,
+                fontSize: 19,
+                letterSpacing: 1,
+                cursor: finishing ? "wait" : "pointer",
+                opacity: finishing ? 0.7 : 1,
+              }}
+            >
+              WORKOUT BEENDEN
+            </button>
+            <button
+              type="button"
+              aria-label="Übung hinzufügen"
+              onClick={() => setPicker(true)}
+              style={{
+                flex: "0 0 auto",
+                padding: "13px 16px",
+                borderRadius: 12,
+                border: "1px solid " + M.line,
+                background: "transparent",
+                color: M.acc,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="plus" size={22} stroke={2.4} color={M.acc} />
+            </button>
+          </div>
         )}
       </div>
       {finishSheet && (
@@ -675,6 +711,21 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
         open={Boolean(historyExercise)}
         onClose={() => setHistoryExercise(null)}
         exerciseName={historyExercise}
+      />
+      {videoExercise && (
+        <ExerciseVideoSheet
+          open
+          exerciseName={videoExercise.name}
+          youtubeUrl={videoExercise.youtubeUrl}
+          onClose={() => setVideoExercise(null)}
+        />
+      )}
+      <OneRmCalculatorSheet
+        open={oneRmOpen}
+        onClose={() => setOneRmOpen(false)}
+        initialWeight={oneRmPrefill.weight}
+        initialReps={oneRmPrefill.reps}
+        resetKey={open}
       />
     </div>
   );

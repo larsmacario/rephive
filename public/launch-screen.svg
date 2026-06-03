@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+  width="1366" height="1366" viewBox="0 0 1366 1366" fill="none">
+  <title>rephive Launch Screen</title>
+  <defs>
+    <linearGradient id="bgBase" x1="683" y1="0" x2="683" y2="1366" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0c0f0c"/>
+      <stop offset="0.38" stop-color="#0a0c0a"/>
+      <stop offset="1" stop-color="#070907"/>
+    </linearGradient>
+    <radialGradient id="glowTop" cx="0" cy="0" r="1"
+      gradientUnits="userSpaceOnUse"
+      gradientTransform="translate(683 410) scale(620 620)">
+      <stop offset="0" stop-color="#7ef67b" stop-opacity="0.14"/>
+      <stop offset="0.55" stop-color="#7ef67b" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#7ef67b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowBottom" cx="0" cy="0" r="1"
+      gradientUnits="userSpaceOnUse"
+      gradientTransform="translate(683 1180) scale(480 380)">
+      <stop offset="0" stop-color="#5fd85c" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#5fd85c" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="hex" width="85" height="98" patternUnits="userSpaceOnUse">
+      <path d="M42.5 2 L78 17 L78 59 L42.5 74 L7 59 L7 17 Z"
+        fill="none" stroke="#7ef67b" stroke-opacity="0.10" stroke-width="2"/>
+      <path d="M0 51 L35.5 66 L35.5 108"
+        fill="none" stroke="#7ef67b" stroke-opacity="0.06" stroke-width="2"/>
+    </pattern>
+    <radialGradient id="hexMask" cx="0" cy="0" r="1"
+      gradientUnits="userSpaceOnUse"
+      gradientTransform="translate(683 574) scale(520 640)">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset="0.35" stop-color="#fff"/>
+      <stop offset="0.78" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <mask id="honeyFade">
+      <rect width="1366" height="1366" fill="url(#hexMask)"/>
+    </mask>
+    <filter id="logoGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="18" result="blur"/>
+      <feColorMatrix in="blur" type="matrix"
+        values="0 0 0 0 0.49
+                0 0 0 0 0.96
+                0 0 0 0 0.48
+                0 0 0 0.35 0"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Base -->
+  <rect width="1366" height="1366" fill="url(#bgBase)"/>
+  <rect width="1366" height="1366" fill="url(#glowTop)"/>
+  <rect width="1366" height="1366" fill="url(#glowBottom)"/>
+
+  <!-- Honeycomb (fades toward edges) -->
+  <g mask="url(#honeyFade)" opacity="0.5">
+    <rect width="1366" height="1366" fill="url(#hex)"/>
+  </g>
+
+  <!-- Logo: bee only (352×324 viewBox, centered in safe zone) -->
+  <g transform="translate(533 545)">
+    <image
+      href="bee-without-bg.svg"
+      xlink:href="bee-without-bg.svg"
+      width="300"
+      height="276"
+      filter="url(#logoGlow)"
+      preserveAspectRatio="xMidYMid meet"
+    />
+  </g>
+</svg>

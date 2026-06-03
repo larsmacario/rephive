@@ -2,6 +2,9 @@ import type { Json } from "./database.types";
 import { TIMER_DEFAULTS, type TimerCfg, type TimerMode } from "./engine";
 import { supabase } from "./supabase";
 
+export type TrainingStructure = "full_body" | "split";
+export type TrainingSplitDays = 2 | 3 | 4 | 5 | 6;
+
 export interface AnamnesisData {
   painZones: string[];
   trainingLocation: "gym" | "home_equipment" | "bodyweight";
@@ -11,6 +14,44 @@ export interface AnamnesisData {
   waistCm?: number | null;
   hipsCm?: number | null;
   htv?: number | null;
+  minutesPerSession?: number | null;
+  trainingStructure?: TrainingStructure | null;
+  trainingSplitDays?: TrainingSplitDays | null;
+  occupation?: "sedentary" | "standing" | "physical" | null;
+  shiftWork?: boolean | null;
+  sleepHours?: number | null;
+  stressLevel?: number | null;
+  dietPreference?: "omnivore" | "vegetarian" | "vegan" | "pescetarian" | null;
+  dietAllergies?: string[];
+}
+
+export function normalizeTrainingStructure(raw: unknown): TrainingStructure | null {
+  if (raw === "full_body" || raw === "split") return raw;
+  return null;
+}
+
+export function normalizeTrainingSplitDays(raw: unknown): TrainingSplitDays | null {
+  if (raw === 2 || raw === 3 || raw === 4 || raw === 5 || raw === 6) return raw;
+  return null;
+}
+
+/** Maps legacy string stress levels and validates 1–10 scale. */
+export function normalizeStressLevel(raw: unknown): number | null {
+  if (typeof raw === "number" && !Number.isNaN(raw)) {
+    const n = Math.round(raw);
+    if (n >= 1 && n <= 10) return n;
+    return null;
+  }
+  if (raw === "low") return 3;
+  if (raw === "medium") return 5;
+  if (raw === "high") return 8;
+  return null;
+}
+
+export function normalizeSleepHours(raw: unknown): number {
+  const v = typeof raw === "number" && !Number.isNaN(raw) ? raw : 7;
+  const clamped = Math.min(12, Math.max(4, v));
+  return Math.round(clamped * 2) / 2;
 }
 
 export interface UserPreferences {

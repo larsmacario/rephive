@@ -18,6 +18,8 @@ interface AuthContextValue {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  /** True once profile fetch finished (or no user). Prevents onboarding flash. */
+  profileReady: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, displayName?: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -47,10 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileReady, setProfileReady] = useState(false);
 
-  const loadProfile = useCallback(async (userId: string) => {
-    const p = await fetchProfile(userId);
-    setProfile(p);
+  const loadProfile = useCallback(async (userId: string, opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setProfileReady(false);
+    try {
+      const p = await fetchProfile(userId);
+      setProfile(p);
+    } finally {
+      setProfileReady(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -63,6 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.session?.user) {
         loadProfile(data.session.user.id).finally(() => mounted && setLoading(false));
       } else {
+        setProfile(null);
+        setProfileReady(true);
         setLoading(false);
       }
     });
@@ -73,11 +83,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
       if (nextSession?.user) {
-        loadProfile(nextSession.user.id);
+        setLoading(true);
+        loadProfile(nextSession.user.id).finally(() => setLoading(false));
       } else {
         setProfile(null);
+        setProfileReady(true);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {
@@ -194,7 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const refreshProfile = useCallback(async () => {
-    if (user) await loadProfile(user.id);
+    if (user) await loadProfile(user.id, { silent: true });
   }, [user, loadProfile]);
 
   const value = useMemo(
@@ -203,6 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       profile,
       loading,
+      profileReady,
       signIn,
       signUp,
       signOut,
@@ -220,6 +233,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       profile,
       loading,
+      profileReady,
       signIn,
       signUp,
       signOut,

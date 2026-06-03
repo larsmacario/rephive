@@ -1,8 +1,11 @@
-import { APP_NAME, M } from "./theme";
+import { useCallback, useState } from "react";
+import { M } from "./theme";
 import { PhoneApp } from "./PhoneApp";
 import { useAuth } from "./lib/auth";
 import { ResponsiveProvider } from "./lib/responsive";
-import { AuthFlow } from "./screens/auth/AuthFlow";
+import { hasSeenWelcome, markWelcomeSeen } from "./lib/welcome";
+import { AuthFlow, type AuthStep } from "./screens/auth/AuthFlow";
+import { WelcomeScreen, type WelcomeExit } from "./screens/WelcomeScreen";
 import { AppLogo } from "./components/AppLogo";
 
 function Splash() {
@@ -16,24 +19,10 @@ function Splash() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: 16,
         padding: "0 24px",
       }}
     >
-      <AppLogo size={72} />
-      <div
-        style={{
-          fontFamily: M.disp,
-          fontWeight: 700,
-          fontSize: 20,
-          color: M.acc,
-          letterSpacing: 0.5,
-          textAlign: "center",
-          lineHeight: 1.15,
-        }}
-      >
-        {APP_NAME}
-      </div>
+      <AppLogo size={96} alt="rephive" />
     </div>
   );
 }
@@ -46,12 +35,30 @@ function MainApp() {
   );
 }
 
+function UnauthenticatedGate() {
+  const [welcomeDone, setWelcomeDone] = useState(hasSeenWelcome);
+  const [authInitialStep, setAuthInitialStep] = useState<AuthStep>("login");
+
+  const handleWelcomeContinue = useCallback((target: WelcomeExit) => {
+    markWelcomeSeen();
+    setAuthInitialStep(target);
+    setWelcomeDone(true);
+  }, []);
+
+  if (!welcomeDone) {
+    return <WelcomeScreen onContinue={handleWelcomeContinue} />;
+  }
+
+  return <AuthFlow initialStep={authInitialStep} />;
+}
+
 export function App() {
-  const { user, loading } = useAuth();
+  const { user, loading, profileReady } = useAuth();
+  const booting = loading || (!!user && !profileReady);
 
   return (
     <ResponsiveProvider>
-      {loading ? <Splash /> : !user ? <AuthFlow /> : <MainApp />}
+      {booting ? <Splash /> : !user ? <UnauthenticatedGate /> : <MainApp />}
     </ResponsiveProvider>
   );
 }

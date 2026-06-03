@@ -6,7 +6,7 @@ import { Icon } from "../components/Icon";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { PlanDayAccordion } from "../components/PlanDayAccordion";
 import { OneRmPercentInfoCard } from "../components/OneRmPercentInfoCard";
-import { MTag } from "../components/widgets";
+import { MStat, MTag } from "../components/widgets";
 
 export interface PlanDetailScreenProps {
   planId: string;
@@ -166,6 +166,78 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
         )}
 
         {isAiPlan && <OneRmPercentInfoCard style={{ marginTop: 14 }} />}
+
+        {plan.summary && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>DEINE EMPFEHLUNG</div>
+
+            <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+              <MStat
+                label="NUTZUNGSDAUER"
+                value={`${plan.summary.advice.planDuration.weeksMin}–${plan.summary.advice.planDuration.weeksMax}`}
+                sub="Wochen"
+              />
+              <MStat
+                label="KALORIEN"
+                value={String(plan.summary.nutrition.targetKcal)}
+                sub="kcal / Tag"
+              />
+            </div>
+
+            <p style={{ margin: "10px 0 0", fontSize: 13, color: M.fg, lineHeight: 1.5, fontWeight: 500 }}>
+              {plan.summary.advice.planDuration.note}
+            </p>
+
+            <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <MStat label="PROTEIN" value={`${plan.summary.nutrition.protein_g}g`} />
+              <MStat label="KH" value={`${plan.summary.nutrition.carbs_g}g`} />
+              <MStat label="FETT" value={`${plan.summary.nutrition.fat_g}g`} />
+              <MStat
+                label="TRINKEN"
+                value={
+                  plan.summary.nutrition.water_ml >= 1000
+                    ? `${(plan.summary.nutrition.water_ml / 1000).toFixed(1)}l`
+                    : `${plan.summary.nutrition.water_ml}ml`
+                }
+                sub="pro Tag"
+              />
+            </div>
+
+            <div
+              style={{
+                marginTop: 14,
+                padding: "14px 16px",
+                borderRadius: 14,
+                background: M.card,
+                border: "1px solid " + M.line,
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 11, color: M.acc, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>TRAININGSFOKUS</div>
+                <p style={{ margin: 0, fontSize: 13, color: M.fg, lineHeight: 1.5 }}>{plan.summary.advice.trainingFocus}</p>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: M.acc, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>ERNÄHRUNG</div>
+                <p style={{ margin: 0, fontSize: 13, color: M.fg, lineHeight: 1.5 }}>{plan.summary.advice.nutritionTips}</p>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: M.acc, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>REGENERATION</div>
+                <p style={{ margin: 0, fontSize: 13, color: M.fg, lineHeight: 1.5 }}>{plan.summary.advice.recoveryTips}</p>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: M.acc, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>HYDRATION</div>
+                <p style={{ margin: 0, fontSize: 13, color: M.fg, lineHeight: 1.5 }}>{plan.summary.advice.hydrationTips}</p>
+              </div>
+            </div>
+
+            <p style={{ margin: "10px 0 0", fontSize: 11, color: M.mut2, lineHeight: 1.4 }}>
+              Richtwerte basierend auf deinen Angaben — kein medizinischer oder ernährungstherapeutischer Rat.
+            </p>
+          </div>
+        )}
 
         <div style={{ marginTop: 18, fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>TAGE</div>
         <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>

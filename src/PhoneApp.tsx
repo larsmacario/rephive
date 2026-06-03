@@ -108,7 +108,7 @@ export function PhoneApp() {
 }
 
 function PhoneAppInner() {
-  const { user } = useAuth();
+  const { user, profileReady } = useAuth();
   const { preferences } = usePreferences();
   const { active: timerActive } = useActiveTimer();
   const breakpoint = useBreakpoint();
@@ -410,9 +410,9 @@ function PhoneAppInner() {
     body = (
       <AITrainingPlanWizard
         onBack={() => close("home")}
-        onPlanGenerated={() => {
+        onPlanGenerated={(planId) => {
           setRefreshKey((k) => k + 1);
-          close("home");
+          goPlanDetail(planId);
         }}
       />
     );
@@ -464,6 +464,10 @@ function PhoneAppInner() {
       <HistoryScreen refreshKey={refreshKey} onOpenSession={goSessionDetail} onOpenStats={goStats} />
     );
   }
+  if (!profileReady) {
+    return null;
+  }
+
   if (!preferences.onboarded) {
     return (
       <PhoneShell reserveBottomSafeArea={false}>

@@ -3,7 +3,7 @@ import { M } from "../../theme";
 import { useAuth } from "../../lib/auth";
 import { AppLogo } from "../../components/AppLogo";
 
-type AuthStep = "login" | "signup" | "forgot" | "reset";
+export type AuthStep = "login" | "signup" | "forgot" | "reset";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -44,9 +44,13 @@ const linkBtn: React.CSSProperties = {
   padding: 0,
 };
 
-export function AuthFlow() {
+type AuthFlowProps = {
+  initialStep?: AuthStep;
+};
+
+export function AuthFlow({ initialStep = "login" }: AuthFlowProps) {
   const auth = useAuth();
-  const [step, setStep] = useState<AuthStep>("login");
+  const [step, setStep] = useState<AuthStep>(initialStep);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -55,6 +59,10 @@ export function AuthFlow() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setStep(initialStep);
+  }, [initialStep]);
 
   useEffect(() => {
     setError(null);

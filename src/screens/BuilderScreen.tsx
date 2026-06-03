@@ -30,6 +30,7 @@ interface BuilderItem extends LibraryExercise {
   setMode: SetMode;
   setRows: TemplateSet[];
   supersetId?: string;
+  catalogExerciseId?: string;
 }
 
 function workoutExerciseToItem(
@@ -38,6 +39,7 @@ function workoutExerciseToItem(
     name: string;
     note?: string;
     supersetId?: string;
+    catalogExerciseId?: string | null;
     metric: ExerciseMetric;
     sets: { reps: number; kg?: number }[];
   },
@@ -55,6 +57,7 @@ function workoutExerciseToItem(
     setMode,
     setRows,
     supersetId: exercise.supersetId,
+    catalogExerciseId: exercise.catalogExerciseId ?? undefined,
   };
 }
 
@@ -94,7 +97,14 @@ export function BuilderScreen({ workoutId, onBack, onSave }: BuilderScreenProps)
     setItems((it) => [
       ...it,
       {
-        ...ex,
+        id: crypto.randomUUID(),
+        catalogExerciseId: ex.id,
+        name: ex.name,
+        group: ex.group,
+        equip: ex.equip,
+        userId: ex.userId,
+        metric: ex.metric,
+        youtubeUrl: ex.youtubeUrl,
         setMode: "uniform" as const,
         setRows: buildUniformTemplateSets(
           defaults.sets,
@@ -146,6 +156,7 @@ export function BuilderScreen({ workoutId, onBack, onSave }: BuilderScreenProps)
           name: x.name,
           note: `${x.group} · ${x.equip}`,
           supersetId: x.supersetId,
+          catalogExerciseId: x.catalogExerciseId ?? null,
           metric: x.metric,
           sets: x.setRows.map((s) => ({ reps: s.reps, kg: s.kg, done: false })),
         })),

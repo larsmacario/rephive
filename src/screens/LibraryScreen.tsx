@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { M } from "../theme";
 import { useWorkouts } from "../lib/db";
+import { CatalogStandardLock } from "../components/CatalogStandardLock";
 import { Icon } from "../components/Icon";
 import { FLOAT_NAV_SCROLL_BOTTOM_GAP } from "../components/FloatNav";
 
@@ -74,7 +75,7 @@ export function LibraryScreen({ onOpenBuilder, onOpenWorkout, refreshKey = 0 }: 
         )}
         {list.map((w) => {
           const setCount = w.exercises.reduce((a, e) => a + e.sets.length, 0);
-          const isOwned = w.userId !== null;
+          const isStandard = w.userId === null;
 
           return (
             <button
@@ -85,7 +86,6 @@ export function LibraryScreen({ onOpenBuilder, onOpenWorkout, refreshKey = 0 }: 
                 textAlign: "left",
                 background: M.card,
                 border: "1px solid " + M.line2,
-                borderLeft: isOwned ? "3px solid " + M.acc : "1px solid " + M.line2,
                 borderRadius: 14,
                 padding: "14px 16px",
                 cursor: "pointer",
@@ -97,15 +97,29 @@ export function LibraryScreen({ onOpenBuilder, onOpenWorkout, refreshKey = 0 }: 
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
-                    fontFamily: M.disp,
-                    fontWeight: 700,
-                    fontSize: 20,
-                    lineHeight: 1.1,
-                    letterSpacing: 0.2,
-                    color: M.fg,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    minWidth: 0,
                   }}
                 >
-                  {w.name}
+                  <span
+                    style={{
+                      fontFamily: M.disp,
+                      fontWeight: 700,
+                      fontSize: 20,
+                      lineHeight: 1.1,
+                      letterSpacing: 0.2,
+                      color: M.fg,
+                      minWidth: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {w.name}
+                  </span>
+                  {isStandard && <CatalogStandardLock />}
                 </div>
                 <div style={{ fontSize: 12.5, color: M.mut, marginTop: 5, fontWeight: 600 }}>
                   {w.exercises.length} Übungen · {setCount} Sätze · ~{w.dur} Min

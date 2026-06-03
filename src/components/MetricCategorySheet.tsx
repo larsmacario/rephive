@@ -1,5 +1,6 @@
 import { EXERCISE_METRICS, metricLabel, type ExerciseMetric } from "../lib/exerciseCatalog";
 import { M } from "../theme";
+import { BottomSheet } from "./BottomSheet";
 import { Icon } from "./Icon";
 
 export interface MetricCategorySheetProps {
@@ -10,45 +11,21 @@ export interface MetricCategorySheetProps {
 }
 
 export function MetricCategorySheet({ open, value, onChange, onClose }: MetricCategorySheetProps) {
-  if (!open) return null;
-
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(5,7,5,.6)",
-        backdropFilter: "blur(4px)",
-        zIndex: 30,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "flex-end",
-      }}
-      onClick={onClose}
-    >
+    <BottomSheet open={open} onClose={onClose} zIndex={30} aria-label="Kategorie">
       <div
-        onClick={(e) => e.stopPropagation()}
         style={{
-          background: M.panel,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          borderTop: "1px solid " + M.line,
-          maxHeight: "70%",
-          overflowY: "auto",
+          fontFamily: M.disp,
+          fontWeight: 700,
+          fontSize: 20,
+          textAlign: "center",
+          marginBottom: 12,
+          flexShrink: 0,
         }}
       >
-        <div style={{ width: 40, height: 4, borderRadius: 2, background: M.line, margin: "12px auto" }} />
-        <div
-          style={{
-            fontFamily: M.disp,
-            fontWeight: 700,
-            fontSize: 20,
-            textAlign: "center",
-            padding: "4px 18px 12px",
-          }}
-        >
-          Kategorie
-        </div>
+        Kategorie
+      </div>
+      <div style={{ margin: "0 -18px" }}>
         {EXERCISE_METRICS.map((m, i) => {
           const selected = value === m.id;
           return (
@@ -89,8 +66,7 @@ export function MetricCategorySheet({ open, value, onChange, onClose }: MetricCa
             </button>
           );
         })}
-        <div style={{ height: 24 }} />
       </div>
-    </div>
+    </BottomSheet>
   );
 }

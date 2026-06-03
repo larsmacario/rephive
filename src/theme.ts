@@ -4,8 +4,8 @@ import type { CSSProperties } from "react";
 export const APP_NAME = "rephive";
 /** PWA home-screen label (max. ~12 Zeichen empfohlen). */
 export const APP_NAME_SHORT = "rephive";
-/** Quadratisches App-Icon (Favicon-Set). */
-export const LOGO_ICON = "/favicon/favicon-96x96.png";
+/** App-Logo (Biene, transparent). Favicons bleiben PNG für PWA/OS. */
+export const LOGO_ICON = "/bee-without-bg.svg";
 /** Wordmark mit „YOUR“ in Akzentfarbe. */
 export const LOGO_WORDMARK = "/logo.png";
 

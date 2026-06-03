@@ -18,10 +18,11 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 - `src/lib/supabase.ts` — typisierter Browser-Client
 - `src/lib/auth.tsx` — AuthProvider, Session, Profile, Konto-Updates (Name/E-Mail/Passwort)
 - `src/lib/preferences.ts` + `preferences.tsx` — User-Defaults, `PreferencesProvider`, Supabase-Persistenz
-- `src/lib/exerciseCatalog.ts` — Muskelgruppen, Equipment, `ExerciseMetric` (`reps` | `time`), Dauer-Formatierung
+- `src/lib/exerciseCatalog.ts` — Muskelgruppen, Equipment, `ExerciseMetric`, Dauer-Formatierung
+- `src/lib/youtube.ts` — YouTube-URL parsen/validieren, Embed-URL, `resolveExerciseVideoUrl` (Track-Lookup)
 - `src/lib/exerciseSets.ts` — Sätze-Logik (Gleich/Individuell, KG_STEP 1.25, formatSetSummary; Zeit-Sätze ohne KG)
 - `src/lib/superset.ts` — Supersatz-Blöcke, Verknüpfen/Lösen, `shouldStartRestAfterSet` (flexible Satzanzahl pro Übung)
-- `src/lib/oneRepMax.ts` — 1RM-Formeln und Prozent-Generierung
+- `src/lib/oneRepMax.ts` — 1RM-Formeln, Prozent-Tabelle, `getOneRmPrefillFromExercise` (Track-Sheet-Vorausfüllung)
 - `src/lib/db.ts` — DB-Queries + Hooks (useWorkouts, useSessions, usePlans, useActivePlan, session_exercises, …)
 - `src/lib/engine.ts` — Timer-Engine (`useTimer`, `elapsedSec`) + Tracking-State (`useWorkout`, verzögerte Pause bei Supersätzen)
 - `src/lib/timerSession.ts` — Timer-Session-Payload + Verlauf/Detail-Formatierung (Tag `Timer`)
@@ -32,15 +33,24 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 - `src/data.ts` — Typen, `startSession`, `startCustomSession`, `normalizeWorkout` (Legacy-Entwürfe)
 - `src/components/ExerciseSetConfigurator.tsx` + `SetValueStepper.tsx` — gemeinsame Satz-/KG-UI
 - `src/components/SupersetBlock.tsx` — visuelle Supersatz-Gruppierung (Akzent + Label)
+- `src/components/BottomSheet.tsx` — gemeinsame Sheet-Hülle (Backdrop-Tap, Wisch-nach-unten am Griff via Framer Motion, max. 90 % Viewport-Höhe)
+- `src/components/OneRmCalculatorBody.tsx` + `OneRmCalculatorSheet.tsx` — 1RM-Rechner-Kern (Stepper, Epley, %-Tabelle); Sheet im Track, Vollbild weiter über `CalculatorScreen`
+- `src/components/MuscleGroupSelect.tsx` + `EquipmentSelect.tsx` + `catalogSelectStyle.ts` — Dropdowns für Muskelgruppe/Gerät (Filter + Formular)
+- `src/components/PlanDayAccordion.tsx` — aufklappbare Plan-Tage mit `WorkoutExercisePreview`
 - `src/components/WorkoutFinishSheet.tsx` — Beenden-Dialog (Speichern / Verwerfen / Abbrechen) für Track + Home
-- `src/components/TimerLeaveSheet.tsx` — Bottom-Sheet: Timer stoppen (Tab-Wechsel, Modus, Reset)
-- `src/components/DeleteConfirmDialog.tsx` — zentriertes Lösch-Modal (1 Schritt: Übungen/Körperwerte; 2 Schritte: Plan/Workout/Session)
-- `src/components/ConfirmSheet.tsx` — Bottom-Sheet für Nicht-Lösch-Bestätigungen (z. B. Workout überspringen, Entwurf verwerfen)
-- `src/components/AlertSheet.tsx` — Bottom-Sheet: Hinweise/Fehler mit einem OK-Button (kein `window.alert`)
+- `src/components/ExerciseHistorySheet.tsx` — Übungsverlauf pro Übung
+- `src/components/MetricCategorySheet.tsx` — Kategorie-Auswahl (`ExerciseMetric`)
+- `src/components/TimerLeaveSheet.tsx` — Timer stoppen (Tab-Wechsel, Modus, Reset)
+- `src/components/DeleteConfirmDialog.tsx` — Lösch-Bestätigung als Bottom-Sheet (Auto-Höhe, max. 90 %); 1 Schritt: Übungen/Körperwerte; 2 Schritte: Plan/Workout/Session
+- `src/components/ConfirmSheet.tsx` — Nicht-Lösch-Bestätigungen (z. B. Workout überspringen, Entwurf verwerfen)
+- `src/components/AlertSheet.tsx` — Hinweise/Fehler mit einem OK-Button (kein `window.alert`)
 - `src/components/SplitImageSlider.tsx` — interaktiver Wisch-Slider für den visuellen Vorher/Nachher Foto-Vergleich
 - `src/screens/auth/` — Login, Signup, Passwort-Reset (Token)
 - `src/screens/` — Home, Plans, PlanDetail, WorkoutsHub, Library, ExercisesScreen, WorkoutDetail, Timer, History, SessionDetail, SessionEdit, Track, Builder, PlanBuilder, Settings, Profile, Calculator, BodyTracker, OnboardingWizard, AITrainingPlanWizard, AboutScreen, SupportScreen
-- `src/components/ExerciseFormSheet.tsx` + `ExercisePickerSheet.tsx` — Übungs-CRUD-Formular und gemeinsamer Bibliotheks-Picker
+- `src/components/ExerciseFormSheet.tsx` + `ExercisePickerSheet.tsx` — Übungs-CRUD, optionaler YouTube-Link, Löschen im Edit-Sheet
+- `src/components/ExerciseVideoSheet.tsx` — YouTube-Embed im Bottom-Sheet (aktives Workout)
+- `src/components/CatalogStandardLock.tsx` — Schloss-Icon für nicht löschbare Standard-Workouts/Übungen
+- `src/components/MuscleGroupSelect.tsx` — Muskelgruppen-Dropdown (Filter + Formular); `MuscleGroupFilterChips` entfernt
 - `src/PhoneApp.tsx` — Tab-/Push-Router (tracking, builder, workoutDetail, planDetail, sessionDetail, sessionEdit, planBuilder, settings, profile, calculator, bodyTracker)
 
 - `src/components/FloatNav.tsx` — Icon-only-Nav als Overlay: unten Mobile/Tablet, links fixed Desktop; `FLOAT_NAV_BOTTOM_OFFSET_CSS` + `floatNavContentInset()` müssen identisch sein (iOS); `FLOAT_NAV_SCROLL_BOTTOM_GAP` für Tab-Scroll-Padding; symmetrisches Nav-Padding (kein Tab-abhängiges Shift)
@@ -50,10 +60,11 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 ## Entscheidungen & Constraints
 - Quelle ist ein Claude-Design-Bundle (urspr. Richtung „A · MOMENTUM"); UI pixel-genau übernommen. App-Name: **rephive**.
 - Bewusst KEIN Phone-Mockup — nur das App-UI.
-- Keine Browser-Dialogs (`alert`/`confirm`): Löschen über `DeleteConfirmDialog`; sonstige Bestätigungen über `ConfirmSheet`; Hinweise/Fehler über `AlertSheet`.
+- Keine Browser-Dialogs (`alert`/`confirm`): Löschen über `DeleteConfirmDialog` (Bottom-Sheet, 1–2 Schritte); sonstige Bestätigungen über `ConfirmSheet`; Hinweise/Fehler über `AlertSheet`.
 - Breakpoints: Mobil <768, Tablet 768–1023, Desktop ≥1024; Nav: FloatNav unten (Mobile/Tablet) bzw. links (Desktop), kein SideNav/BottomNav mehr.
 - Globale Workouts/Übungen (user_id NULL) für alle sichtbar; eigene Workouts und Übungen pro User (CRUD nur eigene).
-- Übungs-Katalog: Tabelle `exercises` (12 globale Seeds); Workouts-Tab „Workouts | Übungen“; CRUD nur eigene Übungen; `ExercisePickerSheet` in Builder, Track, PlanBuilder, Session-Edit.
+- Übungs-Katalog: Tabelle `exercises` (globale Seeds + eigene); optional `youtube_url` (nur eigene). Workouts-Tab „Workouts | Übungen“; Filter Übungen per `MuscleGroupSelect`. `workout_exercises.catalog_exercise_id` verknüpft Workout-Zeilen mit Katalog (Video auch nach Umbenennung). Video im Track per Play-Button → `ExerciseVideoSheet` (iframe, ohne App-Verlassen).
+- 1RM-Rechner: Home → Route `calculator` / `CalculatorScreen`; aktives Workout → Icon oben rechts → `OneRmCalculatorSheet` mit Prefill aus offener Übung.
 - Übungs-Messung: `metric_type` = `reps` (Wdh. + optional kg) oder `time` (Sekunden im Satz-JSON-Feld `reps`, kg=0); Volumen-Berechnung ignoriert Zeit-Übungen; Standard beim Anlegen aus Bibliothek.
 - Passwort-Reset per E-Mail-Token (OTP), nicht per Link.
 - Nutzer-Preferences in `profiles.preferences` (JSONB); u.a. `timerSounds`, `restSeconds`, `autoRest`, Timer-Defaults; Profil/Settings/Stats über Avatar-Trigger im Home-Screen als rechtes Sidepanel (Push-Routes, kein extra Tab). Rechtliches im Panel: externe Links zu rephive.app (`/impressum`, `/datenschutz`, `/agb`); Über mich und Support als In-App-Routes.
@@ -69,5 +80,5 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 - Onboarding-Prozess: Wird bei unvollständigem Onboarding (`preferences.onboarded === false`) über `PhoneAppInner` verpflichtend eingeblendet und blockiert die normale Navigation. Erfasst grundlegende Anamnese-Daten und legt ggf. ein Gewicht in `body_measurements` an.
 - iOS WKWebView: Flex-Kinder in scrollbaren Flex-Columns nicht schrumpfen lassen (`flexShrink: 0` auf Karten); bei expandierten Track-Karten `overflow: visible`, sonst `hidden` für Border-Radius.
 - Vorher/Nachher Bilder: Fotos werden im Supabase Storage-Bucket `body-photos` unter `{userId}/{filename}` mit RLS abgesichert. Es wird ein nativer HTML5 Dateiupload verwendet, um maximale Capacitor/Web-Parität und Stabilität zu garantieren.
-- KI-Trainingspläne: Wizard (`AITrainingPlanWizard.tsx`) + simulierter Checkout. Edge Function `generate-training-plan` (deployed, JWT-Pflicht); Anthropic API wenn Secret `ANTHROPIC_API_KEY` gesetzt, sonst Mock. Lernt aus letzten 10 Sessions + `exerciseFeedback` in `profiles.preferences`; Modi `new` / `adapt`. Deploy: `scripts/deploy-training-plan.sh` oder `supabase functions deploy generate-training-plan`.
+- KI-Trainingspläne: Wizard (`AITrainingPlanWizard.tsx`, 12 Steps) + simulierter Checkout → `generate-training-plan` (JWT); Anamnese inkl. `trainingStructure` / `trainingSplitDays`. `plans.summary` (jsonb): lokale Ernährung via `src/lib/nutrition.ts` (Mifflin-St-Jeor, Makros, Trinkmenge), KI-`advice` in `PlanDetailScreen`. Anthropic wenn `ANTHROPIC_API_KEY`, sonst Mock. Deploy: `scripts/deploy-training-plan.sh` oder `supabase functions deploy generate-training-plan`.
 

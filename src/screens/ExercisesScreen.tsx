@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import type { LibraryExercise } from "../data";
 import { deleteExercise, useExercises } from "../lib/db";
 import { normalizeMuscleGroup, metricShort } from "../lib/exerciseCatalog";
-import { MuscleGroupFilterChips } from "../components/MuscleGroupFilterChips";
+import { MuscleGroupSelect } from "../components/MuscleGroupSelect";
 import { M } from "../theme";
+import { CatalogStandardLock } from "../components/CatalogStandardLock";
 import { Icon } from "../components/Icon";
 import { AlertSheet } from "../components/AlertSheet";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
@@ -123,7 +124,7 @@ export function ExercisesScreen({ refreshKey = 0 }: ExercisesScreenProps) {
           }}
         />
         <div style={{ marginTop: 10 }}>
-          <MuscleGroupFilterChips groupFilter={groupFilter} onGroupFilterChange={setGroupFilter} />
+          <MuscleGroupSelect mode="filter" value={groupFilter} onChange={setGroupFilter} />
         </div>
       </div>
 
@@ -153,7 +154,6 @@ export function ExercisesScreen({ refreshKey = 0 }: ExercisesScreenProps) {
               style={{
                 background: M.card,
                 border: "1px solid " + M.line2,
-                borderLeft: isOwned ? "3px solid " + M.acc : "1px solid " + M.line2,
                 borderRadius: 14,
                 padding: "12px 14px",
                 display: "flex",
@@ -177,33 +177,32 @@ export function ExercisesScreen({ refreshKey = 0 }: ExercisesScreenProps) {
               >
                 <div
                   style={{
-                    fontFamily: M.disp,
-                    fontWeight: 700,
-                    fontSize: 18,
-                    lineHeight: 1.1,
-                    color: M.fg,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    minWidth: 0,
                   }}
                 >
-                  {ex.name}
+                  <span
+                    style={{
+                      fontFamily: M.disp,
+                      fontWeight: 700,
+                      fontSize: 18,
+                      lineHeight: 1.1,
+                      color: M.fg,
+                      minWidth: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {ex.name}
+                  </span>
+                  {!isOwned && <CatalogStandardLock />}
                 </div>
                 <div style={{ fontSize: 12.5, color: M.mut, marginTop: 4, fontWeight: 600 }}>
                   {ex.group} · {ex.equip} · {metricShort(ex.metric)}
                 </div>
-                {!isOwned && (
-                  <span
-                    style={{
-                      display: "inline-block",
-                      marginTop: 6,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      letterSpacing: 0.8,
-                      color: M.mut2,
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Standard
-                  </span>
-                )}
               </button>
               {isOwned && (
                 <button

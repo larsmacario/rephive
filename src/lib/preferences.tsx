@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -27,7 +28,7 @@ interface PreferencesContextValue {
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, profileReady, refreshProfile } = useAuth();
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [saving, setSaving] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -36,9 +37,14 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   preferencesRef.current = preferences;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (!user) {
+      setPreferences(DEFAULT_PREFERENCES);
+      return;
+    }
+    if (!profileReady) return;
     setPreferences(mergePreferences(profile?.preferences ?? null));
-  }, [profile?.preferences, profile?.id]);
+  }, [user, profile, profileReady, profile?.preferences, profile?.id]);
 
   useEffect(
     () => () => {
