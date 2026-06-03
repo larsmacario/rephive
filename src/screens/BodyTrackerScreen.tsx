@@ -13,7 +13,14 @@ import {
   updateBodyMeasurement,
   deleteBodyMeasurement,
   type BodyMeasurement,
+  useBodyPhotos,
+  uploadBodyPhoto,
+  deleteBodyPhoto,
+  getBodyPhotoPublicUrl,
+  type BodyPhoto,
 } from "../lib/db";
+import { SplitImageSlider } from "../components/SplitImageSlider";
+
 
 export interface BodyTrackerScreenProps {
   onBack: () => void;
@@ -58,6 +65,25 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [alertSheet, setAlertSheet] = useState<{ title: string; message: string } | null>(null);
   const { data: measurements, loading, error, reload } = useBodyMeasurements(refreshKey);
+
+  const [activeTab, setActiveTab] = useState<"werte" | "fotos">("werte");
+
+  // Photo states
+  const [refreshPhotosKey, setRefreshPhotosKey] = useState(0);
+  const { data: photos, loading: loadingPhotos, error: errorPhotos, reload: reloadPhotos } = useBodyPhotos(refreshPhotosKey);
+
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoOrientation, setPhotoOrientation] = useState<"front" | "back" | "side">("front");
+  const [photoWeight, setPhotoWeight] = useState<string>("");
+  const [photoDate, setPhotoDate] = useState<string>(toInputDateString(new Date().toISOString()));
+  const [uploading, setUploading] = useState(false);
+
+  const [selectedBeforePhoto, setSelectedBeforePhoto] = useState<BodyPhoto | null>(null);
+  const [selectedAfterPhoto, setSelectedAfterPhoto] = useState<BodyPhoto | null>(null);
+  const [compareOrientation, setCompareOrientation] = useState<"front" | "back" | "side">("front");
+  const [deletePhotoTarget, setDeletePhotoTarget] = useState<BodyPhoto | null>(null);
+  const [deletePhotoBusy, setDeletePhotoBusy] = useState(false);
+
 
   // Dynamic visible fields for advanced metrics
   const [visibleFields, setVisibleFields] = useState<string[]>([]);
@@ -140,6 +166,69 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
   useEffect(() => {
     reload();
   }, [refreshKey, reload]);
+
+  useEffect(() => {
+    reloadPhotos();
+  }, [refreshPhotosKey, reloadPhotos]);
+
+  const handlePhotoUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !photoFile) return;
+
+    const wNum = photoWeight ? parseFloat(photoWeight.replace(",", ".")) : undefined;
+    if (photoWeight && (wNum === undefined || isNaN(wNum) || wNum <= 0)) {
+      setAlertSheet({ title: "Ungültiges Gewicht", message: "Bitte ein gültiges Gewicht eingeben." });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await uploadBodyPhoto(
+        user.id,
+        photoFile,
+        photoOrientation,
+        wNum,
+        new Date(photoDate + "T12:00:00").toISOString()
+      );
+      setPhotoFile(null);
+      setPhotoWeight("");
+      setPhotoDate(toInputDateString(new Date().toISOString()));
+      setRefreshPhotosKey((k) => k + 1);
+      
+      // Reset comparisons
+      setSelectedBeforePhoto(null);
+      setSelectedAfterPhoto(null);
+    } catch (err: unknown) {
+      setAlertSheet({
+        title: "Upload fehlgeschlagen",
+        message: err instanceof Error ? err.message : "Fehler beim Upload des Bildes",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeletePhotoConfirm = async () => {
+    if (!deletePhotoTarget || deletePhotoBusy) return;
+
+    setDeletePhotoBusy(true);
+    try {
+      await deleteBodyPhoto(deletePhotoTarget.id, deletePhotoTarget.photoPath);
+      setDeletePhotoTarget(null);
+      setRefreshPhotosKey((k) => k + 1);
+      
+      if (selectedBeforePhoto?.id === deletePhotoTarget.id) setSelectedBeforePhoto(null);
+      if (selectedAfterPhoto?.id === deletePhotoTarget.id) setSelectedAfterPhoto(null);
+    } catch (err: unknown) {
+      setAlertSheet({
+        title: "Löschen fehlgeschlagen",
+        message: err instanceof Error ? err.message : "Fehler beim Löschen des Bildes",
+      });
+    } finally {
+      setDeletePhotoBusy(false);
+    }
+  };
+
 
   // Set default values from latest measurement if available
   useEffect(() => {
@@ -406,6 +495,58 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
         <span style={{ width: 24 }} />
       </div>
 
+      <div style={{ padding: "0 22px 12px" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 4,
+            padding: 4,
+            borderRadius: 12,
+            background: M.card,
+            border: "1px solid " + M.line2,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setActiveTab("werte")}
+            style={{
+              flex: 1,
+              padding: "10px 0",
+              borderRadius: 10,
+              border: "none",
+              background: activeTab === "werte" ? M.acc : "transparent",
+              color: activeTab === "werte" ? M.accInk : M.mut,
+              fontFamily: M.disp,
+              fontWeight: 700,
+              fontSize: 14,
+              letterSpacing: 0.4,
+              cursor: "pointer",
+            }}
+          >
+            WERTE
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("fotos")}
+            style={{
+              flex: 1,
+              padding: "10px 0",
+              borderRadius: 10,
+              border: "none",
+              background: activeTab === "fotos" ? M.acc : "transparent",
+              color: activeTab === "fotos" ? M.accInk : M.mut,
+              fontFamily: M.disp,
+              fontWeight: 700,
+              fontSize: 14,
+              letterSpacing: 0.4,
+              cursor: "pointer",
+            }}
+          >
+            FOTOS
+          </button>
+        </div>
+      </div>
+
       {/* Content */}
       <div
         style={{
@@ -415,6 +556,8 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
           padding: "0 22px 24px",
         }}
       >
+        {activeTab === "werte" && (
+          <>
 
         {/* Geschlechtstoggle für WHR-Auswertung */}
         <div
@@ -1142,6 +1285,464 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
             </div>
           )}
         </div>
+      </>
+    )}
+
+
+      {/* Foto-Tab-Inhalt */}
+      {activeTab === "fotos" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Foto-Upload Formular */}
+          <form
+            onSubmit={handlePhotoUpload}
+            style={{
+              background: M.card,
+              border: "1px solid " + M.line2,
+              borderRadius: 18,
+              padding: "16px 16px 18px",
+            }}
+          >
+            <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 12 }}>
+              FOTO HINZUFÜGEN
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Ausrichtungs-Auswahl */}
+              <div>
+                <label style={{ fontSize: 11, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
+                  Ausrichtung
+                </label>
+                <div style={{ display: "flex", gap: 4, background: M.panel, padding: 2, borderRadius: 8, border: "1px solid " + M.line2 }}>
+                  {(["front", "back", "side"] as const).map((orient) => {
+                    const label = orient === "front" ? "Vorne" : orient === "back" ? "Hinten" : "Seite";
+                    const on = photoOrientation === orient;
+                    return (
+                      <button
+                        key={orient}
+                        type="button"
+                        onClick={() => setPhotoOrientation(orient)}
+                        style={{
+                          flex: 1,
+                          padding: "6px 10px",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          border: "none",
+                          borderRadius: 6,
+                          cursor: "pointer",
+                          background: on ? M.acc : "transparent",
+                          color: on ? M.accInk : M.mut,
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Gewicht (optional) & Datum */}
+              <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 11, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
+                    Gewicht (kg, optional)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="—"
+                    value={photoWeight}
+                    onChange={(e) => setPhotoWeight(e.target.value)}
+                    style={{
+                      width: "100%",
+                      height: 38,
+                      background: M.panel,
+                      border: "1px solid " + M.line,
+                      borderRadius: 10,
+                      color: M.fg,
+                      fontFamily: M.disp,
+                      fontWeight: 700,
+                      fontSize: 18,
+                      textAlign: "center",
+                      outline: "none",
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 11, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
+                    Datum
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={photoDate}
+                    onChange={(e) => setPhotoDate(e.target.value)}
+                    style={{
+                      width: "100%",
+                      height: 38,
+                      background: M.panel,
+                      border: "1px solid " + M.line,
+                      borderRadius: 10,
+                      color: M.fg,
+                      fontFamily: M.body,
+                      fontWeight: 600,
+                      fontSize: 14,
+                      textAlign: "center",
+                      outline: "none",
+                      padding: "0 8px",
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* File Picker */}
+              <div>
+                <label style={{ fontSize: 11, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
+                  Bilddatei
+                </label>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: 44,
+                    borderRadius: 10,
+                    border: "1px dashed " + M.line,
+                    background: photoFile ? M.accSoft : "transparent",
+                    color: photoFile ? M.acc : M.mut,
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    position: "relative",
+                  }}
+                >
+                  <Icon name="plus" size={14} color={photoFile ? M.acc : M.mut} style={{ marginRight: 6 }} />
+                  {photoFile ? photoFile.name : "FOTO AUSWÄHLEN..."}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setPhotoFile(e.target.files[0]);
+                      }
+                    }}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                      opacity: 0,
+                      cursor: "pointer",
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Upload Button */}
+              <button
+                type="submit"
+                disabled={uploading || !photoFile}
+                style={{
+                  height: 40,
+                  borderRadius: 12,
+                  border: "none",
+                  background: photoFile ? M.acc : M.line,
+                  color: photoFile ? M.accInk : M.mut,
+                  fontWeight: 700,
+                  cursor: uploading || !photoFile ? "not-allowed" : "pointer",
+                  fontSize: 14,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  marginTop: 6,
+                }}
+              >
+                {uploading ? "WIRD HOCHGELADEN..." : "FOTO HOCHLADEN"}
+              </button>
+            </div>
+          </form>
+
+          {/* Split Slider Vergleich */}
+          {selectedBeforePhoto && selectedAfterPhoto && (
+            <div
+              style={{
+                background: M.card,
+                border: "1px solid " + M.line2,
+                borderRadius: 18,
+                padding: "16px 16px 12px",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <span style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut, fontWeight: 700 }}>
+                  VORHER / NACHHER VERGLEICH ({compareOrientation === "front" ? "VORNE" : compareOrientation === "back" ? "HINTEN" : "SEITE"})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedBeforePhoto(null);
+                    setSelectedAfterPhoto(null);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#ff5e5e",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  AUSWAHL ZURÜCKSETZEN
+                </button>
+              </div>
+              <SplitImageSlider
+                beforeUrl={getBodyPhotoPublicUrl(selectedBeforePhoto.photoPath)}
+                afterUrl={getBodyPhotoPublicUrl(selectedAfterPhoto.photoPath)}
+                beforeDate={formatDateDe(selectedBeforePhoto.performedAt)}
+                afterDate={formatDateDe(selectedAfterPhoto.performedAt)}
+                beforeWeight={selectedBeforePhoto.weightKg?.toFixed(1)}
+                afterWeight={selectedAfterPhoto.weightKg?.toFixed(1)}
+              />
+            </div>
+          )}
+
+          {/* Galerie */}
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+              <span style={{ fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>
+                FOTOGALERIE
+              </span>
+            </div>
+
+            {/* Galerie Filter */}
+            <div
+              style={{
+                display: "flex",
+                gap: 4,
+                padding: 4,
+                borderRadius: 12,
+                background: M.card,
+                border: "1px solid " + M.line2,
+                marginBottom: 12,
+              }}
+            >
+              {(["front", "back", "side"] as const).map((orient) => {
+                const label = orient === "front" ? "Vorne" : orient === "back" ? "Hinten" : "Seite";
+                const on = compareOrientation === orient;
+                return (
+                  <button
+                    key={orient}
+                    type="button"
+                    onClick={() => {
+                      setCompareOrientation(orient);
+                      setSelectedBeforePhoto(null);
+                      setSelectedAfterPhoto(null);
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "8px 0",
+                      borderRadius: 10,
+                      border: "none",
+                      background: on ? M.acc : "transparent",
+                      color: on ? M.accInk : M.mut,
+                      fontFamily: M.disp,
+                      fontWeight: 700,
+                      fontSize: 13,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {loadingPhotos && <div style={{ color: M.mut, fontSize: 14 }}>Fotos werden geladen…</div>}
+            {errorPhotos && <div style={{ color: "#ff8a8a", fontSize: 14 }}>{errorPhotos}</div>}
+
+            {!loadingPhotos && !errorPhotos && photos && (
+              (() => {
+                const filteredPhotos = photos.filter((p) => p.orientation === compareOrientation);
+
+                if (filteredPhotos.length === 0) {
+                  return (
+                    <div
+                      style={{
+                        background: M.card,
+                        border: "1px solid " + M.line2,
+                        borderRadius: 14,
+                        padding: "24px 16px",
+                        color: M.mut,
+                        fontSize: 13,
+                        textAlign: "center",
+                      }}
+                    >
+                      Noch keine Fotos für diese Ansicht hochgeladen.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    {filteredPhotos.map((p) => {
+                      const url = getBodyPhotoPublicUrl(p.photoPath);
+                      const isBefore = selectedBeforePhoto?.id === p.id;
+                      const isAfter = selectedAfterPhoto?.id === p.id;
+
+                      return (
+                        <div
+                          key={p.id}
+                          style={{
+                            background: M.card,
+                            border: (isBefore || isAfter) ? "2px solid " + M.acc : "1px solid " + M.line,
+                            borderRadius: 16,
+                            overflow: "hidden",
+                            display: "flex",
+                            flexDirection: "column",
+                            position: "relative",
+                          }}
+                        >
+                          {/* Image Container with Delete Button */}
+                          <div style={{ position: "relative", width: "100%", paddingBottom: "133.33%" }}>
+                            <img
+                              src={url}
+                              alt="Galerie Eintrag"
+                              style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                            />
+                            
+                            {/* Selection indicators */}
+                            {isBefore && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  top: 8,
+                                  left: 8,
+                                  background: M.acc,
+                                  color: M.accInk,
+                                  fontSize: 9,
+                                  fontWeight: 800,
+                                  padding: "3px 6px",
+                                  borderRadius: 4,
+                                  boxShadow: "0 2px 5px rgba(0,0,0,0.3)",
+                                }}
+                              >
+                                VORHER
+                              </div>
+                            )}
+                            {isAfter && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  top: 8,
+                                  left: 8,
+                                  background: M.acc,
+                                  color: M.accInk,
+                                  fontSize: 9,
+                                  fontWeight: 800,
+                                  padding: "3px 6px",
+                                  borderRadius: 4,
+                                  boxShadow: "0 2px 5px rgba(0,0,0,0.3)",
+                                }}
+                              >
+                                NACHHER
+                              </div>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => setDeletePhotoTarget(p)}
+                              style={{
+                                position: "absolute",
+                                top: 8,
+                                right: 8,
+                                width: 28,
+                                height: 28,
+                                borderRadius: "50%",
+                                background: "rgba(0,0,0,0.6)",
+                                border: "none",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "#ff5e5e",
+                              }}
+                            >
+                              <Icon name="trash" size={14} stroke={2} />
+                            </button>
+                          </div>
+
+                          {/* Details & Selection Buttons */}
+                          <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              <span style={{ fontSize: 11.5, fontWeight: 700, color: M.fg }}>
+                                {formatDateDe(p.performedAt)}
+                              </span>
+                              {p.weightKg !== undefined && (
+                                <span style={{ fontSize: 10.5, color: M.mut, fontWeight: 600 }}>
+                                  {p.weightKg.toFixed(1)} kg
+                                </span>
+                              )}
+                            </div>
+
+                            <div style={{ display: "flex", gap: 4, marginTop: "auto" }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isAfter) setSelectedAfterPhoto(null);
+                                  setSelectedBeforePhoto(isBefore ? null : p);
+                                }}
+                                style={{
+                                  flex: 1,
+                                  height: 24,
+                                  borderRadius: 6,
+                                  border: "none",
+                                  background: isBefore ? M.acc : M.panel,
+                                  color: isBefore ? M.accInk : M.mut,
+                                  fontSize: 9.5,
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                VORHER
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isBefore) setSelectedBeforePhoto(null);
+                                  setSelectedAfterPhoto(isAfter ? null : p);
+                                }}
+                                style={{
+                                  flex: 1,
+                                  height: 24,
+                                  borderRadius: 6,
+                                  border: "none",
+                                  background: isAfter ? M.acc : M.panel,
+                                  color: isAfter ? M.accInk : M.mut,
+                                  fontSize: 9.5,
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                NACHHER
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()
+            )}
+          </div>
+        </div>
+      )}
       </div>
 
       {alertSheet && (
@@ -1165,6 +1766,21 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
           onCancel={() => setDeleteTarget(null)}
         />
       )}
+      {deletePhotoTarget && (
+        <DeleteConfirmDialog
+          title="Foto löschen?"
+          message={
+            <>
+              Möchtest du dieses Foto vom{" "}
+              <strong style={{ color: M.fg }}>{formatDateDe(deletePhotoTarget.performedAt)}</strong> wirklich löschen?
+            </>
+          }
+          busy={deletePhotoBusy}
+          onConfirm={handleDeletePhotoConfirm}
+          onCancel={() => setDeletePhotoTarget(null)}
+        />
+      )}
+
     </div>
   );
 }

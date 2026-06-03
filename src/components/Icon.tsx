@@ -22,6 +22,7 @@ const ICON_PATHS: Record<string, string> = {
   search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4",
   edit: "M4 20h4L18 10l-4-4L4 16zM14 6l4 4",
   bolt: "M13 2L4 14h7l-1 8 9-12h-7z",
+  sparkles: "M12 2L13.2 8.8L20 10L13.2 11.2L12 18L10.8 11.2L4 10L10.8 8.8L12 2zM19 15L19.6 17.2L22 17.8L19.6 18.4L19 20.6L18.4 18.4L16 17.8L18.4 17.2L19 15z",
   arrowUp: "M12 19V5M5 12l7-7 7 7",
   grip: "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01",
   clock: "M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z",
@@ -29,8 +30,14 @@ const ICON_PATHS: Record<string, string> = {
   history: "M3 4v5h5M3.5 9a9 9 0 1 0 2.2-3.6L3 9M12 8v5l4 2",
   calendar: "M8 2v4M16 2v4M4 7h16M5 7v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7",
   layers: "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
+  copy: "M9 9h10v11H9zM5 5h10v2M5 5v11h2",
   calculator: "M4 4h16v16H4z M4 9h16 M9 9v11 M15 9v11 M4 14h16",
   scale: "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm7 3a3 3 0 0 0-3 3h6a3 3 0 0 0-3-3zm-4 7h8",
+  externalLink:
+    "M15 3h6v6M10 14L21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6",
+  like: "M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3",
+  dislike: "M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm12-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3",
+  alertCircle: "M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm0-14v4m0 4h.01",
 };
 
 export interface IconProps {
@@ -51,7 +58,7 @@ export function Icon({
   style,
 }: IconProps) {
   const d = ICON_PATHS[name] || "";
-  const filled = name === "play" || name === "pause" || name === "bolt" || name === "flame";
+  const filled = name === "play" || name === "pause" || name === "bolt" || name === "flame" || name === "sparkles";
   return (
     <svg
       width={size}

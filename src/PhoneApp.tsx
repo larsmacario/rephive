@@ -36,9 +36,12 @@ import { ProfileScreen } from "./screens/ProfileScreen";
 import { StatsScreen } from "./screens/StatsScreen";
 import { CalculatorScreen } from "./screens/CalculatorScreen";
 import { BodyTrackerScreen } from "./screens/BodyTrackerScreen";
+import { AboutScreen } from "./screens/AboutScreen";
+import { SupportScreen } from "./screens/SupportScreen";
 import { ActiveTimerProvider, useActiveTimer } from "./lib/activeTimer";
 import { usePreferences } from "./lib/preferences";
 import { OnboardingWizard } from "./screens/OnboardingWizard";
+import { AITrainingPlanWizard } from "./screens/AITrainingPlanWizard";
 
 type Route =
   | { kind: "tracking"; session: Workout; workoutId?: string; startedAt: number; tags: string[]; planId?: string }
@@ -53,6 +56,9 @@ type Route =
   | { kind: "stats" }
   | { kind: "calculator" }
   | { kind: "bodyTracker" }
+  | { kind: "about" }
+  | { kind: "support" }
+  | { kind: "aiTrainingPlanWizard" }
   | null;
 
 type FinishPayload = {
@@ -210,6 +216,9 @@ function PhoneAppInner() {
     console.log("goBodyTracker triggered, setting route to bodyTracker");
     setRoute({ kind: "bodyTracker" });
   };
+  const goAbout = () => setRoute({ kind: "about" });
+  const goSupport = () => setRoute({ kind: "support" });
+  const goAITrainingPlanWizard = () => setRoute({ kind: "aiTrainingPlanWizard" });
   const close = (toTab?: Tab) => {
     setRoute(null);
     if (toTab) setTab(toTab);
@@ -262,6 +271,10 @@ function PhoneAppInner() {
   };
 
   const handleTab = (t: Tab) => {
+    if (t === "ai-plan") {
+      goAITrainingPlanWizard();
+      return;
+    }
     if (timerActive && tab === "timer" && t !== "timer") {
       setPendingTab(t);
       return;
@@ -387,6 +400,23 @@ function PhoneAppInner() {
   } else if (route?.kind === "bodyTracker") {
     body = <BodyTrackerScreen onBack={() => close("home")} />;
     showNav = false;
+  } else if (route?.kind === "about") {
+    body = <AboutScreen onBack={() => close("home")} />;
+    showNav = false;
+  } else if (route?.kind === "support") {
+    body = <SupportScreen onBack={() => close("home")} />;
+    showNav = false;
+  } else if (route?.kind === "aiTrainingPlanWizard") {
+    body = (
+      <AITrainingPlanWizard
+        onBack={() => close("home")}
+        onPlanGenerated={() => {
+          setRefreshKey((k) => k + 1);
+          close("home");
+        }}
+      />
+    );
+    showNav = false;
   } else if (tab === "home") {
     body = (
       <HomeScreen
@@ -405,6 +435,9 @@ function PhoneAppInner() {
         onOpenStats={goStats}
         onOpenCalculator={goCalculator}
         onOpenBodyTracker={goBodyTracker}
+        onOpenAbout={goAbout}
+        onOpenSupport={goSupport}
+        onOpenAITrainingPlan={goAITrainingPlanWizard}
         trackLoading={trackLoading}
       />
     );

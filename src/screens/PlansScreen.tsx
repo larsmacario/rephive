@@ -3,6 +3,7 @@ import { M } from "../theme";
 import { usePlans } from "../lib/db";
 import { Icon } from "../components/Icon";
 import { MTag } from "../components/widgets";
+import { FLOAT_NAV_SCROLL_BOTTOM_GAP } from "../components/FloatNav";
 
 export interface PlansScreenProps {
   onOpenBuilder: () => void;
@@ -59,7 +60,7 @@ export function PlansScreen({ onOpenBuilder, onOpenPlan, refreshKey = 0 }: Plans
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
-          padding: "0 22px 16px",
+          padding: `0 22px ${FLOAT_NAV_SCROLL_BOTTOM_GAP}px`,
           display: "flex",
           flexDirection: "column",
           gap: 8,

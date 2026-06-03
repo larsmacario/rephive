@@ -51,7 +51,7 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
   const isCustom = !workoutId;
   const breakpoint = useBreakpoint();
   const maxW = contentMaxWidth(breakpoint);
-  const { preferences } = usePreferences();
+  const { preferences, updatePreferences } = usePreferences();
   const { data: library, loading: libraryLoading, reload: reloadExercises } = useExercises();
   const W = useWorkout(session, {
     restSeconds: preferences.restSeconds,
@@ -125,9 +125,16 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
     });
   };
 
-  const handleSave = async () => {
+  const handleSave = async (feedback: Record<string, { rating: "like" | "dislike" | "pain" }>) => {
     setFinishing(true);
     try {
+      if (Object.keys(feedback).length > 0) {
+        const nextFeedback = { ...(preferences.exerciseFeedback || {}) };
+        for (const [name, val] of Object.entries(feedback)) {
+          nextFeedback[name] = val;
+        }
+        updatePreferences({ exerciseFeedback: nextFeedback });
+      }
       await onFinish(buildFinishPayload());
     } finally {
       setFinishing(false);
@@ -251,7 +258,7 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
-          padding: "0 18px 14px",
+          padding: "0 18px 16px",
           display: "flex",
           flexDirection: "column",
           gap: 10,
@@ -304,7 +311,8 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
                 background: M.card,
                 border: "1px solid " + (isOpen ? M.line : M.line2),
                 borderRadius: 16,
-                overflow: "hidden",
+                flexShrink: 0,
+                overflow: isOpen ? "visible" : "hidden",
               }}
             >
               <div
@@ -645,6 +653,7 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
           totalSets={W.totalSets}
           volumeKg={W.volume}
           busy={finishing}
+          exercises={W.wo.exercises.map((e) => e.name)}
           onSave={handleSave}
           onDiscard={handleDiscard}
           onClose={() => setFinishSheet(false)}

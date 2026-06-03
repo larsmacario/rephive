@@ -2,22 +2,26 @@ import { M, Z } from "../theme";
 import { CONTENT_HORIZONTAL_PADDING } from "../lib/responsive";
 import { Icon } from "./Icon";
 
-export type Tab = "home" | "plans" | "workouts" | "timer" | "history";
+export type Tab = "home" | "plans" | "ai-plan" | "workouts" | "timer" | "history";
 
 export const NAV: { id: Tab; label: string; icon: string }[] = [
   { id: "home", label: "Start", icon: "home" },
   { id: "plans", label: "Pläne", icon: "layers" },
+  { id: "ai-plan", label: "KI Plan", icon: "sparkles" },
   { id: "workouts", label: "Workouts", icon: "dumbbell" },
-  { id: "timer", label: "Timer", icon: "timer" },
   { id: "history", label: "Verlauf", icon: "history" },
 ];
 
 export const FLOAT_NAV_EDGE_MARGIN = 12;
 export const FLOAT_NAV_ICON_SIZE = 44;
 export const FLOAT_NAV_PADDING_Y = 6;
-export const FLOAT_NAV_CONTENT_BUFFER = 8;
 export const FLOAT_NAV_BOTTOM_MARGIN = 8;
+/** Bottom padding for tab scroll areas — matches gap above the nav bar. */
+export const FLOAT_NAV_SCROLL_BOTTOM_GAP = FLOAT_NAV_BOTTOM_MARGIN;
 export const FLOAT_NAV_ACTIVE_EDGE_INSET = 6;
+
+/** Same offset as nav `bottom` — must match floatNavContentInset or iOS shows extra gap above nav. */
+export const FLOAT_NAV_BOTTOM_OFFSET_CSS = `max(${FLOAT_NAV_BOTTOM_MARGIN}px, calc(env(safe-area-inset-bottom, 0px) - 24px))`;
 
 /** Visual height of the bottom nav bar (excludes safe-area — added separately). */
 export const FLOAT_NAV_BAR_SIZE =
@@ -26,7 +30,7 @@ export const FLOAT_NAV_BAR_SIZE =
 /** Content inset so scroll areas clear the fixed nav on mobile/tablet. */
 export function floatNavContentInset(placement: "bottom" | "left"): string {
   if (placement === "bottom") {
-    return `calc(${FLOAT_NAV_BAR_SIZE}px + ${FLOAT_NAV_CONTENT_BUFFER}px + ${FLOAT_NAV_BOTTOM_MARGIN}px + env(safe-area-inset-bottom, 0px))`;
+    return `calc(${FLOAT_NAV_BAR_SIZE}px + ${FLOAT_NAV_SCROLL_BOTTOM_GAP}px + ${FLOAT_NAV_BOTTOM_OFFSET_CSS})`;
   }
   return `calc(${FLOAT_NAV_BAR_SIZE}px + ${FLOAT_NAV_EDGE_MARGIN}px + env(safe-area-inset-left, 0px))`;
 }
@@ -34,7 +38,7 @@ export function floatNavContentInset(placement: "bottom" | "left"): string {
 export function FloatNav({
   tab,
   onTab,
-  timerActive,
+  timerActive: _timerActive,
   placement,
 }: {
   tab: Tab;
@@ -55,7 +59,7 @@ export function FloatNav({
           ? {
               left: CONTENT_HORIZONTAL_PADDING,
               right: CONTENT_HORIZONTAL_PADDING,
-              bottom: `calc(${FLOAT_NAV_BOTTOM_MARGIN}px + env(safe-area-inset-bottom, 0px))`,
+              bottom: FLOAT_NAV_BOTTOM_OFFSET_CSS,
             }
           : {
               left: `calc(${FLOAT_NAV_EDGE_MARGIN}px + env(safe-area-inset-left, 0px))`,
@@ -72,7 +76,7 @@ export function FloatNav({
           alignItems: "center",
           gap: horizontal ? 0 : 4,
           padding: horizontal
-            ? `${FLOAT_NAV_PADDING_Y}px ${tab === "history" ? FLOAT_NAV_ACTIVE_EDGE_INSET : 0}px ${FLOAT_NAV_PADDING_Y}px ${tab === "home" ? FLOAT_NAV_ACTIVE_EDGE_INSET : 0}px`
+            ? `${FLOAT_NAV_PADDING_Y}px ${FLOAT_NAV_ACTIVE_EDGE_INSET}px`
             : 6,
           width: horizontal ? "100%" : undefined,
           borderRadius: horizontal ? 20 : 22,
@@ -85,7 +89,6 @@ export function FloatNav({
       >
         {NAV.map((n) => {
           const on = tab === n.id;
-          const live = timerActive && n.id === "timer";
           return (
             <button
               key={n.id}
@@ -104,27 +107,19 @@ export function FloatNav({
                 border: "none",
                 borderRadius: 14,
                 cursor: "pointer",
-                background: on || live ? M.accSoft : "transparent",
-                color: on || live ? M.acc : M.mut,
+                background: on ? M.accSoft : "transparent",
+                color: on ? M.acc : M.mut,
                 position: "relative",
+                transition: "all 0.2s ease",
               }}
             >
               <span style={{ position: "relative", display: "flex" }}>
-                <Icon name={n.icon} size={23} stroke={2} color={on || live ? M.acc : M.mut} />
-                {live && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: -2,
-                      right: -4,
-                      width: 8,
-                      height: 8,
-                      borderRadius: 4,
-                      background: M.acc,
-                      boxShadow: `0 0 8px ${M.acc}`,
-                    }}
-                  />
-                )}
+                <Icon
+                  name={n.icon}
+                  size={23}
+                  stroke={2}
+                  color={on ? M.acc : M.mut}
+                />
               </span>
             </button>
           );

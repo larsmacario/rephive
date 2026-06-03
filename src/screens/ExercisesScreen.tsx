@@ -8,6 +8,7 @@ import { Icon } from "../components/Icon";
 import { AlertSheet } from "../components/AlertSheet";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { ExerciseFormSheet } from "../components/ExerciseFormSheet";
+import { FLOAT_NAV_SCROLL_BOTTOM_GAP } from "../components/FloatNav";
 
 export interface ExercisesScreenProps {
   refreshKey?: number;
@@ -131,7 +132,7 @@ export function ExercisesScreen({ refreshKey = 0 }: ExercisesScreenProps) {
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
-          padding: "0 22px 16px",
+          padding: `0 22px ${FLOAT_NAV_SCROLL_BOTTOM_GAP}px`,
           display: "flex",
           flexDirection: "column",
           gap: 8,

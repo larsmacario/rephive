@@ -91,6 +91,44 @@ export type Database = {
           }
         ]
       }
+      body_photos: {
+        Row: {
+          created_at: string
+          id: string
+          photo_path: string
+          orientation: string
+          weight_kg: number | null
+          performed_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          photo_path: string
+          orientation: string
+          weight_kg?: number | null
+          performed_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          photo_path?: string
+          orientation?: string
+          weight_kg?: number | null
+          performed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "body_photos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       exercises: {
         Row: {
           created_at: string
@@ -192,22 +230,28 @@ export type Database = {
       }
       profiles: {
         Row: {
+          birth_date: string | null
           created_at: string
           display_name: string | null
           id: string
           preferences: Json
+          role: Database["public"]["Enums"]["app_role"]
         }
         Insert: {
+          birth_date?: string | null
           created_at?: string
           display_name?: string | null
           id: string
           preferences?: Json
+          role?: Database["public"]["Enums"]["app_role"]
         }
         Update: {
+          birth_date?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
           preferences?: Json
+          role?: Database["public"]["Enums"]["app_role"]
         }
         Relationships: []
       }
@@ -299,6 +343,33 @@ export type Database = {
           },
         ]
       }
+      support_requests: {
+        Row: {
+          category: string
+          contact_email: string
+          created_at: string
+          id: string
+          message: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          contact_email: string
+          created_at?: string
+          id?: string
+          message: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          contact_email?: string
+          created_at?: string
+          id?: string
+          message?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       workout_exercises: {
         Row: {
           id: string
@@ -378,7 +449,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      app_role: "athlet" | "coach" | "owner"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -505,6 +576,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["athlet", "coach", "owner"],
+    },
   },
 } as const

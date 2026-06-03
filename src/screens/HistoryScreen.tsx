@@ -4,6 +4,7 @@ import { useSessions } from "../lib/db";
 import { formatTimerHistorySubtitle, isTimerSession } from "../lib/timerSession";
 import { Icon } from "../components/Icon";
 import { MStat } from "../components/widgets";
+import { FLOAT_NAV_SCROLL_BOTTOM_GAP } from "../components/FloatNav";
 
 export interface HistoryScreenProps {
   onOpenSession: (sessionId: string) => void;
@@ -61,7 +62,7 @@ export function HistoryScreen({ onOpenSession, onOpenStats, refreshKey = 0 }: Hi
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
-          padding: "0 22px 16px",
+          padding: `0 22px ${FLOAT_NAV_SCROLL_BOTTOM_GAP}px`,
           display: "flex",
           flexDirection: "column",
           gap: 8,

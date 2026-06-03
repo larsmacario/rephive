@@ -3,6 +3,7 @@ import { APP_NAME, M } from "../theme";
 import { useAuth } from "../lib/auth";
 import { usePreferences } from "../lib/preferences";
 import { Icon } from "../components/Icon";
+import { BirthDateField } from "../components/BirthDateField";
 import { AppLogo } from "../components/AppLogo";
 import { createBodyMeasurement } from "../lib/db";
 import { useBreakpoint } from "../lib/responsive";
@@ -76,7 +77,7 @@ const btnSecondary: React.CSSProperties = {
 };
 
 export function OnboardingWizard() {
-  const { user, profile, updateDisplayName } = useAuth();
+  const { user, profile, updateDisplayName, updateBirthDate } = useAuth();
   const { updatePreferences } = usePreferences();
   const breakpoint = useBreakpoint();
   
@@ -86,6 +87,7 @@ export function OnboardingWizard() {
   const [fitnessGoal, setFitnessGoal] = useState<"muscle_building" | "fat_loss" | "fitness" | "strength" | null>(null);
   const [experienceLevel, setExperienceLevel] = useState<"beginner" | "intermediate" | "advanced" | null>(null);
   const [weeklyDays, setWeeklyDays] = useState<number>(3);
+  const [birthDate, setBirthDate] = useState<string>("");
   const [heightCm, setHeightCm] = useState<string>("");
   const [weightKg, setWeightKg] = useState<string>("");
   
@@ -98,6 +100,12 @@ export function OnboardingWizard() {
       setDisplayName(profile.display_name);
     }
   }, [profile?.display_name]);
+
+  useEffect(() => {
+    if (profile?.birth_date) {
+      setBirthDate(profile.birth_date);
+    }
+  }, [profile?.birth_date]);
 
   const nextStep = () => {
     if (step === 0 && !displayName.trim()) {
@@ -132,15 +140,26 @@ export function OnboardingWizard() {
       // 2. Parse height and weight
       const parsedHeight = heightCm ? parseInt(heightCm, 10) : null;
       const parsedWeight = weightKg ? parseFloat(weightKg) : null;
+      const normalizedBirthDate = birthDate.trim() ? birthDate.trim() : null;
 
-      // 3. Create weight measurement if input exists
+      // 3. Save birth date (optional)
+      if (normalizedBirthDate !== null) {
+        const { error: birthDateErr } = await updateBirthDate(normalizedBirthDate);
+        if (birthDateErr) {
+          setError(birthDateErr);
+          setBusy(false);
+          return;
+        }
+      }
+
+      // 4. Create weight measurement if input exists
       if (parsedWeight && !isNaN(parsedWeight)) {
         await createBodyMeasurement(user.id, {
           weightKg: parsedWeight,
         });
       }
 
-      // 4. Update user preferences and mark as onboarded
+      // 5. Update user preferences and mark as onboarded
       await updatePreferences(
         {
           onboarded: true,
@@ -309,6 +328,8 @@ export function OnboardingWizard() {
                 </button>
               </div>
             </div>
+
+            <BirthDateField value={birthDate} onChange={setBirthDate} />
 
             {/* Fitness Goal Selection */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

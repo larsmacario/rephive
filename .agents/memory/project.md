@@ -2,16 +2,18 @@
 
 ## Ziel
 Workout-Tracker für Gym-/Bodybuilding-Nutzer: Workouts planen, live tracken, Interval-Timer.
-Mobile-first; soll später ohne Rewrite zur nativen App (Capacitor) werden.
+Mobile-first; iOS über Capacitor (gleiche React-App).
 
 ## Tech-Stack
-- Vite + React 18 + TypeScript
-- Supabase (Auth + PostgreSQL, RLS)
-- Inline-Style-Theme (kein CSS-Framework), Google Fonts: Saira Condensed (Display), Archivo (Body)
-- PWA-Manifest vorhanden; `vite.config.ts` nutzt `base: "./"` für Capacitor
+- **Web-App**: Vite + React 18 + TypeScript, Supabase (Auth + PostgreSQL + Storage + Edge Functions, RLS), Inline-Style-Theme (kein CSS-Framework).
+- **Landingpage** (`rephive-landingpage`): Next.js 16 App Router, Deployment **rephive.app** (Root-`app/`, nicht `src/app/`); Marketing + Legal-Seiten.
+- **iOS-App**: Capacitor 8 (WKWebView) — dieselbe Vite/React-App aus `dist/`; Xcode-Projekt unter `ios/`; nach Web-Changes: `npm run build && npx cap sync ios`.
+- Google Fonts: Saira Condensed (Display), Archivo (Body).
+- PWA-Manifest vorhanden; `vite.config.ts` nutzt `base: "./"` für Capacitor.
 
 ## Architektur
-- `src/theme.ts` — Design-Tokens `M` + Helfer (mKind, mMini)
+- **Web-App-Struktur**: `src/theme.ts` (Design-Tokens `M`), `src/lib/db.ts` (DB-Queries), `src/PhoneApp.tsx` (Tab-/Push-Router).
+- **iOS/Capacitor**: `capacitor.config.ts` (`webDir: dist`), `ios/App/`; keine separate Swift-UI-Codebase.
 - `src/lib/responsive.tsx` — Breakpoint-Context (`mobile` / `tablet` / `desktop`), `useBreakpoint()`, `contentMaxWidth()`, `CONTENT_HORIZONTAL_PADDING` (22px)
 - `src/lib/supabase.ts` — typisierter Browser-Client
 - `src/lib/auth.tsx` — AuthProvider, Session, Profile, Konto-Updates (Name/E-Mail/Passwort)
@@ -35,12 +37,13 @@ Mobile-first; soll später ohne Rewrite zur nativen App (Capacitor) werden.
 - `src/components/DeleteConfirmDialog.tsx` — zentriertes Lösch-Modal (1 Schritt: Übungen/Körperwerte; 2 Schritte: Plan/Workout/Session)
 - `src/components/ConfirmSheet.tsx` — Bottom-Sheet für Nicht-Lösch-Bestätigungen (z. B. Workout überspringen, Entwurf verwerfen)
 - `src/components/AlertSheet.tsx` — Bottom-Sheet: Hinweise/Fehler mit einem OK-Button (kein `window.alert`)
+- `src/components/SplitImageSlider.tsx` — interaktiver Wisch-Slider für den visuellen Vorher/Nachher Foto-Vergleich
 - `src/screens/auth/` — Login, Signup, Passwort-Reset (Token)
-- `src/screens/` — Home, Plans, PlanDetail, WorkoutsHub, Library, ExercisesScreen, WorkoutDetail, Timer, History, SessionDetail, SessionEdit, Track, Builder, PlanBuilder, Settings, Profile, Calculator, BodyTracker, OnboardingWizard
+- `src/screens/` — Home, Plans, PlanDetail, WorkoutsHub, Library, ExercisesScreen, WorkoutDetail, Timer, History, SessionDetail, SessionEdit, Track, Builder, PlanBuilder, Settings, Profile, Calculator, BodyTracker, OnboardingWizard, AITrainingPlanWizard, AboutScreen, SupportScreen
 - `src/components/ExerciseFormSheet.tsx` + `ExercisePickerSheet.tsx` — Übungs-CRUD-Formular und gemeinsamer Bibliotheks-Picker
 - `src/PhoneApp.tsx` — Tab-/Push-Router (tracking, builder, workoutDetail, planDetail, sessionDetail, sessionEdit, planBuilder, settings, profile, calculator, bodyTracker)
 
-- `src/components/FloatNav.tsx` — Icon-only-Nav als Overlay: unten Mobile/Tablet (align mit Content-Boxen), links fixed Desktop; `floatNavContentInset()` für Scroll-Padding
+- `src/components/FloatNav.tsx` — Icon-only-Nav als Overlay: unten Mobile/Tablet, links fixed Desktop; `FLOAT_NAV_BOTTOM_OFFSET_CSS` + `floatNavContentInset()` müssen identisch sein (iOS); `FLOAT_NAV_SCROLL_BOTTOM_GAP` für Tab-Scroll-Padding; symmetrisches Nav-Padding (kein Tab-abhängiges Shift)
 - `src/components/PhoneShell.tsx` — App-Shell mit Safe-Area; `reserveBottomSafeArea` wenn Bottom-Nav aktiv
 - `src/App.tsx` — Auth-Gate + ResponsiveProvider
 
@@ -53,7 +56,8 @@ Mobile-first; soll später ohne Rewrite zur nativen App (Capacitor) werden.
 - Übungs-Katalog: Tabelle `exercises` (12 globale Seeds); Workouts-Tab „Workouts | Übungen“; CRUD nur eigene Übungen; `ExercisePickerSheet` in Builder, Track, PlanBuilder, Session-Edit.
 - Übungs-Messung: `metric_type` = `reps` (Wdh. + optional kg) oder `time` (Sekunden im Satz-JSON-Feld `reps`, kg=0); Volumen-Berechnung ignoriert Zeit-Übungen; Standard beim Anlegen aus Bibliothek.
 - Passwort-Reset per E-Mail-Token (OTP), nicht per Link.
-- Nutzer-Preferences in `profiles.preferences` (JSONB); u.a. `timerSounds`, `restSeconds`, `autoRest`, Timer-Defaults; Profil/Settings über Avatar-Menü (Push-Routes, kein extra Tab).
+- Nutzer-Preferences in `profiles.preferences` (JSONB); u.a. `timerSounds`, `restSeconds`, `autoRest`, Timer-Defaults; Profil/Settings/Stats über Avatar-Trigger im Home-Screen als rechtes Sidepanel (Push-Routes, kein extra Tab). Rechtliches im Panel: externe Links zu rephive.app (`/impressum`, `/datenschutz`, `/agb`); Über mich und Support als In-App-Routes.
+- Legal/Support-URLs Web-App: `VITE_LEGAL_BASE_URL` (Default `https://rephive.app`).
 - Timer-Signale: Web Audio API (keine Sound-Dateien), abschaltbar via `timerSounds`; Countdown-Ticks nur bei runterzählenden Phasen (nicht For-Time-Lauf).
 - Aktiver Timer: `ActiveTimerProvider` in `PhoneApp`; Leave-Sheet bei Tab-Wechsel; Modus/Reset-Warnung in `TimerScreen`; Live-Indikator am Nav-Tab „Timer“.
 - Trainingspläne: `plans` + `plan_days` (Workout oder Ruhetag pro Tag); ein aktiver Plan steuert Home-Screen sequenziell.
@@ -63,3 +67,7 @@ Mobile-first; soll später ohne Rewrite zur nativen App (Capacitor) werden.
 - Individuelle Sessions: ohne `workout_id`, Tag „Individuell“; Übungen nur im Session-Snapshot.
 - Supersätze: `superset_id` (uuid) auf `workout_exercises` + `session_exercises`; nur zusammenhängende Übungen mit gleicher ID = Block; Pause (`autoRest`) erst nach letzter Übung der Runde; Verknüpfung im Builder und bei Custom-Tracking; flexible Satzanzahl pro Übung im Block.
 - Onboarding-Prozess: Wird bei unvollständigem Onboarding (`preferences.onboarded === false`) über `PhoneAppInner` verpflichtend eingeblendet und blockiert die normale Navigation. Erfasst grundlegende Anamnese-Daten und legt ggf. ein Gewicht in `body_measurements` an.
+- iOS WKWebView: Flex-Kinder in scrollbaren Flex-Columns nicht schrumpfen lassen (`flexShrink: 0` auf Karten); bei expandierten Track-Karten `overflow: visible`, sonst `hidden` für Border-Radius.
+- Vorher/Nachher Bilder: Fotos werden im Supabase Storage-Bucket `body-photos` unter `{userId}/{filename}` mit RLS abgesichert. Es wird ein nativer HTML5 Dateiupload verwendet, um maximale Capacitor/Web-Parität und Stabilität zu garantieren.
+- KI-Trainingspläne: Wizard (`AITrainingPlanWizard.tsx`) + simulierter Checkout. Edge Function `generate-training-plan` (deployed, JWT-Pflicht); Anthropic API wenn Secret `ANTHROPIC_API_KEY` gesetzt, sonst Mock. Lernt aus letzten 10 Sessions + `exerciseFeedback` in `profiles.preferences`; Modi `new` / `adapt`. Deploy: `scripts/deploy-training-plan.sh` oder `supabase functions deploy generate-training-plan`.
+

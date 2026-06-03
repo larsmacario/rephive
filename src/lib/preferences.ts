@@ -2,6 +2,17 @@ import type { Json } from "./database.types";
 import { TIMER_DEFAULTS, type TimerCfg, type TimerMode } from "./engine";
 import { supabase } from "./supabase";
 
+export interface AnamnesisData {
+  painZones: string[];
+  trainingLocation: "gym" | "home_equipment" | "bodyweight";
+  homeEquipment?: string[];
+  otherSports: { sport: string; frequency: number }[];
+  kfa?: number | null;
+  waistCm?: number | null;
+  hipsCm?: number | null;
+  htv?: number | null;
+}
+
 export interface UserPreferences {
   restSeconds: number;
   autoRest: boolean;
@@ -15,6 +26,8 @@ export interface UserPreferences {
   experienceLevel: "beginner" | "intermediate" | "advanced" | null;
   heightCm: number | null;
   weeklyDays: number | null;
+  anamnesis: AnamnesisData | null;
+  exerciseFeedback: Record<string, { rating: "like" | "dislike" | "pain"; note?: string }> | null;
 }
 
 export type UserPreferencesUpdate = Omit<Partial<UserPreferences>, "timerDefaults"> & {
@@ -38,6 +51,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   experienceLevel: null,
   heightCm: null,
   weeklyDays: null,
+  anamnesis: null,
+  exerciseFeedback: null,
 };
 
 function mergeTimerDefaults(raw: unknown): Record<TimerMode, TimerCfg> {
@@ -93,6 +108,14 @@ export function mergePreferences(raw: Json | null | undefined): UserPreferences 
         : DEFAULT_PREFERENCES.experienceLevel,
     heightCm: typeof obj.heightCm === "number" ? obj.heightCm : DEFAULT_PREFERENCES.heightCm,
     weeklyDays: typeof obj.weeklyDays === "number" ? obj.weeklyDays : DEFAULT_PREFERENCES.weeklyDays,
+    anamnesis:
+      obj.anamnesis && typeof obj.anamnesis === "object"
+        ? (obj.anamnesis as AnamnesisData)
+        : DEFAULT_PREFERENCES.anamnesis,
+    exerciseFeedback:
+      obj.exerciseFeedback && typeof obj.exerciseFeedback === "object"
+        ? (obj.exerciseFeedback as Record<string, { rating: "like" | "dislike" | "pain"; note?: string }>)
+        : DEFAULT_PREFERENCES.exerciseFeedback,
   };
 }
 
@@ -110,6 +133,8 @@ export function preferencesToJson(prefs: UserPreferences): Json {
     experienceLevel: prefs.experienceLevel,
     heightCm: prefs.heightCm,
     weeklyDays: prefs.weeklyDays,
+    anamnesis: prefs.anamnesis ? (prefs.anamnesis as unknown as Json) : null,
+    exerciseFeedback: prefs.exerciseFeedback ? (prefs.exerciseFeedback as unknown as Json) : null,
   };
 }
 

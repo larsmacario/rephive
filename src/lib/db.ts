@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import type { Tables, Json } from "./database.types";
 import { type WorkoutSet } from "./engine";
@@ -894,6 +895,11 @@ export async function fetchBodyMeasurements(userId: string): Promise<BodyMeasure
   return (data ?? []).map(mapBodyMeasurementRow);
 }
 
+export async function fetchLatestBodyMeasurement(userId: string): Promise<BodyMeasurement | null> {
+  const measurements = await fetchBodyMeasurements(userId);
+  return measurements[0] ?? null;
+}
+
 export interface BodyMeasurementInput {
   weightKg: number;
   bodyFatPct?: number;
@@ -985,6 +991,114 @@ export function useBodyMeasurements(refreshKey = 0) {
   }, [user?.id, refreshKey]);
 }
 
+export interface BodyPhoto {
+  id: string;
+  userId: string;
+  photoPath: string;
+  orientation: "front" | "back" | "side";
+  weightKg?: number;
+  performedAt: string;
+  createdAt: string;
+}
+
+function mapBodyPhotoRow(row: Tables<"body_photos">): BodyPhoto {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    photoPath: row.photo_path,
+    orientation: row.orientation as "front" | "back" | "side",
+    weightKg: row.weight_kg !== null ? Number(row.weight_kg) : undefined,
+    performedAt: row.performed_at,
+    createdAt: row.created_at,
+  };
+}
+
+export async function fetchBodyPhotos(userId: string): Promise<BodyPhoto[]> {
+  const { data, error } = await supabase
+    .from("body_photos")
+    .select("*")
+    .eq("user_id", userId)
+    .order("performed_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapBodyPhotoRow);
+}
+
+export async function uploadBodyPhoto(
+  userId: string,
+  file: File,
+  orientation: "front" | "back" | "side",
+  weightKg?: number,
+  performedAt?: string
+): Promise<string> {
+  const fileExt = file.name.split(".").pop();
+  const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+  const path = `${userId}/${fileName}`;
+
+  // 1. Upload file to Supabase Storage
+  const { error: uploadError } = await supabase.storage
+    .from("body-photos")
+    .upload(path, file);
+
+  if (uploadError) throw uploadError;
+
+  try {
+    // 2. Insert record in body_photos table
+    const { data, error: dbError } = await supabase
+      .from("body_photos")
+      .insert({
+        user_id: userId,
+        photo_path: path,
+        orientation,
+        weight_kg: weightKg ?? null,
+        performed_at: performedAt || new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (dbError) {
+      // Clean up uploaded file if DB insert fails
+      await supabase.storage.from("body-photos").remove([path]);
+      throw dbError;
+    }
+
+    return data.id;
+  } catch (err) {
+    // Clean up uploaded file if anything fails
+    await supabase.storage.from("body-photos").remove([path]);
+    throw err;
+  }
+}
+
+export async function deleteBodyPhoto(id: string, photoPath: string): Promise<void> {
+  // 1. Delete DB entry
+  const { error: dbError } = await supabase
+    .from("body_photos")
+    .delete()
+    .eq("id", id);
+  if (dbError) throw dbError;
+
+  // 2. Delete file from Storage
+  try {
+    await supabase.storage.from("body-photos").remove([photoPath]);
+  } catch (err) {
+    console.error("Failed to delete file from storage:", err);
+  }
+}
+
+export function useBodyPhotos(refreshKey = 0) {
+  const { user } = useAuth();
+  return useAsync(async () => {
+    if (!user) return [];
+    return fetchBodyPhotos(user.id);
+  }, [user?.id, refreshKey]);
+}
+
+export function getBodyPhotoPublicUrl(photoPath: string): string {
+  const { data } = supabase.storage.from("body-photos").getPublicUrl(photoPath);
+  return data.publicUrl;
+}
+
+
 export interface ExerciseHistoryEntry {
   sessionId: string;
   sessionName: string;
@@ -1040,4 +1154,115 @@ export function useExerciseHistory(exerciseName: string | null) {
     return fetchExerciseHistory(user.id, exerciseName);
   }, [user?.id, exerciseName]);
 }
+
+export async function generateAndSaveAITrainingPlan(
+  userId: string,
+  input: {
+    gender: "male" | "female" | "other" | null;
+    heightCm: number | null;
+    weightKg: number | null;
+    fitnessGoal: "muscle_building" | "fat_loss" | "fitness" | "strength" | null;
+    experienceLevel: "beginner" | "intermediate" | "advanced" | null;
+    weeklyDays: number;
+    anamnesis: {
+      painZones: string[];
+      trainingLocation: "gym" | "home_equipment" | "bodyweight";
+      otherSports: { sport: string; frequency: number }[];
+      kfa?: number | null;
+    };
+    recentSessions?: any[];
+    exerciseFeedback?: any;
+  }
+): Promise<string> {
+  const { data, error } = await supabase.functions.invoke("generate-training-plan", {
+    body: input,
+  });
+  if (error) {
+    if (error instanceof FunctionsHttpError) {
+      try {
+        const payload = await error.context.json();
+        if (payload && typeof payload.error === "string") {
+          throw new Error(payload.error);
+        }
+      } catch (parseErr) {
+        if (parseErr instanceof Error && parseErr.message !== error.message) {
+          throw parseErr;
+        }
+      }
+    }
+    throw new Error(error.message || "Fehler beim Aufruf der Edge Function");
+  }
+  if (data && typeof data === "object" && "error" in data && typeof (data as { error?: string }).error === "string") {
+    throw new Error((data as { error: string }).error);
+  }
+  if (!data) {
+    throw new Error("Keine Daten von der Edge Function zurückgegeben");
+  }
+
+  // Nun erstellen wir die Workouts aus den Tagen
+  const planDays: CreatePlanDayInput[] = [];
+
+  for (const day of data.days) {
+    if (day.isRestDay) {
+      planDays.push({
+        workoutId: null,
+        note: day.note || "Ruhetag",
+      });
+    } else {
+      // Workout erstellen
+      const workoutId = await createWorkout(userId, {
+        name: day.workout.name,
+        sub: day.workout.sub || "",
+        tags: day.workout.tags || [],
+        durationMin: day.workout.durationMin || 45,
+        exercises: day.workout.exercises.map((e: any) => ({
+          name: e.name,
+          metric: e.metric || "weight_reps",
+          note: e.note || "",
+          sets: (e.sets || [{ reps: 10, kg: 0 }]).map((s: { reps?: number; kg?: number }) => ({
+            reps: s.reps ?? 10,
+            kg: 0,
+          })),
+        })),
+      });
+      planDays.push({
+        workoutId,
+        note: day.note || "",
+      });
+    }
+  }
+
+  // Jetzt den Gesamtplan erstellen und aktivieren
+  const planId = await createPlan(userId, {
+    name: data.name || "KI Trainingsplan",
+    sub: data.sub || "",
+    days: planDays,
+    activate: true,
+  });
+
+  return planId;
+}
+
+export async function fetchRecentSessionsWithExercises(limit = 10): Promise<HistoryEntry[]> {
+  const { data: sessionRows, error } = await supabase
+    .from("sessions")
+    .select("id")
+    .order("performed_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  if (!sessionRows || sessionRows.length === 0) return [];
+  
+  const sessions = await Promise.all(
+    sessionRows.map(async (row) => {
+      try {
+        return await fetchSession(row.id);
+      } catch (e) {
+        console.error(`Fehler beim Laden der Session ${row.id}:`, e);
+        return null;
+      }
+    })
+  );
+  return sessions.filter((s): s is HistoryEntry => s !== null);
+}
+
 

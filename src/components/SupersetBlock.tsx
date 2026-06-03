@@ -13,6 +13,7 @@ export function SupersetBlock({ children, showLabel = true }: SupersetBlockProps
         display: "flex",
         flexDirection: "column",
         gap: 8,
+        flexShrink: 0,
         paddingLeft: 10,
         borderLeft: `3px solid ${M.acc}`,
       }}

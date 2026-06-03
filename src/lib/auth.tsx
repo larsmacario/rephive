@@ -25,6 +25,7 @@ interface AuthContextValue {
   verifyResetToken: (email: string, token: string) => Promise<{ error: string | null }>;
   updatePassword: (password: string) => Promise<{ error: string | null }>;
   updateDisplayName: (displayName: string) => Promise<{ error: string | null }>;
+  updateBirthDate: (birthDate: string | null) => Promise<{ error: string | null }>;
   updateEmail: (email: string) => Promise<{ error: string | null }>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ error: string | null }>;
   refreshProfile: () => Promise<void>;
@@ -156,6 +157,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null };
   }, [user]);
 
+  const updateBirthDate = useCallback(
+    async (birthDate: string | null) => {
+      if (!user) return { error: "Nicht angemeldet." };
+      const normalized = birthDate && birthDate.trim() ? birthDate.trim() : null;
+      if (normalized && !/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+        return { error: "Ungültiges Datumsformat. Bitte YYYY-MM-DD verwenden." };
+      }
+
+      const { error } = await supabase.from("profiles").update({ birth_date: normalized }).eq("id", user.id);
+      if (error) return { error: error.message };
+
+      await loadProfile(user.id);
+      return { error: null };
+    },
+    [user, loadProfile],
+  );
+
   const changePassword = useCallback(
     async (currentPassword: string, newPassword: string) => {
       if (!user?.email) return { error: "Nicht angemeldet." };
@@ -192,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyResetToken,
       updatePassword,
       updateDisplayName,
+      updateBirthDate,
       updateEmail,
       changePassword,
       refreshProfile,
@@ -208,6 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyResetToken,
       updatePassword,
       updateDisplayName,
+      updateBirthDate,
       updateEmail,
       changePassword,
       refreshProfile,

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { M } from "../theme";
 import { useAuth } from "../lib/auth";
-import { deletePlan, setActivePlan, usePlan } from "../lib/db";
+import { deletePlan, setActivePlan, usePlan, useWorkouts } from "../lib/db";
 import { Icon } from "../components/Icon";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
+import { PlanDayAccordion } from "../components/PlanDayAccordion";
+import { OneRmPercentInfoCard } from "../components/OneRmPercentInfoCard";
 import { MTag } from "../components/widgets";
 
 export interface PlanDetailScreenProps {
@@ -16,9 +18,17 @@ export interface PlanDetailScreenProps {
 export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDetailScreenProps) {
   const { user } = useAuth();
   const { data: plan, loading, error, reload } = usePlan(planId);
+  const { data: workouts } = useWorkouts();
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [expandedDayId, setExpandedDayId] = useState<string | null>(null);
+
+  const workoutList = workouts ?? [];
+
+  const handleToggleDay = (dayId: string) => {
+    setExpandedDayId((prev) => (prev === dayId ? null : dayId));
+  };
 
   const handleActivate = async () => {
     if (!user || !plan) return;
@@ -82,6 +92,9 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
 
   const workoutDays = plan.days.filter((d) => !d.isRestDay).length;
   const restDays = plan.days.filter((d) => d.isRestDay).length;
+  const isAiPlan =
+    plan.name.toLowerCase().startsWith("ki ") ||
+    plan.days.some((d) => d.workout?.tags?.some((t) => t.toLowerCase() === "ki"));
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
@@ -152,31 +165,26 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
           </div>
         )}
 
+        {isAiPlan && <OneRmPercentInfoCard style={{ marginTop: 14 }} />}
+
         <div style={{ marginTop: 18, fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>TAGE</div>
         <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
           {plan.days.map((day) => {
             const isCurrent = plan.isActive && day.position === plan.currentDay;
+            const workout = day.workout ? workoutList.find((w) => w.id === day.workout?.id) ?? null : null;
             return (
-              <div
+              <PlanDayAccordion
                 key={day.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                  background: isCurrent ? M.accSoft : M.card,
-                  border: "1px solid " + (isCurrent ? M.acc : M.line2),
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                <span style={{ color: isCurrent ? M.acc : M.mut2, minWidth: 42 }}>Tag {day.position + 1}</span>
-                <span style={{ color: M.fg, flex: 1 }}>
-                  {day.isRestDay ? "Ruhetag" : day.workout?.name ?? "Workout"}
-                </span>
-                <Icon name={day.isRestDay ? "pause" : "dumbbell"} size={16} stroke={2} color={isCurrent ? M.acc : M.mut2} />
-              </div>
+                dayId={day.id}
+                dayNumber={day.position + 1}
+                label={day.isRestDay ? "Ruhetag" : day.workout?.name ?? "Workout"}
+                isRestDay={day.isRestDay}
+                isCurrent={isCurrent}
+                workout={workout}
+                expanded={expandedDayId === day.id}
+                onToggle={handleToggleDay}
+                variant="detail"
+              />
             );
           })}
         </div>

@@ -122,7 +122,8 @@ export function SessionExerciseEditor({
               background: M.card,
               border: "1px solid " + (isOpen ? M.line : M.line2),
               borderRadius: 16,
-              overflow: "hidden",
+              flexShrink: 0,
+              overflow: isOpen ? "visible" : "hidden",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 12px 12px 15px" }}>

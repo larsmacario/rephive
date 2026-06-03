@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { M } from "../theme";
 import { useWorkouts } from "../lib/db";
 import { Icon } from "../components/Icon";
+import { FLOAT_NAV_SCROLL_BOTTOM_GAP } from "../components/FloatNav";
 
 export interface LibraryScreenProps {
   onOpenBuilder: () => void;
@@ -58,7 +59,7 @@ export function LibraryScreen({ onOpenBuilder, onOpenWorkout, refreshKey = 0 }: 
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
-          padding: "0 22px 16px",
+          padding: `0 22px ${FLOAT_NAV_SCROLL_BOTTOM_GAP}px`,
           display: "flex",
           flexDirection: "column",
           gap: 8,

@@ -14,6 +14,7 @@ import {
 import { Icon } from "../components/Icon";
 import { ExerciseSetConfigurator } from "../components/ExerciseSetConfigurator";
 import { ExercisePickerSheet } from "../components/ExercisePickerSheet";
+import { PlanDayAccordion } from "../components/PlanDayAccordion";
 
 interface BuilderDay {
   id: string;
@@ -55,6 +56,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
   const [newWorkoutItems, setNewWorkoutItems] = useState<BuilderItem[]>([]);
   const [creatingWorkout, setCreatingWorkout] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [expandedDayId, setExpandedDayId] = useState<string | null>(null);
 
   const workoutList = workouts ?? [];
   const exLibrary = exerciseLibrary ?? [];
@@ -166,6 +168,11 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
 
   const removeDay = (id: string) => {
     setDays((prev) => prev.filter((d) => d.id !== id));
+    setExpandedDayId((prev) => (prev === id ? null : prev));
+  };
+
+  const handleToggleDay = (dayId: string) => {
+    setExpandedDayId((prev) => (prev === dayId ? null : dayId));
   };
 
   const moveDay = (index: number, direction: -1 | 1) => {
@@ -312,89 +319,82 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
           gap: 10,
         }}
       >
-        {days.map((day, index) => (
-          <div
-            key={day.id}
-            style={{
-              background: M.card,
-              border: "1px solid " + M.line2,
-              borderRadius: 16,
-              padding: "13px 14px",
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-            }}
-          >
-            <div style={{ color: M.mut2, display: "flex", flexDirection: "column", gap: 4 }}>
-              <button
-                disabled={index === 0}
-                onClick={() => moveDay(index, -1)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: index === 0 ? "default" : "pointer",
-                  color: index === 0 ? M.line : M.mut,
-                  padding: 0,
-                  display: "flex",
-                }}
-              >
-                <Icon name="arrowUp" size={16} stroke={2.2} />
-              </button>
-              <button
-                disabled={index === days.length - 1}
-                onClick={() => moveDay(index, 1)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: index === days.length - 1 ? "default" : "pointer",
-                  color: index === days.length - 1 ? M.line : M.mut,
-                  padding: 0,
-                  display: "flex",
-                  transform: "rotate(180deg)",
-                }}
-              >
-                <Icon name="arrowUp" size={16} stroke={2.2} />
-              </button>
-            </div>
-
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut2, fontWeight: 700 }}>TAG {index + 1}</div>
-              <div style={{ fontWeight: 600, fontSize: 15.5, marginTop: 2 }}>
-                {day.workoutId ? day.workoutName ?? "Workout" : "Ruhetag"}
-              </div>
-            </div>
-
-            <div
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 9,
-                background: day.workoutId ? M.accSoft : M.panel,
-                color: day.workoutId ? M.acc : M.mut,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flex: "0 0 auto",
-              }}
-            >
-              <Icon name={day.workoutId ? "dumbbell" : "pause"} size={18} stroke={2} />
-            </div>
-
-            <button
-              onClick={() => removeDay(day.id)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: M.mut2,
-                display: "flex",
-                padding: 4,
-              }}
-            >
-              <Icon name="trash" size={18} stroke={2} />
-            </button>
-          </div>
-        ))}
+        {days.map((day, index) => {
+          const workout = day.workoutId ? workoutList.find((w) => w.id === day.workoutId) ?? null : null;
+          return (
+            <PlanDayAccordion
+              key={day.id}
+              dayId={day.id}
+              dayNumber={index + 1}
+              label={day.workoutId ? day.workoutName ?? "Workout" : "Ruhetag"}
+              isRestDay={!day.workoutId}
+              workout={workout}
+              expanded={expandedDayId === day.id}
+              onToggle={handleToggleDay}
+              variant="builder"
+              leading={
+                <div style={{ color: M.mut2, display: "flex", flexDirection: "column", gap: 4 }}>
+                  <button
+                    type="button"
+                    disabled={index === 0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      moveDay(index, -1);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: index === 0 ? "default" : "pointer",
+                      color: index === 0 ? M.line : M.mut,
+                      padding: 0,
+                      display: "flex",
+                    }}
+                  >
+                    <Icon name="arrowUp" size={16} stroke={2.2} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={index === days.length - 1}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      moveDay(index, 1);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: index === days.length - 1 ? "default" : "pointer",
+                      color: index === days.length - 1 ? M.line : M.mut,
+                      padding: 0,
+                      display: "flex",
+                      transform: "rotate(180deg)",
+                    }}
+                  >
+                    <Icon name="arrowUp" size={16} stroke={2.2} />
+                  </button>
+                </div>
+              }
+              actions={
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeDay(day.id);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: M.mut2,
+                    display: "flex",
+                    padding: 4,
+                  }}
+                >
+                  <Icon name="trash" size={18} stroke={2} />
+                </button>
+              }
+            />
+          );
+        })}
 
         <button
           onClick={openSheet}
