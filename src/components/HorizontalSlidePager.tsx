@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import { M } from "../theme";
 
 export interface HorizontalSlidePagerProps {
@@ -21,9 +21,7 @@ export function HorizontalSlidePager({
   showIndicators = true,
 }: HorizontalSlidePagerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const programmaticScrollRef = useRef(false);
   const activeIndexRef = useRef(activeIndex);
-  const scrollDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     activeIndexRef.current = activeIndex;
@@ -32,14 +30,9 @@ export function HorizontalSlidePager({
   const scrollToIndex = useCallback((index: number, behavior: ScrollBehavior = "smooth") => {
     const el = scrollRef.current;
     if (!el || el.clientWidth === 0) return;
-    const targetLeft = index * el.clientWidth;
-    if (Math.abs(el.scrollLeft - targetLeft) < 2) return;
-
-    programmaticScrollRef.current = true;
-    el.scrollTo({ left: targetLeft, behavior });
-    window.setTimeout(() => {
-      programmaticScrollRef.current = false;
-    }, behavior === "smooth" ? 450 : 100);
+    const left = index * el.clientWidth;
+    if (Math.abs(el.scrollLeft - left) < 1) return;
+    el.scrollTo({ left, behavior });
   }, []);
 
   const goTo = useCallback(
@@ -51,42 +44,31 @@ export function HorizontalSlidePager({
     [count, onIndexChange, scrollToIndex],
   );
 
-  const syncIndexFromScroll = useCallback(() => {
-    if (programmaticScrollRef.current) return;
-    const el = scrollRef.current;
-    if (!el || el.clientWidth === 0) return;
-    const next = Math.max(0, Math.min(count - 1, Math.round(el.scrollLeft / el.clientWidth)));
-    if (next !== activeIndexRef.current) onIndexChange(next);
-  }, [count, onIndexChange]);
-
-  useLayoutEffect(() => {
-    scrollToIndex(activeIndex, "auto");
-  }, [activeIndex, count, scrollToIndex]);
-
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    const onScroll = () => {
-      if (programmaticScrollRef.current) return;
-      if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
-      scrollDebounceRef.current = setTimeout(() => {
-        scrollDebounceRef.current = null;
-        syncIndexFromScroll();
-      }, 80);
+    const updateIndex = () => {
+      if (!el.clientWidth) return;
+      const next = Math.max(0, Math.min(count - 1, Math.round(el.scrollLeft / el.clientWidth)));
+      if (next !== activeIndexRef.current) onIndexChange(next);
     };
 
-    const onScrollEnd = () => syncIndexFromScroll();
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const onScroll = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(updateIndex, 80);
+    };
 
     el.addEventListener("scroll", onScroll, { passive: true });
-    el.addEventListener("scrollend", onScrollEnd);
+    el.addEventListener("scrollend", updateIndex);
 
     return () => {
       el.removeEventListener("scroll", onScroll);
-      el.removeEventListener("scrollend", onScrollEnd);
-      if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
+      el.removeEventListener("scrollend", updateIndex);
+      if (debounceTimer) clearTimeout(debounceTimer);
     };
-  }, [syncIndexFromScroll]);
+  }, [count, onIndexChange]);
 
   if (count === 0) return null;
 
@@ -108,7 +90,7 @@ export function HorizontalSlidePager({
           flex: 1,
           minHeight: 0,
           display: "flex",
-          overflowX: "scroll",
+          overflowX: "auto",
           overflowY: "hidden",
           scrollSnapType: "x mandatory",
           WebkitOverflowScrolling: "touch",
@@ -118,12 +100,10 @@ export function HorizontalSlidePager({
         {children.map((slide, i) => (
           <div
             key={i}
-            aria-hidden={activeIndex !== i}
             style={{
               flex: "0 0 100%",
               width: "100%",
               minWidth: "100%",
-              maxWidth: "100%",
               height: "100%",
               scrollSnapAlign: "start",
               scrollSnapStop: "always",

@@ -28,6 +28,7 @@ export function PlanDaySlide({
   const containerStyle = {
     flex: 1,
     minHeight: 0,
+    height: "100%",
     display: "flex",
     flexDirection: "column" as const,
     overflow: "hidden",

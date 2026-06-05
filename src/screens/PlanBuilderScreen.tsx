@@ -346,6 +346,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
         ) : (
           <>
             <HorizontalSlidePager
+              key={days.map((d) => d.id).join("-")}
               count={days.length}
               activeIndex={activeDayIndex}
               onIndexChange={setActiveDayIndex}

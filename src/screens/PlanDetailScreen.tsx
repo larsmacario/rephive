@@ -277,6 +277,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
 
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 0 8px" }}>
         <HorizontalSlidePager
+          key={plan.id}
           count={slideCount}
           activeIndex={activeSlideIndex}
           onIndexChange={setActiveSlideIndex}
