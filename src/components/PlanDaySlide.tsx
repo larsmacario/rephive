@@ -1,14 +1,19 @@
 import type { ReactNode } from "react";
+import { motion } from "framer-motion";
 import type { LibraryWorkout } from "../data";
+import { prefersReducedMotion } from "../lib/haptics";
 import { M } from "../theme";
 import { Icon } from "./Icon";
 import { WorkoutExercisePreview } from "./PlanDayAccordion";
+
+const ENTRANCE_EASE = [0.25, 0.1, 0.25, 1] as const;
 
 export interface PlanDaySlideProps {
   dayNumber: number;
   label: string;
   isRestDay: boolean;
   isCurrent?: boolean;
+  isActive?: boolean;
   workout?: LibraryWorkout | null;
   variant?: "builder" | "detail";
   actions?: ReactNode;
@@ -19,11 +24,14 @@ export function PlanDaySlide({
   label,
   isRestDay,
   isCurrent = false,
+  isActive = true,
   workout,
   variant = "detail",
   actions,
 }: PlanDaySlideProps) {
   const highlighted = isCurrent;
+  const reducedMotion = prefersReducedMotion();
+  const animateEntrance = isActive && !reducedMotion;
 
   const containerStyle = {
     flex: 1,
@@ -40,8 +48,8 @@ export function PlanDaySlide({
         width: variant === "builder" ? 34 : 32,
         height: variant === "builder" ? 34 : 32,
         borderRadius: variant === "builder" ? 9 : 8,
-        background: isRestDay ? M.panel : M.accSoft,
-        color: isRestDay ? M.mut : M.acc,
+        background: isRestDay ? M.panel : M.brandSoft,
+        color: isRestDay ? M.mut : M.brand,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -52,9 +60,32 @@ export function PlanDaySlide({
     </div>
   );
 
+  const bodyContent = isRestDay ? (
+    <p
+      style={{
+        margin: "24px 0 0",
+        textAlign: "center",
+        color: M.mut,
+        fontSize: 13,
+        fontWeight: 600,
+        lineHeight: 1.5,
+      }}
+    >
+      Kein Workout an diesem Tag — Zeit zur Regeneration.
+    </p>
+  ) : workout ? (
+    <WorkoutExercisePreview workout={workout} flat />
+  ) : (
+    <div style={{ color: M.mut, fontSize: 13, fontWeight: 600 }}>Workout nicht gefunden.</div>
+  );
+
   return (
     <div style={containerStyle}>
-      <div
+      <motion.div
+        key={isActive ? `header-active-${dayNumber}` : `header-idle-${dayNumber}`}
+        initial={animateEntrance ? { opacity: 0, y: 8 } : false}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.22, ease: ENTRANCE_EASE }}
         style={{
           flexShrink: 0,
           display: "flex",
@@ -75,7 +106,7 @@ export function PlanDaySlide({
                 style={{
                   fontSize: 11,
                   letterSpacing: 1.2,
-                  color: highlighted ? M.acc : M.mut2,
+                  color: highlighted ? M.brand : M.mut2,
                   fontWeight: 700,
                 }}
               >
@@ -88,36 +119,28 @@ export function PlanDaySlide({
         </div>
         {typeIcon}
         {actions}
-      </div>
+      </motion.div>
 
       <div
         style={{
           flex: 1,
           minHeight: 0,
+          minWidth: 0,
           overflowY: "auto",
           WebkitOverflowScrolling: "touch",
           overscrollBehavior: "contain",
+          touchAction: "pan-y",
           padding: "0 0 14px",
         }}
       >
-        {isRestDay ? (
-          <p
-            style={{
-              margin: "24px 0 0",
-              textAlign: "center",
-              color: M.mut,
-              fontSize: 13,
-              fontWeight: 600,
-              lineHeight: 1.5,
-            }}
-          >
-            Kein Workout an diesem Tag — Zeit zur Regeneration.
-          </p>
-        ) : workout ? (
-          <WorkoutExercisePreview workout={workout} flat />
-        ) : (
-          <div style={{ color: M.mut, fontSize: 13, fontWeight: 600 }}>Workout nicht gefunden.</div>
-        )}
+        <motion.div
+          key={isActive ? `body-active-${dayNumber}` : `body-idle-${dayNumber}`}
+          initial={animateEntrance ? { opacity: 0, y: 8 } : false}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, delay: animateEntrance ? 0.08 : 0, ease: ENTRANCE_EASE }}
+        >
+          {bodyContent}
+        </motion.div>
       </div>
     </div>
   );

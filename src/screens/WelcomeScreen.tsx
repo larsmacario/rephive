@@ -319,7 +319,7 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
                     width: index === i ? 28 : 10,
                     height: 10,
                     borderRadius: index === i ? 6 : 5,
-                    background: index === i ? M.acc : "rgba(255,255,255,.14)",
+                    background: index === i ? M.fg : M.line,
                     display: "block",
                     transition: "width .2s ease, background .2s ease",
                   }}
@@ -334,10 +334,7 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
             variant="primary"
             size="lg"
             fullWidth
-            style={{
-              maxWidth: 400,
-              boxShadow: "0 10px 24px -12px rgba(255,255,255,.3), inset 0 1px 0 rgba(255,255,255,.2)",
-            }}
+            style={{ maxWidth: 400 }}
           >
             Los geht&apos;s
             <ArrowIcon />

@@ -52,6 +52,7 @@ function workoutExerciseToItem(
   return {
     id: exercise.id,
     name: exercise.name,
+    category: "strength",
     group,
     equip,
     userId: null,
@@ -102,6 +103,7 @@ export function BuilderScreen({ workoutId, onBack, onSave }: BuilderScreenProps)
         id: crypto.randomUUID(),
         catalogExerciseId: ex.id,
         name: ex.name,
+        category: ex.category,
         group: ex.group,
         equip: ex.equip,
         userId: ex.userId,

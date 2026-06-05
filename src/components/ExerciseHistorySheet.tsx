@@ -35,7 +35,6 @@ export function ExerciseHistorySheet({ open, onClose, exerciseName }: ExerciseHi
       open={open}
       onClose={onClose}
       zIndex={40}
-      maxHeight="75%"
       aria-label="Übungsverlauf"
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexShrink: 0 }}>

@@ -74,6 +74,7 @@ export function FloatNav({
           display: "flex",
           flexDirection: horizontal ? "row" : "column",
           alignItems: "center",
+          justifyContent: horizontal ? "space-evenly" : undefined,
           gap: horizontal ? 0 : 3,
           padding: horizontal
             ? `${FLOAT_NAV_PADDING_Y}px ${FLOAT_NAV_ACTIVE_EDGE_INSET}px`
@@ -98,19 +99,20 @@ export function FloatNav({
               aria-current={on ? "page" : undefined}
               title={n.label}
               style={{
-                width: horizontal ? undefined : FLOAT_NAV_ICON_SIZE,
+                width: FLOAT_NAV_ICON_SIZE,
                 height: FLOAT_NAV_ICON_SIZE,
-                flex: horizontal ? 1 : "0 0 auto",
+                flex: "0 0 auto",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                border: "none",
-                borderRadius: 10,
+                border: on ? `2px solid ${M.brand}` : "2px solid transparent",
+                borderRadius: "50%",
                 cursor: "pointer",
-                background: on ? M.accSoft : "transparent",
-                color: on ? M.acc : M.mut,
+                background: "transparent",
+                color: on ? M.brand : M.mut,
                 position: "relative",
                 transition: "all 0.15s ease",
+                ...(on ? { boxShadow: M.brandGlow } : null),
               }}
             >
               <span style={{ position: "relative", display: "flex" }}>
@@ -118,7 +120,7 @@ export function FloatNav({
                   name={n.icon}
                   size={20}
                   stroke={2}
-                  color={on ? M.acc : M.mut}
+                  color={on ? M.brand : M.mut}
                 />
               </span>
             </button>

@@ -4,6 +4,7 @@ import { BottomSheet } from "./BottomSheet";
 import { MButton } from "./MButton";
 
 export interface AlertSheetProps {
+  open?: boolean;
   title: string;
   message: string;
   buttonLabel?: string;
@@ -12,6 +13,7 @@ export interface AlertSheetProps {
 }
 
 export function AlertSheet({
+  open = true,
   title,
   message,
   buttonLabel = "OK",
@@ -19,7 +21,7 @@ export function AlertSheet({
   onClose,
 }: AlertSheetProps) {
   return (
-    <BottomSheet open onClose={onClose} position="absolute" zIndex={40} aria-label={title}>
+    <BottomSheet open={open} onClose={onClose} position="absolute" zIndex={40} aria-label={title}>
       {icon && (
         <div
           style={{

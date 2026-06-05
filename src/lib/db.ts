@@ -15,7 +15,7 @@ import type {
   SessionExercise,
 } from "../data";
 import type { AnamnesisData } from "./preferences";
-import { normalizeStressLevel } from "./preferences";
+import { hasAiConsent, mergePreferences, normalizeStressLevel } from "./preferences";
 import { activityFactor, ageFromBirthDate } from "./nutrition";
 
 /** Entfernt KI-typische Präfixe wie „Tag 1 – …“ aus Workout-Namen. */
@@ -272,16 +272,38 @@ function mapExerciseRow(e: Tables<"exercises">): LibraryExercise {
   return {
     id: e.id,
     name: e.name,
+    nameEn: e.name_en ?? null,
+    category: e.category === "cardio" || e.category === "mobility" ? e.category : "strength",
     group: e.muscle_group,
     equip: e.equipment,
     userId: e.user_id,
     metric: parseExerciseMetric(e.metric_type),
     youtubeUrl: e.youtube_url ?? null,
+    descriptionDe: e.description_de ?? null,
+    descriptionEn: e.description_en ?? null,
+    primaryMusclesDe: Array.isArray(e.primary_muscles_de) ? e.primary_muscles_de.filter((m): m is string => typeof m === "string") : [],
+    primaryMusclesRaw: Array.isArray(e.primary_muscles_raw) ? e.primary_muscles_raw.filter((m): m is string => typeof m === "string") : [],
+    secondaryMusclesDe: Array.isArray(e.secondary_muscles_de)
+      ? e.secondary_muscles_de.filter((m): m is string => typeof m === "string")
+      : [],
+    secondaryMusclesRaw: Array.isArray(e.secondary_muscles_raw)
+      ? e.secondary_muscles_raw.filter((m): m is string => typeof m === "string")
+      : [],
+    executionStepsDe: Array.isArray(e.execution_steps_de)
+      ? e.execution_steps_de.filter((step): step is string => typeof step === "string")
+      : [],
+    executionStepsEn: Array.isArray(e.execution_steps_en)
+      ? e.execution_steps_en.filter((step): step is string => typeof step === "string")
+      : [],
   };
 }
 
 export async function fetchExercises(): Promise<LibraryExercise[]> {
-  const { data, error } = await supabase.from("exercises").select("*").order("name");
+  const { data, error } = await supabase
+    .from("exercises")
+    .select("*")
+    .neq("category", "mobility")
+    .order("name");
   if (error) throw error;
   return (data ?? []).map(mapExerciseRow);
 }
@@ -292,6 +314,7 @@ export interface ExerciseInput {
   equipment: string;
   metric: ExerciseMetric;
   youtubeUrl?: string | null;
+  descriptionDe?: string | null;
 }
 
 export async function createExercise(userId: string, input: ExerciseInput): Promise<string> {
@@ -300,10 +323,12 @@ export async function createExercise(userId: string, input: ExerciseInput): Prom
     .insert({
       user_id: userId,
       name: input.name.trim(),
+      category: "strength",
       muscle_group: input.muscleGroup,
       equipment: input.equipment,
       metric_type: input.metric,
       youtube_url: input.youtubeUrl ?? null,
+      description_de: input.descriptionDe?.trim() || null,
     })
     .select("id")
     .single();
@@ -320,6 +345,7 @@ export async function updateExercise(exerciseId: string, input: ExerciseInput): 
       equipment: input.equipment,
       metric_type: input.metric,
       youtube_url: input.youtubeUrl ?? null,
+      description_de: input.descriptionDe?.trim() || null,
     })
     .eq("id", exerciseId);
   if (error) throw error;
@@ -1271,7 +1297,26 @@ export function useBodyPhotos(refreshKey = 0) {
   }, [user?.id, refreshKey]);
 }
 
+const bodyPhotoUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+export async function getBodyPhotoUrl(photoPath: string): Promise<string> {
+  const cached = bodyPhotoUrlCache.get(photoPath);
+  if (cached && cached.expiresAt > Date.now()) return cached.url;
+
+  const { data, error } = await supabase.storage.from("body-photos").createSignedUrl(photoPath, 3600);
+  if (!error && data?.signedUrl) {
+    bodyPhotoUrlCache.set(photoPath, { url: data.signedUrl, expiresAt: Date.now() + 3_500_000 });
+    return data.signedUrl;
+  }
+
+  const { data: pub } = supabase.storage.from("body-photos").getPublicUrl(photoPath);
+  return pub.publicUrl;
+}
+
+/** @deprecated Use getBodyPhotoUrl — bucket may be private */
 export function getBodyPhotoPublicUrl(photoPath: string): string {
+  const cached = bodyPhotoUrlCache.get(photoPath);
+  if (cached && cached.expiresAt > Date.now()) return cached.url;
   const { data } = supabase.storage.from("body-photos").getPublicUrl(photoPath);
   return data.publicUrl;
 }
@@ -1333,6 +1378,17 @@ export function useExerciseHistory(exerciseName: string | null) {
   }, [user?.id, exerciseName]);
 }
 
+export async function assertAiTrainingPlanConsent(userId: string): Promise<void> {
+  const { data, error } = await supabase.from("profiles").select("preferences").eq("id", userId).single();
+  if (error) throw new Error(error.message);
+  const prefs = mergePreferences(data?.preferences ?? null);
+  if (!hasAiConsent(prefs)) {
+    throw new Error(
+      "Für die KI-Planerstellung ist deine Einwilligung zur Datenübermittlung an Anthropic erforderlich.",
+    );
+  }
+}
+
 export async function generateAndSaveAITrainingPlan(
   userId: string,
   input: {
@@ -1349,6 +1405,8 @@ export async function generateAndSaveAITrainingPlan(
     exerciseFeedback?: any;
   }
 ): Promise<string> {
+  await assertAiTrainingPlanConsent(userId);
+
   const { nutrition, birthDate, ...edgeInput } = input;
   const { data, error } = await supabase.functions.invoke("generate-training-plan", {
     body: edgeInput,
@@ -1359,8 +1417,20 @@ export async function generateAndSaveAITrainingPlan(
     if (error instanceof FunctionsHttpError) {
       try {
         const payload = await error.context.json();
-        if (payload && typeof payload.error === "string") {
-          throw new Error(payload.error);
+        if (payload && typeof payload === "object") {
+          if (payload.error === "consent_required") {
+            throw new Error(
+              typeof payload.message === "string"
+                ? payload.message
+                : "Für die KI-Planerstellung ist deine Einwilligung zur Datenübermittlung an Anthropic erforderlich.",
+            );
+          }
+          if (typeof payload.error === "string") {
+            throw new Error(payload.error);
+          }
+          if (typeof payload.message === "string") {
+            throw new Error(payload.message);
+          }
         }
       } catch (parseErr) {
         if (parseErr instanceof Error && parseErr.message !== error.message) {
@@ -1488,5 +1558,4 @@ export async function fetchRecentSessionsWithExercises(limit = 10): Promise<Hist
   );
   return sessions.filter((s): s is HistoryEntry => s !== null);
 }
-
 

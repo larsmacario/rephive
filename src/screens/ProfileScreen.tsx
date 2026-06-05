@@ -4,6 +4,9 @@ import { useAuth } from "../lib/auth";
 import { Icon } from "../components/Icon";
 import { usePreferences } from "../lib/preferences";
 import { MButton } from "../components/MButton";
+import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
+import { useCoachMode } from "../lib/coachMode";
+import { displayRoleLabel } from "../lib/roles";
 
 export interface ProfileScreenProps {
   onBack: () => void;
@@ -61,11 +64,6 @@ function formatGender(value: "male" | "female" | "other" | null | undefined): st
   return "—";
 }
 
-function capitalizeFirst(value: string): string {
-  if (!value) return value;
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
 function formatBirthDate(value: string | null | undefined): string {
   if (!value) return "—";
   const [year, month, day] = value.split("-");
@@ -74,8 +72,9 @@ function formatBirthDate(value: string | null | undefined): string {
 }
 
 export function ProfileScreen({ onBack }: ProfileScreenProps) {
-  const { user, profile, signOut, updateDisplayName, updateBirthDate, updateEmail, changePassword } = useAuth();
+  const { user, profile, signOut, deleteAccount, updateDisplayName, updateBirthDate, updateEmail, changePassword } = useAuth();
   const { preferences, updatePreferences } = usePreferences();
+  const { setMode, canAccessCoach, isCoachView } = useCoachMode();
 
   const [displayName, setDisplayName] = useState(profile?.display_name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
@@ -93,6 +92,8 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
   const [busyBirthDate, setBusyBirthDate] = useState(false);
   const [busyEmail, setBusyEmail] = useState(false);
   const [busyPassword, setBusyPassword] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [busyDelete, setBusyDelete] = useState(false);
 
   useEffect(() => {
     setDisplayName(profile?.display_name ?? "");
@@ -182,6 +183,19 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
     setPasswordOpen(false);
   };
 
+  const handleDeleteAccount = async () => {
+    clearFeedback();
+    setBusyDelete(true);
+    const { error: err } = await deleteAccount();
+    setBusyDelete(false);
+    if (err) {
+      setDeleteAccountOpen(false);
+      setError(err);
+      return;
+    }
+    setDeleteAccountOpen(false);
+  };
+
   const initial = (displayName || profile?.display_name || "A").charAt(0).toUpperCase();
 
   const profileRows = useMemo(
@@ -194,7 +208,7 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
       {
         key: "role",
         label: "Rolle",
-        value: typeof profile?.role === "string" ? capitalizeFirst(profile.role) : "User",
+        value: displayRoleLabel(profile?.role),
         editable: false,
       },
     ],
@@ -527,6 +541,18 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
             AKTIONEN
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {canAccessCoach && (
+              <MButton
+                onClick={() => setMode(isCoachView ? "athlete" : "coach")}
+                variant="secondary"
+                size="sm"
+                fullWidth
+                style={{ justifyContent: "space-between", textAlign: "left" }}
+              >
+                {isCoachView ? "Zum Athleten-Modus" : "Zum Coach-Modus"}
+                <Icon name="chevR" size={14} stroke={2.1} color={M.mut} />
+              </MButton>
+            )}
             <MButton
               onClick={() => setInfo("Kauf-Wiederherstellung folgt im nächsten Schritt.")}
               variant="secondary"
@@ -547,9 +573,45 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
               Abmelden
               <Icon name="chevR" size={14} stroke={2.1} color={M.mut} />
             </MButton>
+            <MButton
+              onClick={() => setDeleteAccountOpen(true)}
+              variant="danger"
+              size="sm"
+              fullWidth
+              style={{ justifyContent: "space-between", textAlign: "left" }}
+            >
+              Konto löschen
+              <Icon name="chevR" size={14} stroke={2.1} color={M.mut} />
+            </MButton>
           </div>
         </div>
       </div>
+
+      <DeleteConfirmDialog
+        open={deleteAccountOpen}
+        title="Konto löschen?"
+        message={
+          <>
+            <p style={{ margin: "0 0 10px" }}>Folgende Daten werden unwiderruflich gelöscht:</p>
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              <li>Profil (Anzeigename, Geburtsdatum, Einstellungen)</li>
+              <li>Trainingspläne und eigene Workouts</li>
+              <li>Trainingshistorie (Sessions inkl. Timer-Läufe)</li>
+              <li>Eigene Übungen im Katalog</li>
+              <li>Körperwerte und Fortschrittsfotos</li>
+              <li>Support-Anfragen</li>
+              <li>Anmeldedaten (E-Mail und Passwort)</li>
+            </ul>
+            <p style={{ margin: "10px 0 0" }}>Standard-Übungen und -Workouts der App bleiben erhalten.</p>
+            <p style={{ margin: "10px 0 0" }}>Diese Aktion kann nicht rückgängig gemacht werden.</p>
+          </>
+        }
+        step2Title="Endgültig löschen?"
+        step2Message="Dein Konto und alle zugehörigen Daten werden permanent entfernt. Bist du sicher?"
+        busy={busyDelete}
+        onCancel={() => setDeleteAccountOpen(false)}
+        onConfirm={handleDeleteAccount}
+      />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   normalizeMuscleGroup,
   type ExerciseMetric,
 } from "../lib/exerciseCatalog";
+import { isAppOwner } from "../lib/roles";
 import { M } from "../theme";
 import { BottomSheet } from "./BottomSheet";
 import { EquipmentSelect } from "./EquipmentSelect";
@@ -28,9 +29,14 @@ export interface ExerciseFormSheetProps {
 }
 
 export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: ExerciseFormSheetProps) {
-  const { user } = useAuth();
-  const isEdit = Boolean(exercise?.userId);
+  const { user, profile } = useAuth();
+  const owner = isAppOwner(profile);
+  const isGlobalEdit = Boolean(exercise && exercise.userId === null && owner);
+  const isOwnedEdit = Boolean(exercise?.userId);
+  const isEdit = isOwnedEdit || isGlobalEdit;
+  const canDelete = isOwnedEdit;
   const [name, setName] = useState("");
+  const [descriptionDe, setDescriptionDe] = useState("");
   const [muscleGroup, setMuscleGroup] = useState<string>(CATALOG_UNSELECTED);
   const [muscleGroupRaw, setMuscleGroupRaw] = useState<string | undefined>();
   const [equipment, setEquipment] = useState<string>(CATALOG_UNSELECTED);
@@ -46,6 +52,7 @@ export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: Exercise
     if (!open) return;
     if (exercise) {
       setName(exercise.name);
+      setDescriptionDe(exercise.descriptionDe ?? "");
       const mg = initialMuscleGroupFromStored(exercise.group);
       setMuscleGroup(mg.value);
       setMuscleGroupRaw(mg.rawValue);
@@ -54,6 +61,7 @@ export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: Exercise
       setYoutubeUrl(exercise.youtubeUrl ?? "");
     } else {
       setName("");
+      setDescriptionDe("");
       setMuscleGroup(CATALOG_UNSELECTED);
       setMuscleGroupRaw(undefined);
       setEquipment(CATALOG_UNSELECTED);
@@ -111,6 +119,7 @@ export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: Exercise
       equipment,
       metric,
       youtubeUrl: normalizedYoutube,
+      descriptionDe: descriptionDe.trim() || null,
     };
     setSaving(true);
     setError(null);
@@ -160,6 +169,32 @@ export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: Exercise
               fontSize: 15,
               outline: "none",
               boxSizing: "border-box",
+            }}
+          />
+        </label>
+
+        <label style={{ display: "block", marginBottom: 14, flexShrink: 0 }}>
+          <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 6 }}>
+            BESCHREIBUNG (DE)
+          </div>
+          <textarea
+            value={descriptionDe}
+            onChange={(e) => setDescriptionDe(e.target.value)}
+            placeholder="Kurze Beschreibung der Übung…"
+            rows={3}
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1px solid " + M.line,
+              background: M.card,
+              color: M.fg,
+              fontSize: 15,
+              outline: "none",
+              boxSizing: "border-box",
+              resize: "vertical",
+              minHeight: 72,
+              fontFamily: "inherit",
             }}
           />
         </label>
@@ -251,7 +286,7 @@ export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: Exercise
           >
             {saving ? "Speichern…" : "SPEICHERN"}
           </MButton>
-          {isEdit && (
+          {canDelete && (
             <MButton
               type="button"
               disabled={saving || deleting}
@@ -267,19 +302,20 @@ export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: Exercise
         </div>
       </div>
     </BottomSheet>
-    {deleteConfirmOpen && exercise && (
-      <DeleteConfirmDialog
-        title="Übung löschen?"
-        message={
+    <DeleteConfirmDialog
+      open={deleteConfirmOpen && !!exercise}
+      title="Übung löschen?"
+      message={
+        exercise ? (
           <>
             Möchtest du <strong style={{ color: M.fg }}>{exercise.name}</strong> wirklich löschen?
           </>
-        }
-        busy={deleting}
-        onCancel={() => setDeleteConfirmOpen(false)}
-        onConfirm={handleDelete}
-      />
-    )}
+        ) : null
+      }
+      busy={deleting}
+      onCancel={() => setDeleteConfirmOpen(false)}
+      onConfirm={handleDelete}
+    />
     </>
   );
 }

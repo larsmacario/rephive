@@ -365,14 +365,13 @@ export function TimerScreen({ onSaveSession }: TimerScreenProps) {
           </span>
         </div>
       </div>
-      {leaveAction && leaveCopy && (
-        <TimerLeaveSheet
-          message={leaveCopy.message}
-          confirmLabel={leaveCopy.confirmLabel}
-          onConfirm={confirmLeaveAction}
-          onCancel={() => setLeaveAction(null)}
-        />
-      )}
+      <TimerLeaveSheet
+        open={!!leaveAction && !!leaveCopy}
+        message={leaveCopy?.message}
+        confirmLabel={leaveCopy?.confirmLabel}
+        onConfirm={confirmLeaveAction}
+        onCancel={() => setLeaveAction(null)}
+      />
     </div>
   );
 }

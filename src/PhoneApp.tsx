@@ -42,6 +42,7 @@ import { ActiveTimerProvider, useActiveTimer } from "./lib/activeTimer";
 import { usePreferences } from "./lib/preferences";
 import { OnboardingWizard } from "./screens/OnboardingWizard";
 import { AITrainingPlanWizard } from "./screens/AITrainingPlanWizard";
+import { AthleteCoachingScreen } from "./screens/AthleteCoachingScreen";
 
 type Route =
   | { kind: "tracking"; session: Workout; workoutId?: string; startedAt: number; tags: string[]; planId?: string }
@@ -59,6 +60,7 @@ type Route =
   | { kind: "about" }
   | { kind: "support" }
   | { kind: "aiTrainingPlanWizard" }
+  | { kind: "coaching" }
   | null;
 
 type FinishPayload = {
@@ -108,7 +110,7 @@ export function PhoneApp() {
 }
 
 function PhoneAppInner() {
-  const { user, profileReady } = useAuth();
+  const { user, profile, profileReady } = useAuth();
   const { preferences } = usePreferences();
   const { active: timerActive } = useActiveTimer();
   const breakpoint = useBreakpoint();
@@ -219,6 +221,7 @@ function PhoneAppInner() {
   const goAbout = () => setRoute({ kind: "about" });
   const goSupport = () => setRoute({ kind: "support" });
   const goAITrainingPlanWizard = () => setRoute({ kind: "aiTrainingPlanWizard" });
+  const goCoaching = () => setRoute({ kind: "coaching" });
   const close = (toTab?: Tab) => {
     setRoute(null);
     if (toTab) setTab(toTab);
@@ -406,6 +409,9 @@ function PhoneAppInner() {
   } else if (route?.kind === "support") {
     body = <SupportScreen onBack={() => close("home")} />;
     showNav = false;
+  } else if (route?.kind === "coaching") {
+    body = <AthleteCoachingScreen onBack={() => close("home")} refreshKey={refreshKey} />;
+    showNav = false;
   } else if (route?.kind === "aiTrainingPlanWizard") {
     body = (
       <AITrainingPlanWizard
@@ -438,6 +444,7 @@ function PhoneAppInner() {
         onOpenAbout={goAbout}
         onOpenSupport={goSupport}
         onOpenAITrainingPlan={goAITrainingPlanWizard}
+        onOpenCoaching={goCoaching}
         trackLoading={trackLoading}
       />
     );
@@ -468,7 +475,7 @@ function PhoneAppInner() {
     return null;
   }
 
-  if (!preferences.onboarded) {
+  if (!preferences.onboarded && profile?.role !== "coach" && profile?.role !== "owner") {
     return (
       <PhoneShell reserveBottomSafeArea={false}>
         <OnboardingWizard />
@@ -497,19 +504,20 @@ function PhoneAppInner() {
       {showNav && (
         <FloatNav tab={tab} onTab={handleTab} timerActive={timerActive} placement={navPlacement} />
       )}
-      {pendingTab && (
-        <TimerLeaveSheet onConfirm={confirmLeaveTimer} onCancel={() => setPendingTab(null)} />
-      )}
-      {replaceDraftAction && (
-        <ConfirmSheet
-          title="Entwurf verwerfen?"
-          message="Es läuft bereits ein pausiertes Workout. Wenn du fortfährst, wird der Entwurf verworfen."
-          confirmLabel="FORTFAHREN"
-          icon="flag"
-          onConfirm={handleReplaceDraftConfirm}
-          onCancel={() => setReplaceDraftAction(null)}
-        />
-      )}
+      <TimerLeaveSheet
+        open={!!pendingTab}
+        onConfirm={confirmLeaveTimer}
+        onCancel={() => setPendingTab(null)}
+      />
+      <ConfirmSheet
+        open={!!replaceDraftAction}
+        title="Entwurf verwerfen?"
+        message="Es läuft bereits ein pausiertes Workout. Wenn du fortfährst, wird der Entwurf verworfen."
+        confirmLabel="FORTFAHREN"
+        icon="flag"
+        onConfirm={handleReplaceDraftConfirm}
+        onCancel={() => setReplaceDraftAction(null)}
+      />
     </PhoneShell>
   );
 }

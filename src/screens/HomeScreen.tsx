@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { M } from "../theme";
+import { brandSurface, M } from "../theme";
 import type { LibraryPlan, PlanDay } from "../data";
 import { useAuth } from "../lib/auth";
 import {
@@ -15,7 +15,6 @@ import { Icon } from "../components/Icon";
 import { usePreferences } from "../lib/preferences";
 import { WorkoutFinishSheet } from "../components/WorkoutFinishSheet";
 import { ConfirmSheet } from "../components/ConfirmSheet";
-import { AlertSheet } from "../components/AlertSheet";
 import { MStat, MTag } from "../components/widgets";
 import { MButton } from "../components/MButton";
 import { FLOAT_NAV_SCROLL_BOTTOM_GAP } from "../components/FloatNav";
@@ -38,6 +37,7 @@ export interface HomeScreenProps {
   onOpenAbout: () => void;
   onOpenSupport: () => void;
   onOpenAITrainingPlan?: () => void;
+  onOpenCoaching?: () => void;
   refreshKey?: number;
   trackLoading?: boolean;
 }
@@ -77,6 +77,7 @@ export function HomeScreen({
   onOpenAbout,
   onOpenSupport,
   onOpenAITrainingPlan,
+  onOpenCoaching,
   refreshKey = 0,
   trackLoading,
 }: HomeScreenProps) {
@@ -94,7 +95,6 @@ export function HomeScreen({
   const [showSkipConfirm, setShowSkipConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [durationSec, setDurationSec] = useState(0);
-  const [menuAlert, setMenuAlert] = useState<{ title: string; message: string } | null>(null);
 
   useEffect(() => {
     if (!activeWorkout) return;
@@ -189,16 +189,6 @@ export function HomeScreen({
     closeMenu();
     action();
   };
-  const openMenuPlaceholder = (label: string) => {
-    closeMenu();
-    setTimeout(() => {
-      setMenuAlert({
-        title: label,
-        message: `"${label}" kommt bald in rephive. Danke fuer dein Feedback - wir bauen den Bereich als Naechstes aus.`,
-      });
-    }, 140);
-  };
-
   const legalBaseUrl = (import.meta.env.VITE_LEGAL_BASE_URL ?? "https://rephive.app").replace(/\/$/, "");
 
   const openExternalLegal = (path: string) => {
@@ -213,6 +203,7 @@ export function HomeScreen({
       title: "KONTO",
       items: [
         { label: "Profil", onClick: () => runFromMenu(onOpenProfile) },
+        { label: "Coaching", onClick: () => onOpenCoaching && runFromMenu(onOpenCoaching) },
         { label: "Statistik", onClick: () => runFromMenu(onOpenStats) },
         { label: "Einstellungen", onClick: () => runFromMenu(onOpenSettings) },
       ],
@@ -223,11 +214,7 @@ export function HomeScreen({
     },
     {
       title: "HILFE",
-      items: [
-        { label: "Support", onClick: () => runFromMenu(onOpenSupport) },
-        { label: "FAQ", onClick: () => openMenuPlaceholder("FAQ") },
-        { label: "Feature Anfrage", onClick: () => openMenuPlaceholder("Feature Anfrage") },
-      ],
+      items: [{ label: "Support", onClick: () => runFromMenu(onOpenSupport) }],
     },
     {
       title: "RECHTLICHES",
@@ -256,13 +243,10 @@ export function HomeScreen({
       <div
         style={{
           marginTop: 18,
-          borderRadius: 20,
           padding: "18px 18px 16px",
           position: "relative",
           overflow: "hidden",
-          background:
-            "linear-gradient(160deg, color-mix(in oklab, var(--mom-brand, #7ef67b) 10%, #1a1a1a), #111111)",
-          border: "1px solid " + M.line,
+          ...brandSurface("hero"),
         }}
       >
         <div style={{ fontSize: 11, letterSpacing: 1.4, color: M.brand, fontWeight: 700 }}>
@@ -282,18 +266,18 @@ export function HomeScreen({
             fontWeight: 600,
           }}
         >
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <Icon name="dumbbell" size={15} stroke={2} color={M.mut} />
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: M.brand }}>
+            <Icon name="dumbbell" size={15} stroke={2} color={M.brand} />
             {activeMetrics.doneSets}/{activeMetrics.totalSets} Sätze
           </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <Icon name="bolt" size={15} stroke={2} color={M.mut} />
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: M.brand }}>
+            <Icon name="bolt" size={15} stroke={2} color={M.brand} />
             {(activeMetrics.volumeKg / 1000).toFixed(1)}t
           </span>
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
           <MButton onClick={onResumeActive} variant="primary" size="md" style={{ flex: 1 }}>
-            <Icon name="play" size={16} color={M.accInk} /> Fortsetzen
+            <Icon name="play" size={16} color={M.brandInk} /> Fortsetzen
           </MButton>
           <MButton onClick={() => setFinishSheet(true)} variant="secondary" size="md" style={{ flex: 1, background: M.panel }}>
             Beenden
@@ -319,7 +303,7 @@ export function HomeScreen({
         Erstelle einen Trainingsplan und ordne deine Workouts den Tagen zu.
       </div>
       <MButton onClick={onOpenPlans} variant="primary" size="md" fullWidth style={{ marginTop: 16 }}>
-        <Icon name="layers" size={16} color={M.accInk} /> Plan erstellen
+        <Icon name="layers" size={16} color={M.brandInk} /> Plan erstellen
       </MButton>
     </div>
   ) : currentDay.isRestDay ? (
@@ -347,13 +331,10 @@ export function HomeScreen({
     <div
       style={{
         marginTop: 14,
-        borderRadius: 20,
         padding: "18px 18px 16px",
         position: "relative",
         overflow: "hidden",
-        background:
-          "linear-gradient(160deg, color-mix(in oklab, var(--mom-brand, #7ef67b) 10%, #1a1a1a), #111111)",
-        border: "1px solid " + M.line,
+        ...brandSurface("hero"),
       }}
     >
       <div style={{ fontSize: 11, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>
@@ -398,7 +379,7 @@ export function HomeScreen({
           size="md"
           style={{ flex: 1 }}
         >
-          <Icon name="play" size={16} color={M.accInk} /> Workout starten
+          <Icon name="play" size={16} color={M.brandInk} /> Workout starten
         </MButton>
         <MButton
           disabled={advancing}
@@ -487,7 +468,7 @@ export function HomeScreen({
                   background: w.v
                     ? i === weekData.length - 1
                       ? M.brand
-                      : M.acc
+                      : M.brandSoft
                     : "rgba(255,255,255,.08)",
                   opacity: w.v ? (i === weekData.length - 1 ? 1 : 0.45) : 1,
                 }}
@@ -541,8 +522,8 @@ export function HomeScreen({
           width: 36,
           height: 36,
           borderRadius: 10,
-          background: M.accSoft,
-          color: M.acc,
+          background: M.brandSoft,
+          color: M.brand,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -566,8 +547,8 @@ export function HomeScreen({
           width: 40,
           height: 40,
           borderRadius: 12,
-          background: M.accSoft,
-          color: M.acc,
+          background: M.brandSoft,
+          color: M.brand,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -591,8 +572,8 @@ export function HomeScreen({
           width: 40,
           height: 40,
           borderRadius: 12,
-          background: M.accSoft,
-          color: M.acc,
+          background: M.brandSoft,
+          color: M.brand,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -616,8 +597,8 @@ export function HomeScreen({
           width: 40,
           height: 40,
           borderRadius: 12,
-          background: M.accSoft,
-          color: M.acc,
+          background: M.brandSoft,
+          color: M.brand,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -645,8 +626,8 @@ export function HomeScreen({
           width: 40,
           height: 40,
           borderRadius: 12,
-          background: M.accSoft,
-          color: M.acc,
+          background: M.brandSoft,
+          color: M.brand,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -695,7 +676,7 @@ export function HomeScreen({
           onClick={() => setMenuOpen((o) => !o)}
           variant="secondary"
           size="icon"
-          style={{ width: 36, height: 36, borderRadius: 18, background: M.card, fontFamily: M.disp, fontWeight: 700, color: M.fg, fontSize: 15 }}
+          style={{ width: 36, height: 36, borderRadius: 18, background: M.card, border: "1px solid " + M.brandBorder, fontFamily: M.disp, fontWeight: 700, color: M.fg, fontSize: 15 }}
         >
           {initial}
         </MButton>
@@ -883,6 +864,7 @@ export function HomeScreen({
       ) : (
         <>
           {activeWorkoutCard}
+          {statsBlock}
           <div
             style={{
               marginTop: 16,
@@ -896,7 +878,6 @@ export function HomeScreen({
           </div>
           {todayCard}
           {planPreview}
-          {statsBlock}
           <div
             style={{
               marginTop: 16,
@@ -915,39 +896,28 @@ export function HomeScreen({
           {bodyTrackerLink}
         </>
       )}
-      {finishSheet && activeWorkout && activeMetrics && (
-        <WorkoutFinishSheet
-          name={activeWorkout.session.name}
-          durationSec={durationSec}
-          doneSets={activeMetrics.doneSets}
-          totalSets={activeMetrics.totalSets}
-          volumeKg={activeMetrics.volumeKg}
-          busy={saving}
-          exercises={activeWorkout.session.exercises.map((e) => e.name)}
-          onSave={handleSaveActive}
-          onDiscard={handleDiscardActive}
-          onClose={() => setFinishSheet(false)}
-        />
-      )}
-      {showSkipConfirm && (
-        <ConfirmSheet
-          title="Workout überspringen?"
-          message={`Möchtest du das geplante Workout "${currentDay?.workout?.name ?? "Workout"}" wirklich überspringen? Der Plan springt damit zum nächsten Tag.`}
-          confirmLabel="WORKOUT ÜBERSPRINGEN"
-          icon="skipFwd"
-          onConfirm={handleSkipWorkoutConfirm}
-          onCancel={() => setShowSkipConfirm(false)}
-        />
-      )}
-      {menuAlert && (
-        <AlertSheet
-          title={menuAlert.title}
-          message={menuAlert.message}
-          icon="flag"
-          buttonLabel="OK"
-          onClose={() => setMenuAlert(null)}
-        />
-      )}
+      <WorkoutFinishSheet
+        open={finishSheet && !!activeWorkout && !!activeMetrics}
+        name={activeWorkout?.session.name ?? ""}
+        durationSec={durationSec}
+        doneSets={activeMetrics?.doneSets ?? 0}
+        totalSets={activeMetrics?.totalSets ?? 0}
+        volumeKg={activeMetrics?.volumeKg ?? 0}
+        busy={saving}
+        exercises={activeWorkout?.session.exercises.map((e) => e.name) ?? []}
+        onSave={handleSaveActive}
+        onDiscard={handleDiscardActive}
+        onClose={() => setFinishSheet(false)}
+      />
+      <ConfirmSheet
+        open={showSkipConfirm}
+        title="Workout überspringen?"
+        message={`Möchtest du das geplante Workout "${currentDay?.workout?.name ?? "Workout"}" wirklich überspringen? Der Plan springt damit zum nächsten Tag.`}
+        confirmLabel="WORKOUT ÜBERSPRINGEN"
+        icon="skipFwd"
+        onConfirm={handleSkipWorkoutConfirm}
+        onCancel={() => setShowSkipConfirm(false)}
+      />
     </div>
   );
 }

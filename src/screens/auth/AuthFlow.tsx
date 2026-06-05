@@ -40,6 +40,7 @@ export function AuthFlow({ initialStep = "login" }: AuthFlowProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [asCoach, setAsCoach] = useState(false);
   const [token, setToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +67,10 @@ export function AuthFlow({ initialStep = "login" }: AuthFlowProps) {
   const submitSignup = async () => {
     setBusy(true);
     setError(null);
-    const { error: err } = await auth.signUp(email.trim(), password, displayName.trim() || undefined);
+    const { error: err } = await auth.signUp(email.trim(), password, {
+      displayName: displayName.trim() || undefined,
+      asCoach,
+    });
     setBusy(false);
     if (err) setError(err);
   };
@@ -177,14 +181,34 @@ export function AuthFlow({ initialStep = "login" }: AuthFlowProps) {
           )}
 
           {step === "signup" && (
-            <input
-              type="text"
-              placeholder="Anzeigename (optional)"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              autoComplete="name"
-              style={inputStyle}
-            />
+            <>
+              <input
+                type="text"
+                placeholder="Anzeigename (optional)"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                autoComplete="name"
+                style={inputStyle}
+              />
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: 14,
+                  color: M.mut,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={asCoach}
+                  onChange={(e) => setAsCoach(e.target.checked)}
+                  style={{ width: 18, height: 18, accentColor: M.acc }}
+                />
+                Als Coach registrieren
+              </label>
+            </>
           )}
 
           {(step === "login" || step === "signup") && (

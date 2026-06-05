@@ -8,6 +8,7 @@ import { CatalogStandardLock } from "../components/CatalogStandardLock";
 import { Icon } from "../components/Icon";
 import { AlertSheet } from "../components/AlertSheet";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
+import { ExerciseDetailSheet } from "../components/ExerciseDetailSheet";
 import { ExerciseFormSheet } from "../components/ExerciseFormSheet";
 import { FLOAT_NAV_SCROLL_BOTTOM_GAP } from "../components/FloatNav";
 import { MButton } from "../components/MButton";
@@ -22,6 +23,7 @@ export function ExercisesScreen({ refreshKey = 0 }: ExercisesScreenProps) {
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<LibraryExercise | null>(null);
+  const [detailExercise, setDetailExercise] = useState<LibraryExercise | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<LibraryExercise | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [alertSheet, setAlertSheet] = useState<{ title: string; message: string } | null>(null);
@@ -49,7 +51,6 @@ export function ExercisesScreen({ refreshKey = 0 }: ExercisesScreenProps) {
   };
 
   const openEdit = (ex: LibraryExercise) => {
-    if (!ex.userId) return;
     setEditing(ex);
     setFormOpen(true);
   };
@@ -150,14 +151,13 @@ export function ExercisesScreen({ refreshKey = 0 }: ExercisesScreenProps) {
             >
               <button
                 type="button"
-                onClick={() => openEdit(ex)}
-                disabled={!isOwned}
+                onClick={() => setDetailExercise(ex)}
                 style={{
                   flex: 1,
                   minWidth: 0,
                   background: "none",
                   border: "none",
-                  cursor: isOwned ? "pointer" : "default",
+                  cursor: "pointer",
                   textAlign: "left",
                   padding: 0,
                 }}
@@ -190,6 +190,21 @@ export function ExercisesScreen({ refreshKey = 0 }: ExercisesScreenProps) {
                 <div style={{ fontSize: 12.5, color: M.mut, marginTop: 4, fontWeight: 600 }}>
                   {ex.group} · {ex.equip} · {metricShort(ex.metric)}
                 </div>
+                {ex.descriptionDe && (
+                  <div
+                    style={{
+                      fontSize: 12.5,
+                      color: M.mut2,
+                      marginTop: 6,
+                      lineHeight: 1.4,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {ex.descriptionDe}
+                  </div>
+                )}
               </button>
               {isOwned && (
                 <MButton
@@ -208,6 +223,13 @@ export function ExercisesScreen({ refreshKey = 0 }: ExercisesScreenProps) {
         })}
       </div>
 
+      <ExerciseDetailSheet
+        open={detailExercise !== null}
+        exercise={detailExercise}
+        onClose={() => setDetailExercise(null)}
+        onEdit={openEdit}
+      />
+
       <ExerciseFormSheet
         open={formOpen}
         exercise={editing}
@@ -215,26 +237,26 @@ export function ExercisesScreen({ refreshKey = 0 }: ExercisesScreenProps) {
         onSaved={() => reload()}
       />
 
-      {alertSheet && (
-        <AlertSheet
-          title={alertSheet.title}
-          message={alertSheet.message}
-          onClose={() => setAlertSheet(null)}
-        />
-      )}
-      {deleteTarget && (
-        <DeleteConfirmDialog
-          title="Übung löschen?"
-          message={
+      <AlertSheet
+        open={!!alertSheet}
+        title={alertSheet?.title ?? ""}
+        message={alertSheet?.message ?? ""}
+        onClose={() => setAlertSheet(null)}
+      />
+      <DeleteConfirmDialog
+        open={!!deleteTarget}
+        title="Übung löschen?"
+        message={
+          deleteTarget ? (
             <>
               Möchtest du <strong style={{ color: M.fg }}>{deleteTarget.name}</strong> wirklich löschen?
             </>
-          }
-          busy={deleteBusy}
-          onConfirm={handleDeleteConfirm}
-          onCancel={() => setDeleteTarget(null)}
-        />
-      )}
+          ) : null
+        }
+        busy={deleteBusy}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

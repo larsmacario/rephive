@@ -129,6 +129,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
         id: crypto.randomUUID(),
         catalogExerciseId: ex.id,
         name: ex.name,
+        category: ex.category,
         group: ex.group,
         equip: ex.equip,
         userId: ex.userId,
@@ -314,6 +315,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
         style={{
           flex: 1,
           minHeight: 0,
+          minWidth: 0,
           padding: "0 22px 8px",
           display: "flex",
           flexDirection: "column",
@@ -370,6 +372,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
                       dayNumber={index + 1}
                       label={day.workoutId ? day.workoutName ?? "Workout" : "Ruhetag"}
                       isRestDay={!day.workoutId}
+                      isActive={activeDayIndex === index}
                       workout={workout}
                       variant="builder"
                       actions={
@@ -415,7 +418,6 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
         onClose={closeSheet}
         position="absolute"
         zIndex={20}
-        maxHeight="85%"
         aria-label={sheetMode === "pick" ? "Tag hinzufügen" : "Neues Workout erstellen"}
       >
         {sheetMode === "pick" ? (
@@ -442,8 +444,8 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
                       width: 34,
                       height: 34,
                       borderRadius: 9,
-                      background: M.accSoft,
-                      color: M.acc,
+                      background: M.brandSoft,
+                      color: M.brand,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -453,10 +455,10 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
                     <Icon name="plus" size={18} stroke={2.6} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ color: M.acc, fontWeight: 700, fontSize: 15 }}>Neues Workout erstellen</div>
+                    <div style={{ color: M.brand, fontWeight: 700, fontSize: 15 }}>Neues Workout erstellen</div>
                     <div style={{ color: M.mut, fontSize: 12 }}>Name + Übungen direkt anlegen</div>
                   </div>
-                  <Icon name="chevR" size={20} color={M.acc} stroke={2.4} />
+                  <Icon name="chevR" size={20} color={M.brand} stroke={2.4} />
                 </button>
 
                 <button
@@ -493,7 +495,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
                     <div style={{ color: M.fg, fontWeight: 600, fontSize: 15 }}>Ruhetag</div>
                     <div style={{ color: M.mut, fontSize: 12 }}>Kein Workout an diesem Tag</div>
                   </div>
-                  <Icon name="plus" size={20} color={M.acc} stroke={2.4} />
+                  <Icon name="plus" size={20} color={M.brand} stroke={2.4} />
                 </button>
 
                 {loading && <div style={{ color: M.mut, fontSize: 14, marginBottom: 12 }}>Workouts laden…</div>}
@@ -519,8 +521,8 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
                           width: 34,
                           height: 34,
                           borderRadius: 9,
-                          background: M.accSoft,
-                          color: M.acc,
+                          background: M.brandSoft,
+                          color: M.brand,
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -535,7 +537,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
                           {workout.exercises.length} Übungen · ~{workout.dur} Min
                         </div>
                       </div>
-                      <Icon name="plus" size={20} color={M.acc} stroke={2.4} />
+                      <Icon name="plus" size={20} color={M.brand} stroke={2.4} />
                     </button>
                   ))}
                 </div>

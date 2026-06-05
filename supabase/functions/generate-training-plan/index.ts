@@ -8,8 +8,74 @@ const corsHeaders = {
 
 const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-4-6";
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+const AI_CONSENT_VERSION = 1;
+
+function hasAiConsentFromPreferences(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+  const prefs = raw as Record<string, unknown>;
+  const aiConsent = prefs.aiConsent;
+  if (!aiConsent || typeof aiConsent !== "object" || Array.isArray(aiConsent)) return false;
+  const consent = aiConsent as Record<string, unknown>;
+  return (
+    consent.provider === "anthropic" &&
+    typeof consent.grantedAt === "string" &&
+    consent.grantedAt.length > 0 &&
+    typeof consent.version === "number" &&
+    consent.version >= AI_CONSENT_VERSION
+  );
+}
+
+async function requireAiConsent(req: Request): Promise<Response | null> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return new Response(
+      JSON.stringify({ error: "consent_required", message: "Authentifizierung erforderlich." }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: authData, error: authError } = await userClient.auth.getUser();
+  if (authError || !authData.user) {
+    return new Response(
+      JSON.stringify({ error: "consent_required", message: "Authentifizierung erforderlich." }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("preferences")
+    .eq("id", authData.user.id)
+    .single();
+
+  if (profileError) {
+    return new Response(
+      JSON.stringify({ error: "consent_required", message: profileError.message }),
+      { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  if (!hasAiConsentFromPreferences(profile?.preferences)) {
+    return new Response(
+      JSON.stringify({
+        error: "consent_required",
+        message:
+          "Für die KI-Planerstellung ist deine Einwilligung zur Datenübermittlung an Anthropic erforderlich.",
+      }),
+      { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  return null;
+}
 
 const TRAINING_PLAN_TOOL = {
   name: "create_training_plan",
@@ -120,6 +186,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  const consentBlock = await requireAiConsent(req);
+  if (consentBlock) return consentBlock;
 
   try {
     const {

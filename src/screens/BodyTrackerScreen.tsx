@@ -17,11 +17,11 @@ import {
   useBodyPhotos,
   uploadBodyPhoto,
   deleteBodyPhoto,
-  getBodyPhotoPublicUrl,
+  getBodyPhotoUrl,
   type BodyPhoto,
 } from "../lib/db";
 import { SplitImageSlider } from "../components/SplitImageSlider";
-
+import { BodyPhotoImage } from "../components/BodyPhotoImage";
 
 export interface BodyTrackerScreenProps {
   onBack: () => void;
@@ -84,7 +84,24 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
   const [compareOrientation, setCompareOrientation] = useState<"front" | "back" | "side">("front");
   const [deletePhotoTarget, setDeletePhotoTarget] = useState<BodyPhoto | null>(null);
   const [deletePhotoBusy, setDeletePhotoBusy] = useState(false);
+  const [compareUrls, setCompareUrls] = useState<{ before: string; after: string } | null>(null);
 
+  useEffect(() => {
+    if (!selectedBeforePhoto || !selectedAfterPhoto) {
+      setCompareUrls(null);
+      return;
+    }
+    let cancelled = false;
+    void Promise.all([
+      getBodyPhotoUrl(selectedBeforePhoto.photoPath),
+      getBodyPhotoUrl(selectedAfterPhoto.photoPath),
+    ]).then(([before, after]) => {
+      if (!cancelled) setCompareUrls({ before, after });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedBeforePhoto, selectedAfterPhoto]);
 
   // Dynamic visible fields for advanced metrics
   const [visibleFields, setVisibleFields] = useState<string[]>([]);
@@ -1441,8 +1458,8 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                 </button>
               </div>
               <SplitImageSlider
-                beforeUrl={getBodyPhotoPublicUrl(selectedBeforePhoto.photoPath)}
-                afterUrl={getBodyPhotoPublicUrl(selectedAfterPhoto.photoPath)}
+                beforeUrl={compareUrls?.before ?? ""}
+                afterUrl={compareUrls?.after ?? ""}
                 beforeDate={formatDateDe(selectedBeforePhoto.performedAt)}
                 afterDate={formatDateDe(selectedAfterPhoto.performedAt)}
                 beforeWeight={selectedBeforePhoto.weightKg?.toFixed(1)}
@@ -1530,7 +1547,6 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                 return (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                     {filteredPhotos.map((p) => {
-                      const url = getBodyPhotoPublicUrl(p.photoPath);
                       const isBefore = selectedBeforePhoto?.id === p.id;
                       const isAfter = selectedAfterPhoto?.id === p.id;
 
@@ -1549,8 +1565,8 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                         >
                           {/* Image Container with Delete Button */}
                           <div style={{ position: "relative", width: "100%", paddingBottom: "133.33%" }}>
-                            <img
-                              src={url}
+                            <BodyPhotoImage
+                              photoPath={p.photoPath}
                               alt="Galerie Eintrag"
                               style={{
                                 position: "absolute",
@@ -1691,41 +1707,42 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
       )}
       </div>
 
-      {alertSheet && (
-        <AlertSheet
-          title={alertSheet.title}
-          message={alertSheet.message}
-          onClose={() => setAlertSheet(null)}
-        />
-      )}
-      {deleteTarget && (
-        <DeleteConfirmDialog
-          title="Eintrag löschen?"
-          message={
+      <AlertSheet
+        open={!!alertSheet}
+        title={alertSheet?.title ?? ""}
+        message={alertSheet?.message ?? ""}
+        onClose={() => setAlertSheet(null)}
+      />
+      <DeleteConfirmDialog
+        open={!!deleteTarget}
+        title="Eintrag löschen?"
+        message={
+          deleteTarget ? (
             <>
               Möchtest du den Eintrag vom{" "}
               <strong style={{ color: M.fg }}>{formatDateDe(deleteTarget.performedAt)}</strong> wirklich löschen?
             </>
-          }
-          busy={deleteBusy}
-          onConfirm={handleDeleteConfirm}
-          onCancel={() => setDeleteTarget(null)}
-        />
-      )}
-      {deletePhotoTarget && (
-        <DeleteConfirmDialog
-          title="Foto löschen?"
-          message={
+          ) : null
+        }
+        busy={deleteBusy}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
+      />
+      <DeleteConfirmDialog
+        open={!!deletePhotoTarget}
+        title="Foto löschen?"
+        message={
+          deletePhotoTarget ? (
             <>
               Möchtest du dieses Foto vom{" "}
               <strong style={{ color: M.fg }}>{formatDateDe(deletePhotoTarget.performedAt)}</strong> wirklich löschen?
             </>
-          }
-          busy={deletePhotoBusy}
-          onConfirm={handleDeletePhotoConfirm}
-          onCancel={() => setDeletePhotoTarget(null)}
-        />
-      )}
+          ) : null
+        }
+        busy={deletePhotoBusy}
+        onConfirm={handleDeletePhotoConfirm}
+        onCancel={() => setDeletePhotoTarget(null)}
+      />
 
     </div>
   );

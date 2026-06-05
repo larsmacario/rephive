@@ -8,8 +8,10 @@ import {
   type ReactNode,
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import type { Tables } from "./database.types";
+import { clearActiveWorkout } from "./activeWorkout";
 
 type Profile = Tables<"profiles">;
 
@@ -21,7 +23,11 @@ interface AuthContextValue {
   /** True once profile fetch finished (or no user). Prevents onboarding flash. */
   profileReady: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, displayName?: string) => Promise<{ error: string | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    options?: { displayName?: string; asCoach?: boolean },
+  ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<{ error: string | null }>;
   verifyResetToken: (email: string, token: string) => Promise<{ error: string | null }>;
@@ -30,6 +36,7 @@ interface AuthContextValue {
   updateBirthDate: (birthDate: string | null) => Promise<{ error: string | null }>;
   updateEmail: (email: string) => Promise<{ error: string | null }>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ error: string | null }>;
+  deleteAccount: () => Promise<{ error: string | null }>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -103,14 +110,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null };
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, displayName?: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: displayName ? { data: { display_name: displayName } } : undefined,
-    });
-    return { error: error?.message ?? null };
-  }, []);
+  const signUp = useCallback(
+    async (email: string, password: string, options?: { displayName?: string; asCoach?: boolean }) => {
+      const meta: Record<string, string> = {};
+      if (options?.displayName) meta.display_name = options.displayName;
+      if (options?.asCoach) meta.app_role = "coach";
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: Object.keys(meta).length > 0 ? { data: meta } : undefined,
+      });
+
+      if (!error && data.user && options?.asCoach) {
+        await supabase
+          .from("profiles")
+          .update({
+            role: "coach",
+            coach_enabled: true,
+            preferences: { onboarded: true },
+          })
+          .eq("id", data.user.id);
+      }
+
+      return { error: error?.message ?? null };
+    },
+    [],
+  );
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
@@ -209,6 +235,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) await loadProfile(user.id, { silent: true });
   }, [user, loadProfile]);
 
+  const deleteAccount = useCallback(async () => {
+    if (!user) return { error: "Nicht angemeldet." };
+
+    const { error } = await supabase.functions.invoke("delete-account");
+    if (error) {
+      if (error instanceof FunctionsHttpError) {
+        try {
+          const payload = await error.context.json();
+          if (payload && typeof payload === "object" && typeof payload.message === "string") {
+            return { error: payload.message };
+          }
+        } catch {
+          /* ignore parse errors */
+        }
+      }
+      return { error: error.message || "Konto konnte nicht gelöscht werden." };
+    }
+
+    clearActiveWorkout(user.id);
+    await supabase.auth.signOut();
+    setProfile(null);
+    return { error: null };
+  }, [user]);
+
   const value = useMemo(
     () => ({
       user,
@@ -226,6 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateBirthDate,
       updateEmail,
       changePassword,
+      deleteAccount,
       refreshProfile,
     }),
     [
@@ -244,6 +295,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateBirthDate,
       updateEmail,
       changePassword,
+      deleteAccount,
       refreshProfile,
     ],
   );

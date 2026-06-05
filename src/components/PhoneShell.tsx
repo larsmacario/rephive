@@ -32,6 +32,17 @@ export function PhoneShell({ children, reserveBottomSafeArea = true }: PhoneShel
       }}
     >
       <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          background:
+            "radial-gradient(ellipse 90% 50% at 50% 0%, color-mix(in oklab, var(--mom-brand, #7ef67b) 10%, transparent), transparent 62%)",
+          zIndex: 0,
+        }}
+      />
+      <div
         style={{
           flex: 1,
           minHeight: 0,
@@ -43,6 +54,7 @@ export function PhoneShell({ children, reserveBottomSafeArea = true }: PhoneShel
           maxWidth: maxW,
           margin: maxW ? "0 auto" : undefined,
           overflow: "hidden",
+          zIndex: 1,
         }}
       >
         {children}

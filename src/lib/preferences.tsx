@@ -21,7 +21,7 @@ import {
 
 interface PreferencesContextValue {
   preferences: UserPreferences;
-  updatePreferences: (partial: UserPreferencesUpdate, immediate?: boolean) => void;
+  updatePreferences: (partial: UserPreferencesUpdate, immediate?: boolean) => void | Promise<void>;
   saving: boolean;
 }
 
@@ -82,8 +82,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 
       if (immediate) {
-        void persist(next);
-        return;
+        return persist(next);
       }
 
       saveTimerRef.current = setTimeout(() => {

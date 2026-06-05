@@ -1,11 +1,12 @@
 import { useState, useRef, useLayoutEffect, useCallback, useEffect } from "react";
-import { M } from "../theme";
+import { brandButtonStyle, M } from "../theme";
 import { fmtUp } from "../lib/engine";
 import { Icon } from "./Icon";
 import { BottomSheet } from "./BottomSheet";
 import { MButton } from "./MButton";
 
 export interface WorkoutFinishSheetProps {
+  open?: boolean;
   name: string;
   durationSec: number;
   doneSets: number;
@@ -21,7 +22,7 @@ export interface WorkoutFinishSheetProps {
 const uniqueExercises = (exercises: string[]) => Array.from(new Set(exercises));
 
 const FEEDBACK_LEGEND = [
-  { rating: "like" as const, icon: "like" as const, label: "Gefällt mir", color: M.acc },
+  { rating: "like" as const, icon: "like" as const, label: "Gefällt mir", color: M.brand },
   { rating: "dislike" as const, icon: "dislike" as const, label: "Ersetzen", color: M.mut },
   { rating: "pain" as const, icon: "alertCircle" as const, label: "Schmerzen", color: "#ef4444" },
 ];
@@ -71,6 +72,7 @@ function FeedbackLegend() {
 }
 
 export function WorkoutFinishSheet({
+  open = true,
   name,
   durationSec,
   doneSets,
@@ -150,10 +152,10 @@ export function WorkoutFinishSheet({
 
   return (
     <BottomSheet
-      open
+      open={open}
       onClose={onClose}
       zIndex={30}
-      maxHeight="min(90dvh, 90vh)"
+      fitContent={false}
       wrapScroll={false}
       lockBodyScroll
       aria-label="Workout beenden"
@@ -270,8 +272,8 @@ export function WorkoutFinishSheet({
                           height: 32,
                           borderRadius: 8,
                           border: "none",
-                          background: current?.rating === "like" ? M.accSoft : "transparent",
-                          color: current?.rating === "like" ? M.acc : M.mut,
+                          background: current?.rating === "like" ? M.brandSoft : "transparent",
+                          color: current?.rating === "like" ? M.brand : M.mut,
                           cursor: "pointer",
                           display: "flex",
                           alignItems: "center",
@@ -279,7 +281,7 @@ export function WorkoutFinishSheet({
                           transition: "all 0.15s ease",
                         }}
                       >
-                        <Icon name="like" size={16} color={current?.rating === "like" ? M.acc : M.mut} />
+                        <Icon name="like" size={16} color={current?.rating === "like" ? M.brand : M.mut} />
                       </button>
                       <button
                         type="button"
@@ -344,28 +346,71 @@ export function WorkoutFinishSheet({
       )}
 
       <div style={{ flexShrink: 0 }}>
-        <div style={{ display: "flex", gap: 10, alignItems: "stretch", marginBottom: 10 }}>
-          <MButton
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 10,
+            padding: "12px 14px",
+            borderRadius: 16,
+            background: M.card,
+            border: "1px solid " + M.line2,
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 11,
+                letterSpacing: 1.2,
+                color: M.mut,
+                fontWeight: 700,
+                textTransform: "uppercase",
+              }}
+            >
+              Speichern
+            </div>
+            <div style={{ fontSize: 13, color: M.mut, marginTop: 4, fontWeight: 600 }}>
+              {doneSets}/{totalSets} Sätze · {fmtUp(durationSec)}
+            </div>
+          </div>
+          <button
             type="button"
             disabled={busy}
             onClick={() => onSave(feedback)}
-            variant="primary"
-            size="md"
-            style={{ flex: 1, minWidth: 0 }}
+            style={{
+              ...brandButtonStyle(),
+              flex: "0 0 auto",
+              minHeight: 44,
+              padding: "0 18px",
+              borderRadius: 12,
+              border: "none",
+              cursor: busy ? "wait" : "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              fontFamily: M.disp,
+              fontWeight: 700,
+              fontSize: 15,
+              opacity: busy ? 0.45 : 1,
+            }}
           >
-            <Icon name="check" size={18} stroke={2.6} color={M.accInk} /> SPEICHERN
-          </MButton>
+            {(volumeKg / 1000).toFixed(1)}t
+            <Icon name="chevR" size={16} color={M.brandInk} stroke={2.4} />
+          </button>
+        </div>
 
+        <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
           <MButton
             type="button"
             disabled={busy}
             aria-label="Workout verwerfen"
             onClick={onDiscard}
             variant="secondary"
-            size="icon"
-            style={{ flex: "0 0 auto", width: 40, height: 40 }}
+            size="md"
+            fullWidth
           >
-            <Icon name="trash" size={20} stroke={2.2} color={M.mut} />
+            <Icon name="trash" size={18} stroke={2.2} color={M.mut} /> Verwerfen
           </MButton>
         </div>
 

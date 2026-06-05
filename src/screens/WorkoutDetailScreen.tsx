@@ -263,26 +263,29 @@ export function WorkoutDetailScreen({
         )}
       </div>
 
-      {deleteConfirmOpen && workout && (
-        <DeleteConfirmDialog
-          title="Workout löschen?"
-          message={
+      <DeleteConfirmDialog
+        open={deleteConfirmOpen && !!workout}
+        title="Workout löschen?"
+        message={
+          workout ? (
             <>
               Möchtest du <strong style={{ color: M.fg }}>{workout.name}</strong> wirklich löschen?
             </>
-          }
-          step2Title="Endgültig löschen?"
-          step2Message={
+          ) : null
+        }
+        step2Title="Endgültig löschen?"
+        step2Message={
+          workout ? (
             <>
               Diese Aktion kann nicht rückgängig gemacht werden. Workout{" "}
               <strong style={{ color: M.fg }}>{workout.name}</strong> unwiderruflich entfernen?
             </>
-          }
-          busy={busy}
-          onCancel={() => setDeleteConfirmOpen(false)}
-          onConfirm={handleDelete}
-        />
-      )}
+          ) : null
+        }
+        busy={busy}
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleDelete}
+      />
       <ExerciseHistorySheet
         open={Boolean(historyExercise)}
         onClose={() => setHistoryExercise(null)}

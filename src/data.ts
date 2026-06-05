@@ -22,11 +22,21 @@ export interface LibraryWorkout {
 export interface LibraryExercise {
   id: string;
   name: string;
+  nameEn?: string | null;
+  category: "strength" | "cardio" | "mobility";
   group: string;
   equip: string;
   userId: string | null;
   metric: ExerciseMetric;
   youtubeUrl?: string | null;
+  descriptionDe?: string | null;
+  descriptionEn?: string | null;
+  primaryMusclesDe?: string[];
+  primaryMusclesRaw?: string[];
+  secondaryMusclesDe?: string[];
+  secondaryMusclesRaw?: string[];
+  executionStepsDe?: string[];
+  executionStepsEn?: string[];
 }
 
 export interface SessionExercise {

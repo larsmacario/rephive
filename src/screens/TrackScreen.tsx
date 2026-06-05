@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { M } from "../theme";
+import { brandButtonStyle, M } from "../theme";
 import type { LibraryExercise } from "../data";
 import { fmt, fmtUp, useWorkout, type Workout } from "../lib/engine";
 
@@ -253,7 +253,7 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
           }}
         >
           <div
-            style={{ width: pct + "%", height: "100%", background: M.acc, borderRadius: 3, transition: "width .3s" }}
+            style={{ width: pct + "%", height: "100%", background: M.brand, borderRadius: 3, transition: "width .3s" }}
           />
         </div>
       </div>
@@ -286,8 +286,8 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
                 width: 52,
                 height: 52,
                 borderRadius: 16,
-                background: M.accSoft,
-                color: M.acc,
+                background: M.brandSoft,
+                color: M.brand,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -351,8 +351,8 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    background: complete ? M.acc : M.accSoft,
-                    color: complete ? M.accInk : M.acc,
+                    background: complete ? M.brand : M.brandSoft,
+                    color: complete ? M.brandInk : M.brand,
                     fontFamily: M.disp,
                     fontWeight: 700,
                     fontSize: 16,
@@ -490,7 +490,7 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
                           fontFamily: M.disp,
                           fontWeight: 700,
                           fontSize: 17,
-                          color: s.done ? M.acc : si === 0 && s.warmUp ? M.acc : M.mut,
+                          color: s.done ? M.brand : si === 0 && s.warmUp ? M.brand : M.mut,
                         }}
                       >
                         {si === 0 && s.warmUp ? "W" : si + 1}
@@ -578,13 +578,12 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
         {W.restActive ? (
           <div
             style={{
-              background: M.acc,
+              ...brandButtonStyle(),
               borderRadius: 16,
               padding: "13px 18px",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              color: M.accInk,
               boxSizing: "border-box",
             }}
           >
@@ -596,7 +595,7 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
               onClick={W.stopRest}
               variant="secondary"
               size="sm"
-              style={{ borderColor: "rgba(255,255,255,.25)", color: M.accInk, background: "transparent" }}
+              style={{ borderColor: "rgba(10,26,10,.25)", color: M.brandInk, background: "transparent" }}
             >
               Skip
             </MButton>
@@ -626,20 +625,19 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
           </div>
         )}
       </div>
-      {finishSheet && (
-        <WorkoutFinishSheet
-          name={W.wo.name}
-          durationSec={elapsedSec}
-          doneSets={W.doneSets}
-          totalSets={W.totalSets}
-          volumeKg={W.volume}
-          busy={finishing}
-          exercises={W.wo.exercises.map((e) => e.name)}
-          onSave={handleSave}
-          onDiscard={handleDiscard}
-          onClose={() => setFinishSheet(false)}
-        />
-      )}
+      <WorkoutFinishSheet
+        open={finishSheet}
+        name={W.wo.name}
+        durationSec={elapsedSec}
+        doneSets={W.doneSets}
+        totalSets={W.totalSets}
+        volumeKg={W.volume}
+        busy={finishing}
+        exercises={W.wo.exercises.map((e) => e.name)}
+        onSave={handleSave}
+        onDiscard={handleDiscard}
+        onClose={() => setFinishSheet(false)}
+      />
       <ExercisePickerSheet
         open={picker}
         onClose={() => setPicker(false)}
@@ -657,14 +655,12 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
         onClose={() => setHistoryExercise(null)}
         exerciseName={historyExercise}
       />
-      {videoExercise && (
-        <ExerciseVideoSheet
-          open
-          exerciseName={videoExercise.name}
-          youtubeUrl={videoExercise.youtubeUrl}
-          onClose={() => setVideoExercise(null)}
-        />
-      )}
+      <ExerciseVideoSheet
+        open={!!videoExercise}
+        exerciseName={videoExercise?.name ?? ""}
+        youtubeUrl={videoExercise?.youtubeUrl ?? ""}
+        onClose={() => setVideoExercise(null)}
+      />
       <OneRmCalculatorSheet
         open={oneRmOpen}
         onClose={() => setOneRmOpen(false)}
@@ -672,16 +668,19 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
         initialReps={oneRmPrefill.reps}
         resetKey={open}
       />
-      {removeTarget && (
-        <ConfirmSheet
-          title="Übung entfernen?"
-          message={`${removeTarget.name} wird nur aus dieser Trainingssession entfernt. Das Workout in der Library und dein Plan bleiben unverändert.`}
-          confirmLabel="Aus Session entfernen"
-          icon="trash"
-          onConfirm={handleConfirmRemoveExercise}
-          onCancel={() => setRemoveTarget(null)}
-        />
-      )}
+      <ConfirmSheet
+        open={!!removeTarget}
+        title="Übung entfernen?"
+        message={
+          removeTarget
+            ? `${removeTarget.name} wird nur aus dieser Trainingssession entfernt. Das Workout in der Library und dein Plan bleiben unverändert.`
+            : ""
+        }
+        confirmLabel="Aus Session entfernen"
+        icon="trash"
+        onConfirm={handleConfirmRemoveExercise}
+        onCancel={() => setRemoveTarget(null)}
+      />
     </div>
   );
 }

@@ -4,12 +4,15 @@ import "./index.css";
 import { App } from "./App";
 import { AuthProvider } from "./lib/auth";
 import { PreferencesProvider } from "./lib/preferences";
+import { CoachModeProvider } from "./lib/coachMode";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AuthProvider>
       <PreferencesProvider>
-        <App />
+        <CoachModeProvider>
+          <App />
+        </CoachModeProvider>
       </PreferencesProvider>
     </AuthProvider>
   </StrictMode>,

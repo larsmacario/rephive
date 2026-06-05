@@ -4,6 +4,7 @@ import { BottomSheet } from "./BottomSheet";
 import { MButton } from "./MButton";
 
 export interface TimerLeaveSheetProps {
+  open?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   title?: string;
@@ -12,6 +13,7 @@ export interface TimerLeaveSheetProps {
 }
 
 export function TimerLeaveSheet({
+  open = true,
   onConfirm,
   onCancel,
   title = "Timer stoppen?",
@@ -19,7 +21,7 @@ export function TimerLeaveSheet({
   confirmLabel = "FORTFAHREN",
 }: TimerLeaveSheetProps) {
   return (
-    <BottomSheet open onClose={onCancel} position="absolute" zIndex={40} aria-label={title}>
+    <BottomSheet open={open} onClose={onCancel} position="absolute" zIndex={40} aria-label={title}>
       <div
         style={{
           width: 44,

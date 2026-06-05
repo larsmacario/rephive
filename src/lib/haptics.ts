@@ -1,5 +1,8 @@
+type ImpactStyle = "LIGHT" | "MEDIUM" | "HEAVY";
+
 let hapticsReady = false;
-let hapticsModule: { Haptics: { impact: (options: { style: string }) => Promise<void> } } | null = null;
+let hapticsModule: { Haptics: { impact: (options: { style: ImpactStyle }) => Promise<void> } } | null =
+  null;
 
 export const prefersReducedMotion = (): boolean => {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
@@ -17,6 +20,7 @@ const loadHaptics = async () => {
   return hapticsModule;
 };
 
+/** Light tap feedback — intended for primary CTAs (MButton variant=primary). */
 export const triggerTapHaptic = async () => {
   if (prefersReducedMotion()) return;
   const mod = await loadHaptics();

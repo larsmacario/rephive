@@ -82,13 +82,14 @@ export function MSwitch({ checked, onChange, disabled }: MSwitchProps) {
         height: 26,
         borderRadius: 13,
         border: "1px solid " + (checked ? "transparent" : M.line),
-        background: checked ? M.acc : M.card,
+        background: checked ? M.brand : M.card,
         cursor: disabled ? "default" : "pointer",
         position: "relative",
         padding: 0,
         flex: "0 0 auto",
         opacity: disabled ? 0.5 : 1,
         transition: "background .15s",
+        ...(checked ? { boxShadow: M.brandGlow } : null),
       }}
     >
       <span
@@ -99,7 +100,7 @@ export function MSwitch({ checked, onChange, disabled }: MSwitchProps) {
           width: 20,
           height: 20,
           borderRadius: 10,
-          background: checked ? M.accInk : M.fg,
+          background: checked ? M.brandInk : M.fg,
           transition: "left .15s",
         }}
       />
@@ -114,12 +115,13 @@ export function MTag({ children, on }: { children: ReactNode; on?: boolean }) {
       style={{
         fontSize: 12,
         fontWeight: 600,
-        color: on ? M.accInk : M.mut,
+        color: on ? M.brandInk : M.mut,
         padding: "6px 12px",
         borderRadius: 9,
-        background: on ? M.acc : M.card,
+        background: on ? M.brand : M.card,
         border: "1px solid " + (on ? "transparent" : M.line2),
         whiteSpace: "nowrap",
+        ...(on ? { boxShadow: M.brandGlow } : null),
       }}
     >
       {children}
@@ -147,7 +149,7 @@ export function MStat({
         padding: "12px 13px",
       }}
     >
-      <div style={{ fontSize: 9.5, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>{label}</div>
+      <div style={{ fontSize: 9.5, letterSpacing: 1.4, color: M.brand, fontWeight: 700 }}>{label}</div>
       <div
         style={{
           fontFamily: M.disp,

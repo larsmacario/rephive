@@ -55,6 +55,40 @@ export function normalizeSleepHours(raw: unknown): number {
   return Math.round(clamped * 2) / 2;
 }
 
+export const AI_CONSENT_VERSION = 1;
+
+export interface AiConsent {
+  grantedAt: string;
+  provider: "anthropic";
+  version: number;
+}
+
+export function normalizeAiConsent(raw: unknown): AiConsent | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const obj = raw as Record<string, unknown>;
+  if (obj.provider !== "anthropic") return null;
+  if (typeof obj.grantedAt !== "string" || !obj.grantedAt) return null;
+  const version = typeof obj.version === "number" ? obj.version : 0;
+  if (version < AI_CONSENT_VERSION) return null;
+  return {
+    grantedAt: obj.grantedAt,
+    provider: "anthropic",
+    version,
+  };
+}
+
+export function hasAiConsent(prefs: Pick<UserPreferences, "aiConsent">): boolean {
+  return normalizeAiConsent(prefs.aiConsent) !== null;
+}
+
+export function createAiConsentGrant(): AiConsent {
+  return {
+    grantedAt: new Date().toISOString(),
+    provider: "anthropic",
+    version: AI_CONSENT_VERSION,
+  };
+}
+
 export interface UserPreferences {
   restSeconds: number;
   autoRest: boolean;
@@ -70,6 +104,7 @@ export interface UserPreferences {
   weeklyDays: number | null;
   anamnesis: AnamnesisData | null;
   exerciseFeedback: Record<string, { rating: "like" | "dislike" | "pain"; note?: string }> | null;
+  aiConsent: AiConsent | null;
 }
 
 export type UserPreferencesUpdate = Omit<Partial<UserPreferences>, "timerDefaults"> & {
@@ -95,6 +130,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   weeklyDays: null,
   anamnesis: null,
   exerciseFeedback: null,
+  aiConsent: null,
 };
 
 function mergeTimerDefaults(raw: unknown): Record<TimerMode, TimerCfg> {
@@ -158,6 +194,7 @@ export function mergePreferences(raw: Json | null | undefined): UserPreferences 
       obj.exerciseFeedback && typeof obj.exerciseFeedback === "object"
         ? (obj.exerciseFeedback as Record<string, { rating: "like" | "dislike" | "pain"; note?: string }>)
         : DEFAULT_PREFERENCES.exerciseFeedback,
+    aiConsent: normalizeAiConsent(obj.aiConsent),
   };
 }
 
@@ -177,6 +214,7 @@ export function preferencesToJson(prefs: UserPreferences): Json {
     weeklyDays: prefs.weeklyDays,
     anamnesis: prefs.anamnesis ? (prefs.anamnesis as unknown as Json) : null,
     exerciseFeedback: prefs.exerciseFeedback ? (prefs.exerciseFeedback as unknown as Json) : null,
+    aiConsent: prefs.aiConsent ? (prefs.aiConsent as unknown as Json) : null,
   };
 }
 

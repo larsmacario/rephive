@@ -1,18 +1,21 @@
 # Aktueller Stand
 
 ## Letzte Änderungen
-- **KI-Übungsanzahl:** `exerciseCountBounds` in `generate-training-plan` — skaliert nach Minuten, Erfahrung (Profi +2), Ziel (Muskelaufbau +1, Kraft −1), Stress/Schlaf; cap 8 Kraftübungen; Prompt Regel 2 dynamisch.
-- **Wizard:** `src/lib/ai-plan-volume.ts` + Hinweis unter Trainingsdauer (Schritt 7).
-- **Stabilität:** Client-Timeout 150 s bei `functions.invoke`; Katalog-Upsert per `EdgeRuntime.waitUntil` im Hintergrund; klarere Fehlermeldungen bei Verbindungsabbruch.
-- Edge Function deployed (v16+).
+- **KI-Einwilligung (Apple 5.1.2(i)):** `aiConsent` in `profiles.preferences`, Wizard-Schritt Consent, Gates Client (`db.ts`) + Edge Function `requireAiConsent`; Widerruf/Re-Consent in Einstellungen; Datenschutz-Landingpage (Anthropic-Abschnitt).
+- **Edge Function:** `generate-training-plan` v19 deployed (`verify_jwt=true`, Consent-Gate live).
+- **Deploy-Scripts:** MCP-Artefakte entfernt; `scripts/deploy-training-plan.sh` + `deploy-delete-account.sh` nur noch CLI (Token-Fallback `~/.supabase/access-token`).
+- **App Store P1:** Home HILFE nur Support; iOS Info.plist Foto-Strings + ATS ohne `NSAllowsArbitraryLoads`.
 
 ## Fokus
-- KI-Plan-Generierung stabil und mit realistischem Volumen für Profi-Nutzer testen.
+- App-Store-Submit: KI-Consent-Flow + Body-Tracker-Foto + Legal-Links auf Gerät testen.
+- `npm run build` wieder grün bekommen (`BuilderItem.category` in BuilderScreen/PlanBuilderScreen).
 
 ## Nächste Schritte
-- Neuen KI-Plan (Profi + 60 Min) generieren und Übungsanzahl prüfen; App während Generierung geöffnet lassen.
-- Bei iOS-Problemen: Timeout/Netzwerk in Capacitor-WKWebView beobachten.
+- TestFlight: Consent → Plan generieren; Widerruf in Einstellungen; 403 ohne Consent prüfen.
+- `npm run build` fixen, dann `npx cap sync ios` vor Release.
+- App Store Connect Privacy Labels (Fitness-Daten an Anthropic) manuell prüfen.
 
 ## Offene Punkte
-- 4-Bausteine-Philosophie nur als Doku, nicht im Code.
-- Katalog-Upsert: bestehende `exercises` bei Metric-Wechsel ggf. aktualisieren (nicht nur Insert).
+- TS-Build-Fehler `BuilderItem.category` (vorbestehend).
+- KI-Katalog-Upsert: bestehende `exercises` bei Metric-Wechsel ggf. aktualisieren.
+- IAP/StoreKit für KI-Checkout v1.1 geplant (Wizard-Checkout aktuell simuliert).

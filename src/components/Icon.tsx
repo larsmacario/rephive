@@ -39,6 +39,9 @@ const ICON_PATHS: Record<string, string> = {
   dislike: "M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm12-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3",
   alertCircle: "M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm0-14v4m0 4h.01",
   lock: "M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5z",
+  user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 9a7 7 0 0 1 14 0",
+  users: "M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-5 9a6 6 0 0 1 12 0M13 19a5 5 0 0 1 10 0",
+  mail: "M4 6h16v12H4zM4 7l8 6 8-6",
 };
 
 export interface IconProps {

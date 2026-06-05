@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { M } from "../theme";
 import { fmt, TIMER_DEFAULTS, TIMER_MODES, type TimerMode } from "../lib/engine";
-import { usePreferences } from "../lib/preferences";
+import { createAiConsentGrant, hasAiConsent, usePreferences } from "../lib/preferences";
 import { Icon } from "../components/Icon";
 import { TimerConfigPanel } from "../components/TimerConfigPanel";
 import { MStepper, MSwitch } from "../components/widgets";
 import { MButton } from "../components/MButton";
+import { BottomSheet } from "../components/BottomSheet";
+import { AiConsentStep } from "../components/AiConsentStep";
 
 export interface SettingsScreenProps {
   onBack: () => void;
@@ -73,6 +75,31 @@ function SettingRow({
 export function SettingsScreen({ onBack }: SettingsScreenProps) {
   const { preferences, updatePreferences, saving } = usePreferences();
   const [timerMode, setTimerMode] = useState<TimerMode>("emom");
+  const [aiConsentSheetOpen, setAiConsentSheetOpen] = useState(false);
+
+  const legalBaseUrl = (import.meta.env.VITE_LEGAL_BASE_URL ?? "https://rephive.app").replace(/\/$/, "");
+  const openDatenschutz = () => {
+    window.open(`${legalBaseUrl}/datenschutz`, "_blank", "noopener,noreferrer");
+  };
+
+  const aiConsentGranted = hasAiConsent(preferences);
+
+  const handleAiConsentToggle = (enabled: boolean) => {
+    if (!enabled) {
+      updatePreferences({ aiConsent: null }, true);
+      return;
+    }
+    setAiConsentSheetOpen(true);
+  };
+
+  const handleGrantAiConsent = async () => {
+    try {
+      await updatePreferences({ aiConsent: createAiConsentGrant() }, true);
+      setAiConsentSheetOpen(false);
+    } catch {
+      // saving state resets via preferences provider
+    }
+  };
 
   const timerCfg = preferences.timerDefaults[timerMode];
   const setTimerCfg = (p: Partial<typeof timerCfg>) => {
@@ -145,6 +172,16 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
           </SettingRow>
         </Section>
 
+        <Section title="DATEN & KI">
+          <SettingRow
+            label="KI-Datennutzung für Trainingspläne"
+            hint="Einwilligung zur Übermittlung deiner Trainingsdaten an Anthropic für KI-Pläne. Widerruf stoppt neue Generierungen; bestehende Pläne bleiben erhalten."
+            last
+          >
+            <MSwitch checked={aiConsentGranted} onChange={handleAiConsentToggle} />
+          </SettingRow>
+        </Section>
+
         <Section title="SIGNALE">
           <SettingRow label="Signaletöne" hint="Akustische Signale für Timer und Pausen" last>
             <MSwitch
@@ -200,6 +237,22 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
           Änderungen werden automatisch gespeichert
         </div>
       </div>
+
+      <BottomSheet
+        open={aiConsentSheetOpen}
+        onClose={() => setAiConsentSheetOpen(false)}
+        position="absolute"
+        zIndex={40}
+        aria-label="KI-Einwilligung"
+      >
+        <AiConsentStep
+          onOpenPrivacy={openDatenschutz}
+          onAccept={handleGrantAiConsent}
+          onBack={() => setAiConsentSheetOpen(false)}
+          showActions
+          saving={saving}
+        />
+      </BottomSheet>
     </div>
   );
 }

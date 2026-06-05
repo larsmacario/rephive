@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { M } from "../theme";
+import { brandSelectionStyle, M } from "../theme";
 import { useAuth } from "../lib/auth";
 import { usePreferences } from "../lib/preferences";
 import { Icon } from "../components/Icon";
@@ -8,6 +8,8 @@ import { OneRmPercentInfoCard } from "../components/OneRmPercentInfoCard";
 import { createBodyMeasurement, generateAndSaveAITrainingPlan, fetchRecentSessionsWithExercises, useBodyMeasurements } from "../lib/db";
 import { buildNutrition } from "../lib/nutrition";
 import {
+  createAiConsentGrant,
+  hasAiConsent,
   normalizeSleepHours,
   normalizeStressLevel,
   type TrainingSplitDays,
@@ -19,6 +21,7 @@ import { normalizeMusclePriorities, type MusclePriorities } from "../lib/muscleP
 import { MusclePrioritySliderRow } from "../components/MusclePrioritySliderRow";
 import { getExerciseCountHint } from "../lib/ai-plan-volume";
 import { MButton } from "../components/MButton";
+import { AiConsentStep } from "../components/AiConsentStep";
 
 function formatSleepHours(hours: number): string {
   const rounded = Math.round(hours * 2) / 2;
@@ -77,9 +80,7 @@ const tileStyle = (selected: boolean): React.CSSProperties => ({
   flex: 1,
   padding: "18px 14px",
   borderRadius: 14,
-  border: selected ? `2px solid ${M.acc}` : `1px solid ${M.line}`,
-  background: selected ? M.accSoft : M.card,
-  color: selected ? M.acc : M.fg,
+  ...brandSelectionStyle(selected),
   fontFamily: M.body,
   fontSize: 14,
   fontWeight: 600,
@@ -98,9 +99,7 @@ const listTileStyle = (selected: boolean): React.CSSProperties => ({
   width: "100%",
   padding: "16px 18px",
   borderRadius: 14,
-  border: selected ? `2px solid ${M.acc}` : `1px solid ${M.line}`,
-  background: selected ? M.accSoft : M.card,
-  color: selected ? M.acc : M.fg,
+  ...brandSelectionStyle(selected),
   fontFamily: M.body,
   fontSize: 15,
   fontWeight: 600,
@@ -131,15 +130,15 @@ const stepperBtnStyle: React.CSSProperties = {
 
 function getHtvClassification(htv: number, gender: string | null): { text: string; color: string } {
   if (gender === "male") {
-    if (htv < 0.90) return { text: "Geringes Risiko (Normalwert)", color: M.acc };
+    if (htv < 0.90) return { text: "Geringes Risiko (Normalwert)", color: M.brand };
     if (htv < 1.0) return { text: "Mäßiges Risiko (Übergewicht)", color: "#9ca3af" };
     return { text: "Hohes Risiko (Adipositas)", color: "#6b7280" };
   } else if (gender === "female") {
-    if (htv < 0.80) return { text: "Geringes Risiko (Normalwert)", color: M.acc };
+    if (htv < 0.80) return { text: "Geringes Risiko (Normalwert)", color: M.brand };
     if (htv < 0.85) return { text: "Mäßiges Risiko (Übergewicht)", color: "#9ca3af" };
     return { text: "Hohes Risiko (Adipositas)", color: "#6b7280" };
   } else {
-    if (htv < 0.85) return { text: "Geringes Risiko (Normalwert)", color: M.acc };
+    if (htv < 0.85) return { text: "Geringes Risiko (Normalwert)", color: M.brand };
     if (htv < 0.92) return { text: "Mäßiges Risiko (Übergewicht)", color: "#9ca3af" };
     return { text: "Hohes Risiko (Adipositas)", color: "#6b7280" };
   }
@@ -176,7 +175,7 @@ interface AITrainingPlanWizardProps {
 
 export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlanWizardProps) {
   const { user, profile, updateBirthDate } = useAuth();
-  const { preferences, updatePreferences } = usePreferences();
+  const { preferences, updatePreferences, saving: prefsSaving } = usePreferences();
   const { data: measurements, loading: measurementsLoading } = useBodyMeasurements();
   const breakpoint = useBreakpoint();
   const bodyValuesPrefilled = useRef(false);
@@ -421,6 +420,10 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
         return;
       }
     }
+    if (step === 10) {
+      setStep(11);
+      return;
+    }
     setStep((s) => s + 1);
   };
 
@@ -429,18 +432,33 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
     setStep((s) => s - 1);
   };
 
-  const handleCheckout = () => {
-    setBusy(true);
-    // Simuliere Bezahlvorgang für 1.5 Sekunden
-    setTimeout(() => {
-      setBusy(false);
-      setStep(12); // Gehe zum Generierungs-Ladebildschirm
-      void runGeneration();
-    }, 1800);
+  const startGenerationFlow = (options?: { consentGranted?: boolean }) => {
+    if (!options?.consentGranted && !hasAiConsent(preferences)) {
+      setError("Bitte erteile zuerst deine Einwilligung zur KI-Nutzung.");
+      setStep(11);
+      return;
+    }
+    setStep(12);
+    void runGeneration(options?.consentGranted);
   };
 
-  const runGeneration = async () => {
+  const handleGrantConsent = async () => {
+    setError(null);
+    try {
+      await updatePreferences({ aiConsent: createAiConsentGrant() }, true);
+      startGenerationFlow({ consentGranted: true });
+    } catch {
+      setError("Die Einwilligung konnte nicht gespeichert werden. Bitte erneut versuchen.");
+    }
+  };
+
+  const runGeneration = async (consentGranted = false) => {
     if (!user) return;
+    if (!consentGranted && !hasAiConsent(preferences)) {
+      setError("Für die KI-Planerstellung ist deine Einwilligung erforderlich.");
+      setStep(11);
+      return;
+    }
     generationStartedAtRef.current = Date.now();
     setGenElapsedSec(0);
     setBusy(true);
@@ -542,7 +560,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
     } catch (e: any) {
       console.error("Fehler bei der KI-Generierung:", e);
       setError(e.message || "Es ist ein Fehler bei der Generierung aufgetreten. Bitte versuche es erneut.");
-      setStep(11); // Zurück zum Checkout im Fehlerfall
+      setStep(12); // Zurück zum Generierungsschritt im Fehlerfall
     } finally {
       setBusy(false);
     }
@@ -607,7 +625,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                 style={{
                   height: "100%",
                   width: `${progressPercent}%`,
-                  background: M.acc,
+                  background: M.brand,
                   borderRadius: 1.5,
                   transition: "width 0.3s ease",
                 }}
@@ -660,14 +678,14 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                     width: 64,
                     height: 64,
                     borderRadius: 18,
-                    background: M.accSoft,
+                    background: M.brandSoft,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: M.acc,
+                    color: M.brand,
                   }}
                 >
-                  <Icon name="sparkles" size={28} color={M.acc} />
+                  <Icon name="sparkles" size={28} color={M.brand} />
                 </div>
               </div>
               <h1 style={{ fontFamily: M.disp, fontSize: 36, fontWeight: 800, margin: 0, letterSpacing: 0.5, lineHeight: 1.1 }}>
@@ -694,7 +712,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {INTRO_BENEFITS.map((text) => (
                   <div key={text} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 14 }}>
-                    <span style={{ color: M.acc, fontWeight: 700, flexShrink: 0 }}>✓</span>
+                    <span style={{ color: M.brand, fontWeight: 700, flexShrink: 0 }}>✓</span>
                     <span style={{ color: M.fg, lineHeight: 1.45 }}>{text}</span>
                   </div>
                 ))}
@@ -728,7 +746,8 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
             >
               <p style={{ color: M.mut2, fontSize: 11.5, lineHeight: 1.45, margin: 0 }}>
                 Deine Angaben werden in deinem rephive-Konto gespeichert. Für die Plan-Erstellung werden relevante Daten an
-                unseren KI-Dienst übermittelt. Es erfolgt keine Weitergabe zu Werbezwecken.{" "}
+                <strong> Anthropic</strong> übermittelt — dazu holen wir vor der Generierung eine separate Einwilligung ein
+                (kein automatisches Opt-in). Es erfolgt keine Weitergabe zu Werbezwecken.{" "}
                 <button
                   type="button"
                   onClick={openDatenschutz}
@@ -851,8 +870,8 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                     padding: "10px",
                     borderRadius: 8,
                     border: "none",
-                    background: metricMode === "kfa" ? M.acc : "transparent",
-                    color: metricMode === "kfa" ? M.accInk : M.fg,
+                    background: metricMode === "kfa" ? M.brand : "transparent",
+                    color: metricMode === "kfa" ? M.brandInk : M.fg,
                     fontWeight: 700,
                     fontSize: 12,
                     cursor: "pointer",
@@ -869,8 +888,8 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                     padding: "10px",
                     borderRadius: 8,
                     border: "none",
-                    background: metricMode === "htv" ? M.acc : "transparent",
-                    color: metricMode === "htv" ? M.accInk : M.fg,
+                    background: metricMode === "htv" ? M.brand : "transparent",
+                    color: metricMode === "htv" ? M.brandInk : M.fg,
                     fontWeight: 700,
                     fontSize: 12,
                     cursor: "pointer",
@@ -998,19 +1017,19 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
               </span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <button type="button" onClick={() => setFitnessGoal("muscle_building")} style={tileStyle(fitnessGoal === "muscle_building")}>
-                  <Icon name="bolt" size={20} color={fitnessGoal === "muscle_building" ? M.acc : M.fg} />
+                  <Icon name="bolt" size={20} color={fitnessGoal === "muscle_building" ? M.brand : M.fg} />
                   <span>Muskelaufbau</span>
                 </button>
                 <button type="button" onClick={() => setFitnessGoal("fat_loss")} style={tileStyle(fitnessGoal === "fat_loss")}>
-                  <Icon name="flame" size={20} color={fitnessGoal === "fat_loss" ? M.acc : M.fg} />
+                  <Icon name="flame" size={20} color={fitnessGoal === "fat_loss" ? M.brand : M.fg} />
                   <span>Fettverbrennung</span>
                 </button>
                 <button type="button" onClick={() => setFitnessGoal("fitness")} style={tileStyle(fitnessGoal === "fitness")}>
-                  <Icon name="timer" size={20} color={fitnessGoal === "fitness" ? M.acc : M.fg} />
+                  <Icon name="timer" size={20} color={fitnessGoal === "fitness" ? M.brand : M.fg} />
                   <span>Fitness & Fit</span>
                 </button>
                 <button type="button" onClick={() => setFitnessGoal("strength")} style={tileStyle(fitnessGoal === "strength")}>
-                  <Icon name="dumbbell" size={20} color={fitnessGoal === "strength" ? M.acc : M.fg} />
+                  <Icon name="dumbbell" size={20} color={fitnessGoal === "strength" ? M.brand : M.fg} />
                   <span>Kraftaufbau</span>
                 </button>
               </div>
@@ -1031,7 +1050,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                     <div style={{ fontWeight: 700 }}>Anfänger</div>
                     <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>Unter 1 Jahr Erfahrung</div>
                   </div>
-                  {experienceLevel === "beginner" && <Icon name="check" size={16} color={M.acc} />}
+                  {experienceLevel === "beginner" && <Icon name="check" size={16} color={M.brand} />}
                 </button>
                 <button
                   type="button"
@@ -1042,7 +1061,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                     <div style={{ fontWeight: 700 }}>Fortgeschritten</div>
                     <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>1 bis 3 Jahre Erfahrung</div>
                   </div>
-                  {experienceLevel === "intermediate" && <Icon name="check" size={16} color={M.acc} />}
+                  {experienceLevel === "intermediate" && <Icon name="check" size={16} color={M.brand} />}
                 </button>
                 <button
                   type="button"
@@ -1053,7 +1072,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                     <div style={{ fontWeight: 700 }}>Profi</div>
                     <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>Über 3 Jahre Erfahrung</div>
                   </div>
-                  {experienceLevel === "advanced" && <Icon name="check" size={16} color={M.acc} />}
+                  {experienceLevel === "advanced" && <Icon name="check" size={16} color={M.brand} />}
                 </button>
               </div>
             </div>
@@ -1192,27 +1211,27 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                     <div style={{ fontWeight: 700 }}>Fitnessstudio (Gym)</div>
                     <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>Alle Geräte, Freihanteln, Kabelzüge</div>
                   </div>
-                  {trainingLocation === "gym" && <Icon name="check" size={16} color={M.acc} />}
+                  {trainingLocation === "gym" && <Icon name="check" size={16} color={M.brand} />}
                 </button>
                 <button type="button" onClick={() => setTrainingLocation("home_equipment")} style={listTileStyle(trainingLocation === "home_equipment")}>
                   <div>
                     <div style={{ fontWeight: 700 }}>Home Gym mit Ausrüstung</div>
                     <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>Kurzhanteln, Bänder, Klimmzugstange</div>
                   </div>
-                  {trainingLocation === "home_equipment" && <Icon name="check" size={16} color={M.acc} />}
+                  {trainingLocation === "home_equipment" && <Icon name="check" size={16} color={M.brand} />}
                 </button>
                 <button type="button" onClick={() => setTrainingLocation("bodyweight")} style={listTileStyle(trainingLocation === "bodyweight")}>
                   <div>
                     <div style={{ fontWeight: 700 }}>Nur Eigengewicht (Bodyweight)</div>
                     <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>Keinerlei Geräte oder Gewichte nötig</div>
                   </div>
-                  {trainingLocation === "bodyweight" && <Icon name="check" size={16} color={M.acc} />}
+                  {trainingLocation === "bodyweight" && <Icon name="check" size={16} color={M.brand} />}
                 </button>
               </div>
             </div>
 
             {trainingLocation === "home_equipment" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: -8, paddingLeft: 12, borderLeft: "2px solid " + M.accSoft }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: -8, paddingLeft: 12, borderLeft: "2px solid " + M.brandSoft }}>
                 <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                   Vorhandene Ausrüstung im Home Gym
                 </span>
@@ -1231,9 +1250,9 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                         style={{
                           padding: "10px 12px",
                           borderRadius: 10,
-                          border: selected ? `2px solid ${M.acc}` : `1px solid ${M.line}`,
-                          background: selected ? M.accSoft : M.card,
-                          color: selected ? M.acc : M.fg,
+                          border: selected ? `2px solid ${M.brand}` : `1px solid ${M.line}`,
+                          background: selected ? M.brandSoft : M.card,
+                          color: selected ? M.brand : M.fg,
                           fontSize: 13,
                           fontWeight: 600,
                           cursor: "pointer",
@@ -1308,7 +1327,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                           {opt.hint}
                         </span>
                       </span>
-                      {trainingSplitDays === opt.days && <Icon name="check" size={18} color={M.acc} />}
+                      {trainingSplitDays === opt.days && <Icon name="check" size={18} color={M.brand} />}
                     </button>
                   ))}
                 </div>
@@ -1335,7 +1354,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                   -
                 </button>
                 <div style={{ textAlign: "center", minWidth: 80 }}>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: M.acc, fontFamily: M.disp }}>{weeklyDays}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: M.brand, fontFamily: M.disp }}>{weeklyDays}</div>
                   <div style={{ fontSize: 11, color: M.mut }}>{weeklyDays === 1 ? "Tag" : "Tage"} / Woche</div>
                 </div>
                 <button
@@ -1457,21 +1476,21 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                   <div style={{ fontWeight: 700 }}>Überwiegend sitzend</div>
                   <div style={{ fontSize: 11, color: M.mut }}>Büro, Homeoffice</div>
                 </div>
-                {occupation === "sedentary" && <Icon name="check" size={16} color={M.acc} />}
+                {occupation === "sedentary" && <Icon name="check" size={16} color={M.brand} />}
               </button>
               <button type="button" onClick={() => setOccupation("standing")} style={listTileStyle(occupation === "standing")}>
                 <div>
                   <div style={{ fontWeight: 700 }}>Überwiegend stehend</div>
                   <div style={{ fontSize: 11, color: M.mut }}>Einzelhandel, Pflege</div>
                 </div>
-                {occupation === "standing" && <Icon name="check" size={16} color={M.acc} />}
+                {occupation === "standing" && <Icon name="check" size={16} color={M.brand} />}
               </button>
               <button type="button" onClick={() => setOccupation("physical")} style={listTileStyle(occupation === "physical")}>
                 <div>
                   <div style={{ fontWeight: 700 }}>Körperlich belastend</div>
                   <div style={{ fontSize: 11, color: M.mut }}>Handwerk, Logistik</div>
                 </div>
-                {occupation === "physical" && <Icon name="check" size={16} color={M.acc} />}
+                {occupation === "physical" && <Icon name="check" size={16} color={M.brand} />}
               </button>
             </div>
 
@@ -1481,7 +1500,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
               style={listTileStyle(shiftWork)}
             >
               <span>Schichtarbeit</span>
-              {shiftWork && <Icon name="check" size={16} color={M.acc} />}
+              {shiftWork && <Icon name="check" size={16} color={M.brand} />}
             </button>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1498,7 +1517,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                   -
                 </button>
                 <div style={{ textAlign: "center", minWidth: 80 }}>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: M.acc, fontFamily: M.disp }}>{formatSleepHours(sleepHours)}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: M.brand, fontFamily: M.disp }}>{formatSleepHours(sleepHours)}</div>
                   <div style={{ fontSize: 11, color: M.mut }}>pro Nacht</div>
                 </div>
                 <button
@@ -1526,7 +1545,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                   -
                 </button>
                 <div style={{ textAlign: "center", minWidth: 80 }}>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: M.acc, fontFamily: M.disp }}>{stressLevel}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: M.brand, fontFamily: M.disp }}>{stressLevel}</div>
                   <div style={{ fontSize: 11, color: M.mut }}>von 10</div>
                 </div>
                 <button
@@ -1580,8 +1599,8 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                   style={{
                     padding: "0 18px",
                     borderRadius: 12,
-                    background: M.acc,
-                    color: M.accInk,
+                    background: M.brand,
+                    color: M.brandInk,
                     border: "none",
                     fontWeight: 700,
                     fontFamily: M.disp,
@@ -1606,8 +1625,8 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                         height: 32,
                         borderRadius: 8,
                         border: "1px solid " + M.line,
-                        background: tempFreq === f ? M.acc : "transparent",
-                        color: tempFreq === f ? M.accInk : M.fg,
+                        background: tempFreq === f ? M.brand : "transparent",
+                        color: tempFreq === f ? M.brandInk : M.fg,
                         fontWeight: 700,
                         cursor: "pointer",
                         fontSize: 12,
@@ -1643,7 +1662,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                       }}
                     >
                       <span>
-                        {s.sport} <span style={{ color: M.acc, marginLeft: 4 }}>({s.frequency}x/Woche)</span>
+                        {s.sport} <span style={{ color: M.brand, marginLeft: 4 }}>({s.frequency}x/Woche)</span>
                       </span>
                       <button
                         type="button"
@@ -1660,106 +1679,15 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
           </div>
         )}
 
-        {/* STEP 11: Premium Checkout (Bezahlen) */}
+        {/* STEP 11: KI-Einwilligung (Anthropic) — explizite Einwilligung vor generate-training-plan */}
         {step === 11 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <div style={{ textAlign: "center" }}>
-              <div
-                style={{
-                  display: "inline-flex",
-                  padding: "6px 12px",
-                  background: M.accSoft,
-                  borderRadius: 20,
-                  fontSize: 11,
-                  color: M.acc,
-                  fontWeight: 700,
-                  letterSpacing: 1,
-                  marginBottom: 10,
-                }}
-              >
-                PREMIUM
-              </div>
-              <h2 style={{ fontFamily: M.disp, fontSize: 28, fontWeight: 800, margin: 0, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                Dein individueller Trainingsplan
-              </h2>
-            </div>
-
-            {/* Preis-Box */}
-            <div
-              style={{
-                background: "linear-gradient(160deg, #161616, #0d0d0d)",
-                border: "1px solid " + M.acc,
-                borderRadius: 20,
-                padding: "24px 20px",
-                textAlign: "center",
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-              }}
-            >
-              <div style={{ textDecoration: "line-through", color: M.mut, fontSize: 16 }}>
-                9,99 €
-              </div>
-              <div style={{ fontSize: 42, fontFamily: M.disp, fontWeight: 800, color: M.acc, lineHeight: 1 }}>
-                4,99 € <span style={{ fontSize: 16, color: M.fg, fontWeight: 600 }}>einmalig</span>
-              </div>
-              <div style={{ fontSize: 12, color: M.mut, marginTop: 4 }}>
-                Lebenslanger Zugriff · Keine versteckten Abos
-              </div>
-            </div>
-
-            {/* Feature-Liste */}
-            {(() => {
-              const painZoneTranslations: Record<string, string> = {
-                knees: "Knie",
-                lower_back: "Unterer Rücken",
-                shoulders: "Schultern",
-                wrists: "Handgelenke",
-                neck: "Nacken / HWS",
-              };
-              const locationTranslations: Record<string, string> = {
-                gym: "Fitnessstudio",
-                home_equipment: "Home Gym",
-                bodyweight: "Bodyweight (Eigengewicht)",
-              };
-              const painText = painZones.map((z) => painZoneTranslations[z] || z).join(", ") || "keine";
-              const locText = locationTranslations[trainingLocation] || trainingLocation;
-              return (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "8px 4px" }}>
-                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 14 }}>
-                    <span style={{ color: M.acc, fontWeight: 700 }}>✓</span>
-                    <span style={{ color: M.fg }}>100% maßgeschneiderte Übungsauswahl von der KI</span>
-                  </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 14 }}>
-                    <span style={{ color: M.acc, fontWeight: 700 }}>✓</span>
-                    <span style={{ color: M.fg }}>Volle Berücksichtigung deiner Schmerzpunkte (z.B. {painText})</span>
-                  </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 14 }}>
-                    <span style={{ color: M.acc, fontWeight: 700 }}>✓</span>
-                    <span style={{ color: M.fg }}>Perfekt angepasst an deinen Ort: {locText}</span>
-                  </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 14 }}>
-                    <span style={{ color: M.acc, fontWeight: 700 }}>✓</span>
-                    <span style={{ color: M.fg }}>Direkt in die App importiert zum sofortigen Trainieren</span>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Simulierter Bezahlbutton */}
-            <MButton
-              type="button"
-              onClick={handleCheckout}
-              disabled={busy}
-              variant="primary"
-              size="lg"
-              fullWidth
-              style={{ marginTop: 12 }}
-            >
-              {busy ? "BEZAHLVORGANG..." : "JETZT SICHER BEZAHLEN"}
-              {!busy && <Icon name="check" size={20} color={M.accInk} />}
-            </MButton>
-          </div>
+          <AiConsentStep
+            onOpenPrivacy={openDatenschutz}
+            onAccept={() => void handleGrantConsent()}
+            onBack={prevStep}
+            showActions
+            saving={prefsSaving}
+          />
         )}
 
         {/* STEP 12: Generierung & Fertigstellung */}
@@ -1773,15 +1701,15 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                     width: 80,
                     height: 80,
                     borderRadius: "50%",
-                    background: M.accSoft,
+                    background: M.brandSoft,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: M.acc,
+                    color: M.brand,
                     animation: "pulse 1.8s infinite ease-in-out",
                   }}
                 >
-                  <Icon name="timer" size={40} color={M.acc} />
+                  <Icon name="timer" size={40} color={M.brand} />
                 </div>
                 <style>{`
                   @keyframes pulse {
@@ -1794,7 +1722,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                   <h3 style={{ fontFamily: M.disp, fontSize: 24, fontWeight: 700, margin: 0 }}>
                     DEIN PLAN WIRD GENERIERT
                   </h3>
-                  <p style={{ color: M.acc, fontWeight: 700, fontSize: 16, margin: 0 }}>
+                  <p style={{ color: M.brand, fontWeight: 700, fontSize: 16, margin: 0 }}>
                     {GENERATION_LOADING_TEXTS[getGenerationLoadingStep(genElapsedSec)]}
                   </p>
                   <p style={{ color: M.mut, fontSize: 13, margin: 0 }}>
@@ -1809,14 +1737,14 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                     width: 80,
                     height: 80,
                     borderRadius: "50%",
-                    background: M.acc,
+                    background: M.brand,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: M.accInk,
+                    color: M.brandInk,
                   }}
                 >
-                  <Icon name="check" size={44} color={M.accInk} stroke={3} />
+                  <Icon name="check" size={44} color={M.brandInk} stroke={3} />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <h3 style={{ fontFamily: M.disp, fontSize: 28, fontWeight: 800, margin: 0 }}>
@@ -1836,13 +1764,13 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                   style={{ marginTop: 12 }}
                 >
                   TRAININGSPLAN ANSEHEN
-                  <Icon name="play" size={18} color={M.accInk} />
+                  <Icon name="play" size={18} color={M.brandInk} />
                 </MButton>
               </>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <p style={{ color: "#ff8a8a", fontWeight: 600 }}>Generierung fehlgeschlagen.</p>
-                <MButton type="button" onClick={runGeneration} variant="primary" size="md">
+                <MButton type="button" onClick={() => void runGeneration(true)} variant="primary" size="md">
                   Erneut versuchen
                 </MButton>
               </div>
@@ -1855,7 +1783,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
       {step === 0 && (
         <div style={{ width: "100%", maxWidth: 460, flexShrink: 0 }}>
           <MButton type="button" onClick={nextStep} variant="primary" size="md" fullWidth>
-            JETZT STARTEN <Icon name="chevR" size={16} color={M.accInk} />
+            JETZT STARTEN <Icon name="chevR" size={16} color={M.brandInk} />
           </MButton>
         </div>
       )}
@@ -1868,33 +1796,6 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
           <MButton type="button" onClick={nextStep} variant="primary" size="md">
             WEITER <Icon name="chevR" size={16} />
           </MButton>
-        </div>
-      )}
-
-      {step === 11 && (
-        <div style={{ width: "100%", maxWidth: 460, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-          <div style={{ width: "100%", display: "flex", justifyContent: "flex-start" }}>
-            <MButton type="button" onClick={prevStep} variant="secondary" size="md">
-              <Icon name="chevL" size={16} /> ZURÜCK
-            </MButton>
-          </div>
-          <button
-            type="button"
-            onClick={onBack}
-            style={{
-              background: "none",
-              border: "none",
-              color: M.mut2,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-              padding: "4px 8px",
-              textDecoration: "underline",
-              textUnderlineOffset: 3,
-            }}
-          >
-            Abbrechen
-          </button>
         </div>
       )}
     </div>

@@ -1,9 +1,10 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { M } from "../theme";
 import { BottomSheet } from "./BottomSheet";
 import { MButton } from "./MButton";
 
 export interface DeleteConfirmDialogProps {
+  open?: boolean;
   title: string;
   message: ReactNode;
   onCancel: () => void;
@@ -15,6 +16,7 @@ export interface DeleteConfirmDialogProps {
 }
 
 export function DeleteConfirmDialog({
+  open = true,
   title,
   message,
   onCancel,
@@ -25,6 +27,10 @@ export function DeleteConfirmDialog({
 }: DeleteConfirmDialogProps) {
   const twoStep = Boolean(step2Title && step2Message);
   const [step, setStep] = useState<1 | 2>(1);
+
+  useEffect(() => {
+    if (!open) setStep(1);
+  }, [open]);
 
   const isFinalStep = !twoStep || step === 2;
   const displayTitle = step === 2 && step2Title ? step2Title : title;
@@ -45,7 +51,7 @@ export function DeleteConfirmDialog({
 
   return (
     <BottomSheet
-      open
+      open={open}
       onClose={handleCancel}
       position="absolute"
       zIndex={40}

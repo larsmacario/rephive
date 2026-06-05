@@ -9,6 +9,7 @@ import { SupersetBlock } from "../components/SupersetBlock";
 import { segmentExercises } from "../lib/superset";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { MButton } from "../components/MButton";
+import { CoachingNotesSection } from "../components/CoachingNotesSection";
 
 export interface SessionDetailScreenProps {
   sessionId: string;
@@ -225,6 +226,7 @@ export function SessionDetailScreen({
                 );
               })}
             </div>
+            <CoachingNotesSection targetType="session" targetId={session.id} />
           </>
         )}
       </div>
@@ -268,26 +270,29 @@ export function SessionDetailScreen({
         </div>
       </div>
 
-      {deleteConfirmOpen && session && (
-        <DeleteConfirmDialog
-          title="Session löschen?"
-          message={
+      <DeleteConfirmDialog
+        open={deleteConfirmOpen && !!session}
+        title="Session löschen?"
+        message={
+          session ? (
             <>
               Möchtest du die Session <strong style={{ color: M.fg }}>{session.name}</strong> wirklich löschen?
             </>
-          }
-          step2Title="Endgültig löschen?"
-          step2Message={
+          ) : null
+        }
+        step2Title="Endgültig löschen?"
+        step2Message={
+          session ? (
             <>
               Diese Aktion kann nicht rückgängig gemacht werden. Session{" "}
               <strong style={{ color: M.fg }}>{session.name}</strong> unwiderruflich entfernen?
             </>
-          }
-          busy={busy}
-          onCancel={() => setDeleteConfirmOpen(false)}
-          onConfirm={handleDelete}
-        />
-      )}
+          ) : null
+        }
+        busy={busy}
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

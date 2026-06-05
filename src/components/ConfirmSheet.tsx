@@ -4,6 +4,7 @@ import { BottomSheet } from "./BottomSheet";
 import { MButton } from "./MButton";
 
 export interface ConfirmSheetProps {
+  open?: boolean;
   title: string;
   message: string;
   confirmLabel: string;
@@ -14,6 +15,7 @@ export interface ConfirmSheetProps {
 }
 
 export function ConfirmSheet({
+  open = true,
   title,
   message,
   confirmLabel,
@@ -23,7 +25,7 @@ export function ConfirmSheet({
   onCancel,
 }: ConfirmSheetProps) {
   return (
-    <BottomSheet open onClose={onCancel} position="absolute" zIndex={40} aria-label={title}>
+    <BottomSheet open={open} onClose={onCancel} position="absolute" zIndex={40} aria-label={title}>
       {icon && (
         <div
           style={{

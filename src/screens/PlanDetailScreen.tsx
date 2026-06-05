@@ -10,6 +10,7 @@ import { PlanDaySlide } from "../components/PlanDaySlide";
 import { OneRmPercentInfoCard } from "../components/OneRmPercentInfoCard";
 import { MStat, MTag } from "../components/widgets";
 import { MButton } from "../components/MButton";
+import { CoachingNotesSection } from "../components/CoachingNotesSection";
 
 export interface PlanDetailScreenProps {
   planId: string;
@@ -109,6 +110,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
         style={{
           flex: 1,
           minHeight: 0,
+          minWidth: 0,
           overflowY: "auto",
           WebkitOverflowScrolling: "touch",
           overscrollBehavior: "contain",
@@ -154,8 +156,8 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
               marginTop: 14,
               padding: "10px 14px",
               borderRadius: 12,
-              background: M.accSoft,
-              color: M.acc,
+              background: M.brandSoft,
+              color: M.brand,
               fontSize: 13,
               fontWeight: 700,
             }}
@@ -204,19 +206,19 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
 
             <PlanAdviceCollapsible>
               <div style={{ paddingTop: 14 }}>
-                <div style={{ fontSize: 11, color: M.acc, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>TRAININGSFOKUS</div>
+                <div style={{ fontSize: 11, color: M.brand, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>TRAININGSFOKUS</div>
                 <p style={{ margin: 0, fontSize: 13, color: M.fg, lineHeight: 1.5 }}>{plan.summary.advice.trainingFocus}</p>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: M.acc, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>ERNÄHRUNG</div>
+                <div style={{ fontSize: 11, color: M.brand, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>ERNÄHRUNG</div>
                 <p style={{ margin: 0, fontSize: 13, color: M.fg, lineHeight: 1.5 }}>{plan.summary.advice.nutritionTips}</p>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: M.acc, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>REGENERATION</div>
+                <div style={{ fontSize: 11, color: M.brand, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>REGENERATION</div>
                 <p style={{ margin: 0, fontSize: 13, color: M.fg, lineHeight: 1.5 }}>{plan.summary.advice.recoveryTips}</p>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: M.acc, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>HYDRATION</div>
+                <div style={{ fontSize: 11, color: M.brand, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>HYDRATION</div>
                 <p style={{ margin: 0, fontSize: 13, color: M.fg, lineHeight: 1.5 }}>{plan.summary.advice.hydrationTips}</p>
               </div>
               <p style={{ margin: 0, fontSize: 11, color: M.mut2, lineHeight: 1.4 }}>
@@ -229,7 +231,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
     </div>
   );
 
-  const daySlides = plan.days.map((day) => {
+  const daySlides = plan.days.map((day, dayIndex) => {
     const isCurrent = plan.isActive && day.position === plan.currentDay;
     const workout = day.workout ? workoutList.find((w) => w.id === day.workout?.id) ?? null : null;
     return (
@@ -249,6 +251,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
           label={day.isRestDay ? "Ruhetag" : day.workout?.name ?? "Workout"}
           isRestDay={day.isRestDay}
           isCurrent={isCurrent}
+          isActive={activeSlideIndex === dayIndex + 1}
           workout={workout}
           variant="detail"
         />
@@ -275,7 +278,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
 
       {actionError && <div style={{ padding: "0 22px 8px", color: "#ff8a8a", fontSize: 13 }}>{actionError}</div>}
 
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 0 8px" }}>
+      <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", padding: "0 0 8px" }}>
         <HorizontalSlidePager
           key={plan.id}
           count={slideCount}
@@ -286,6 +289,9 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
         >
           {[summarySlide, ...daySlides]}
         </HorizontalSlidePager>
+        <div style={{ padding: "0 22px" }}>
+          <CoachingNotesSection targetType="plan" targetId={plan.id} />
+        </div>
       </div>
 
       <div
@@ -305,7 +311,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
             disabled
             variant="secondary"
             size="sm"
-            style={{ flex: 1, minWidth: 0, background: M.accSoft, color: M.fg, opacity: 1 }}
+            style={{ flex: 1, minWidth: 0, background: M.brandSoft, color: M.fg, opacity: 1 }}
           >
             Aktiv
           </MButton>
@@ -345,26 +351,29 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
         </MButton>
       </div>
 
-      {deleteConfirmOpen && plan && (
-        <DeleteConfirmDialog
-          title="Plan löschen?"
-          message={
+      <DeleteConfirmDialog
+        open={deleteConfirmOpen && !!plan}
+        title="Plan löschen?"
+        message={
+          plan ? (
             <>
               Möchtest du <strong style={{ color: M.fg }}>{plan.name}</strong> wirklich löschen?
             </>
-          }
-          step2Title="Endgültig löschen?"
-          step2Message={
+          ) : null
+        }
+        step2Title="Endgültig löschen?"
+        step2Message={
+          plan ? (
             <>
               Diese Aktion kann nicht rückgängig gemacht werden. Plan{" "}
               <strong style={{ color: M.fg }}>{plan.name}</strong> unwiderruflich entfernen?
             </>
-          }
-          busy={busy}
-          onCancel={() => setDeleteConfirmOpen(false)}
-          onConfirm={handleDelete}
-        />
-      )}
+          ) : null
+        }
+        busy={busy}
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }
