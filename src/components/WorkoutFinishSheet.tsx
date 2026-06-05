@@ -3,6 +3,7 @@ import { M } from "../theme";
 import { fmtUp } from "../lib/engine";
 import { Icon } from "./Icon";
 import { BottomSheet } from "./BottomSheet";
+import { MButton } from "./MButton";
 
 export interface WorkoutFinishSheetProps {
   name: string;
@@ -344,76 +345,33 @@ export function WorkoutFinishSheet({
 
       <div style={{ flexShrink: 0 }}>
         <div style={{ display: "flex", gap: 10, alignItems: "stretch", marginBottom: 10 }}>
-          <button
+          <MButton
             type="button"
             disabled={busy}
             onClick={() => onSave(feedback)}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              padding: "14px 0",
-              borderRadius: 14,
-              border: "none",
-              background: M.acc,
-              color: M.accInk,
-              fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 17,
-              letterSpacing: 0.8,
-              cursor: busy ? "wait" : "pointer",
-              opacity: busy ? 0.7 : 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
+            variant="primary"
+            size="md"
+            style={{ flex: 1, minWidth: 0 }}
           >
             <Icon name="check" size={18} stroke={2.6} color={M.accInk} /> SPEICHERN
-          </button>
+          </MButton>
 
-          <button
+          <MButton
             type="button"
             disabled={busy}
             aria-label="Workout verwerfen"
             onClick={onDiscard}
-            style={{
-              flex: "0 0 auto",
-              width: 52,
-              padding: 0,
-              borderRadius: 14,
-              border: "1px solid " + M.line,
-              background: M.card,
-              color: M.mut,
-              cursor: busy ? "wait" : "pointer",
-              opacity: busy ? 0.7 : 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+            variant="secondary"
+            size="icon"
+            style={{ flex: "0 0 auto", width: 40, height: 40 }}
           >
             <Icon name="trash" size={20} stroke={2.2} color={M.mut} />
-          </button>
+          </MButton>
         </div>
 
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onClose}
-          style={{
-            width: "100%",
-            padding: "12px 0",
-            borderRadius: 14,
-            border: "none",
-            background: "transparent",
-            color: M.mut,
-            fontFamily: M.body,
-            fontWeight: 600,
-            fontSize: 15,
-            cursor: busy ? "wait" : "pointer",
-          }}
-        >
+        <MButton type="button" disabled={busy} onClick={onClose} variant="ghost" size="md" fullWidth>
           Abbrechen
-        </button>
+        </MButton>
       </div>
     </BottomSheet>
   );

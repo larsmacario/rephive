@@ -18,6 +18,7 @@ import { Icon } from "../components/Icon";
 import { Ring } from "../components/Ring";
 import { TimerConfigPanel } from "../components/TimerConfigPanel";
 import { TimerLeaveSheet } from "../components/TimerLeaveSheet";
+import { MButton } from "../components/MButton";
 
 type TimerLeaveAction = { kind: "mode"; mode: TimerMode } | { kind: "reset" };
 
@@ -163,26 +164,20 @@ export function TimerScreen({ onSaveSession }: TimerScreenProps) {
         }}
       >
         {TIMER_MODES.map((m) => (
-          <button
+          <MButton
             key={m.id}
             onClick={() => requestMode(m.id)}
+            variant={mode === m.id ? "primary" : "ghost"}
+            size="sm"
             style={{
               flex: 1,
-              padding: "9px 0",
-              borderRadius: 10,
-              border: "none",
-              cursor: "pointer",
               fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 15,
-              letterSpacing: 0.6,
-              background: mode === m.id ? M.acc : "transparent",
-              color: mode === m.id ? M.accInk : M.mut,
-              transition: "all .15s",
+              letterSpacing: 0.5,
+              ...(mode === m.id ? null : { color: M.mut }),
             }}
           >
             {m.name}
-          </button>
+          </MButton>
         ))}
       </div>
       <div
@@ -267,49 +262,34 @@ export function TimerScreen({ onSaveSession }: TimerScreenProps) {
         }}
       >
         {mode === "amrap" && (
-          <button
+          <MButton
             onClick={T.addTap}
             disabled={!T.running}
+            variant="secondary"
+            size="md"
+            fullWidth
             style={{
-              flex: 1,
-              padding: "14px 0",
-              borderRadius: 14,
-              border: "1px solid " + M.line,
-              cursor: T.running ? "pointer" : "default",
-              background: T.running ? M.accSoft : M.card,
-              color: T.running ? M.acc : M.mut2,
               fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 18,
-              letterSpacing: 1,
+              letterSpacing: 0.6,
+              background: T.running ? M.accSoft : M.card,
+              color: T.running ? M.fg : M.mut2,
             }}
           >
-            + RUNDE ABSCHLIESSEN
-          </button>
+            + Runde abschließen
+          </MButton>
         )}
         {mode === "fortime" && (
-          <button
+          <MButton
             onClick={T.finish}
             disabled={!T.running}
-            style={{
-              flex: 1,
-              padding: "14px 0",
-              borderRadius: 14,
-              border: "none",
-              cursor: T.running ? "pointer" : "default",
-              background: T.running ? M.acc : M.card,
-              color: T.running ? M.accInk : M.mut2,
-              fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 18,
-              letterSpacing: 1,
-            }}
+            variant="primary"
+            size="md"
+            fullWidth
+            style={{ fontFamily: M.disp, letterSpacing: 0.6, ...(T.running ? null : { background: M.card, color: M.mut2 }) }}
           >
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <Icon name="flag" size={17} stroke={2.4} />
-              ZEIT STOPPEN
-            </span>
-          </button>
+            <Icon name="flag" size={15} stroke={2.4} />
+            Zeit stoppen
+          </MButton>
         )}
         {(mode === "emom" || mode === "tabata") && (
           <div style={{ display: "flex", gap: 7, flexWrap: "wrap", justifyContent: "center" }}>
@@ -342,34 +322,20 @@ export function TimerScreen({ onSaveSession }: TimerScreenProps) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          gap: 26,
+          gap: 18,
           marginTop: 12,
         }}
       >
-        <button
-          onClick={requestReset}
-          style={{
-            width: 54,
-            height: 54,
-            borderRadius: 27,
-            border: "1px solid " + M.line,
-            background: M.card,
-            color: M.mut,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-          }}
-        >
-          <Icon name="reset" size={21} stroke={2} />
-        </button>
+        <MButton onClick={requestReset} variant="secondary" size="icon" aria-label="Timer zurücksetzen">
+          <Icon name="reset" size={16} stroke={2} color={M.mut} />
+        </MButton>
         <button
           onClick={T.toggle}
           disabled={T.done}
           style={{
-            width: 82,
-            height: 82,
-            borderRadius: 41,
+            width: 68,
+            height: 68,
+            borderRadius: 34,
             border: "none",
             cursor: T.done ? "default" : "pointer",
             background: T.done ? M.card : M.acc,
@@ -377,15 +343,15 @@ export function TimerScreen({ onSaveSession }: TimerScreenProps) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: T.running ? `0 0 0 6px ${M.accSoft}, 0 0 26px ${M.accSoft}` : "none",
+            boxShadow: T.running ? `0 0 0 4px ${M.accSoft}, 0 0 18px ${M.accSoft}` : "none",
             transition: "box-shadow .2s",
           }}
         >
-          <Icon name={T.running ? "pause" : "play"} size={36} style={{ marginLeft: T.running ? 0 : 4 }} />
+          <Icon name={T.running ? "pause" : "play"} size={30} style={{ marginLeft: T.running ? 0 : 3 }} />
         </button>
         <div
           style={{
-            width: 54,
+            width: 40,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -393,8 +359,8 @@ export function TimerScreen({ onSaveSession }: TimerScreenProps) {
             color: M.mut,
           }}
         >
-          <Icon name="bolt" size={19} color={M.acc} />
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>
+          <Icon name="bolt" size={16} color={M.fg} />
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.8 }}>
             {T.running ? "LIVE" : T.done ? "FERTIG" : "BEREIT"}
           </span>
         </div>

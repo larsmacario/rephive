@@ -18,6 +18,7 @@ import { BottomSheet } from "../components/BottomSheet";
 import { ExercisePickerSheet } from "../components/ExercisePickerSheet";
 import { HorizontalSlidePager } from "../components/HorizontalSlidePager";
 import { PlanDaySlide } from "../components/PlanDaySlide";
+import { MButton } from "../components/MButton";
 
 interface BuilderDay {
   id: string;
@@ -247,21 +248,9 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
     return (
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 22 }}>
         <div style={{ color: M.mut, fontSize: 14 }}>Plan nicht gefunden.</div>
-        <button
-          onClick={onBack}
-          style={{
-            padding: "10px 16px",
-            borderRadius: 12,
-            border: "none",
-            background: M.acc,
-            color: M.accInk,
-            fontFamily: M.disp,
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
+        <MButton onClick={onBack} variant="primary" size="sm">
           Zurück
-        </button>
+        </MButton>
       </div>
     );
   }
@@ -276,29 +265,22 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
           justifyContent: "space-between",
         }}
       >
-        <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex" }}>
-          <Icon name="chevL" size={24} stroke={2.2} />
-        </button>
+        <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
+          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
+        </MButton>
         <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>
           {isEditing ? "PLAN BEARBEITEN" : "NEUER PLAN"}
         </span>
-        <button
+        <MButton
           disabled={saving || days.length === 0}
           onClick={handleSave}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: saving || days.length === 0 ? "not-allowed" : "pointer",
-            fontFamily: M.disp,
-            fontWeight: 700,
-            color: M.acc,
-            fontSize: 16,
-            letterSpacing: 0.5,
-            opacity: saving || days.length === 0 ? 0.5 : 1,
-          }}
+          variant="ghost"
+          size="sm"
+          loading={saving}
+          style={{ fontFamily: M.disp, color: M.fg, letterSpacing: 0.4 }}
         >
-          SAVE
-        </button>
+          Speichern
+        </MButton>
       </div>
 
       {error && <div style={{ padding: "0 22px 8px", color: "#ff8a8a", fontSize: 13 }}>{error}</div>}
@@ -347,27 +329,19 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
               justifyContent: "center",
             }}
           >
-            <button
+            <MButton
               onClick={openSheet}
+              variant="ghost"
+              size="md"
               style={{
-                padding: "15px 24px",
-                borderRadius: 16,
                 border: "1.5px dashed " + M.line,
-                background: "transparent",
-                color: M.acc,
+                color: M.fg,
                 fontFamily: M.disp,
-                fontWeight: 700,
-                fontSize: 17,
-                letterSpacing: 0.8,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
+                letterSpacing: 0.4,
               }}
             >
-              <Icon name="plus" size={20} stroke={2.6} /> TAG HINZUFÜGEN
-            </button>
+              <Icon name="plus" size={16} stroke={2.6} /> Tag hinzufügen
+            </MButton>
           </div>
         ) : (
           <>
@@ -398,20 +372,16 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
                       workout={workout}
                       variant="builder"
                       actions={
-                        <button
+                        <MButton
                           type="button"
                           onClick={() => removeDay(day.id)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            color: M.mut2,
-                            display: "flex",
-                            padding: 4,
-                          }}
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Tag entfernen"
+                          style={{ color: M.mut2 }}
                         >
-                          <Icon name="trash" size={18} stroke={2} />
-                        </button>
+                          <Icon name="trash" size={16} stroke={2} />
+                        </MButton>
                       }
                     />
                   </div>
@@ -419,29 +389,22 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
               })}
             </HorizontalSlidePager>
 
-            <button
+            <MButton
               onClick={openSheet}
+              variant="ghost"
+              size="md"
+              fullWidth
               style={{
                 flexShrink: 0,
-                padding: "15px 0",
-                borderRadius: 16,
-                border: "1.5px dashed " + M.line,
-                background: "transparent",
-                color: M.acc,
-                fontFamily: M.disp,
-                fontWeight: 700,
-                fontSize: 17,
-                letterSpacing: 0.8,
-                cursor: "pointer",
                 marginTop: 8,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
+                border: "1.5px dashed " + M.line,
+                color: M.fg,
+                fontFamily: M.disp,
+                letterSpacing: 0.4,
               }}
             >
-              <Icon name="plus" size={20} stroke={2.6} /> TAG HINZUFÜGEN
-            </button>
+              <Icon name="plus" size={16} stroke={2.6} /> Tag hinzufügen
+            </MButton>
           </>
         )}
       </div>
@@ -586,43 +549,29 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
                     marginBottom: 12,
                   }}
                 >
-                  <button
+                  <MButton
                     onClick={() => {
                       setSheetMode("pick");
                       setCreateError(null);
                       setExercisePickerOpen(false);
                     }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      color: M.mut,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      padding: 0,
-                    }}
+                    variant="ghost"
+                    size="sm"
+                    style={{ padding: 0, color: M.mut }}
                   >
-                    <Icon name="chevL" size={20} stroke={2.2} />
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>Zurück</span>
-                  </button>
-                  <button
+                    <Icon name="chevL" size={16} stroke={2.2} />
+                    Zurück
+                  </MButton>
+                  <MButton
                     disabled={creatingWorkout || !canCreateWorkout}
                     onClick={handleCreateWorkout}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: creatingWorkout || !canCreateWorkout ? "not-allowed" : "pointer",
-                      fontFamily: M.disp,
-                      fontWeight: 700,
-                      color: M.acc,
-                      fontSize: 16,
-                      letterSpacing: 0.5,
-                      opacity: creatingWorkout || !canCreateWorkout ? 0.5 : 1,
-                    }}
+                    variant="ghost"
+                    size="sm"
+                    loading={creatingWorkout}
+                    style={{ fontFamily: M.disp, color: M.fg, letterSpacing: 0.4 }}
                   >
-                    {creatingWorkout ? "…" : "SPEICHERN"}
-                  </button>
+                    Speichern
+                  </MButton>
                 </div>
 
                 {createError && (
@@ -705,27 +654,20 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
                     </div>
                   ))}
 
-                  <button
+                  <MButton
                     onClick={() => setExercisePickerOpen(true)}
+                    variant="ghost"
+                    size="sm"
+                    fullWidth
                     style={{
-                      padding: "13px 0",
-                      borderRadius: 14,
                       border: "1.5px dashed " + M.line,
-                      background: "transparent",
-                      color: M.acc,
+                      color: M.fg,
                       fontFamily: M.disp,
-                      fontWeight: 700,
-                      fontSize: 15,
-                      letterSpacing: 0.6,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 8,
+                      letterSpacing: 0.4,
                     }}
                   >
-                    <Icon name="plus" size={18} stroke={2.6} /> ÜBUNG HINZUFÜGEN
-                  </button>
+                    <Icon name="plus" size={14} stroke={2.6} /> Übung hinzufügen
+                  </MButton>
                 </div>
 
                 <ExercisePickerSheet

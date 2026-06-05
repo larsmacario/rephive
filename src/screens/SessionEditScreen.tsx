@@ -7,6 +7,7 @@ import { usePreferences } from "../lib/preferences";
 import { Icon } from "../components/Icon";
 import { MTag } from "../components/widgets";
 import { SessionExerciseEditor } from "../components/SessionExerciseEditor";
+import { MButton } from "../components/MButton";
 
 export interface SessionEditScreenProps {
   sessionId: string;
@@ -121,21 +122,9 @@ export function SessionEditScreen({ sessionId, onBack, onSave }: SessionEditScre
     return (
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 22 }}>
         <div style={{ color: M.mut, fontSize: 14 }}>{error ?? "Session nicht gefunden."}</div>
-        <button
-          onClick={onBack}
-          style={{
-            padding: "10px 16px",
-            borderRadius: 12,
-            border: "none",
-            background: M.acc,
-            color: M.accInk,
-            fontFamily: M.disp,
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
+        <MButton onClick={onBack} variant="primary" size="sm">
           Zurück
-        </button>
+        </MButton>
       </div>
     );
   }
@@ -150,27 +139,20 @@ export function SessionEditScreen({ sessionId, onBack, onSave }: SessionEditScre
           justifyContent: "space-between",
         }}
       >
-        <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex" }}>
-          <Icon name="chevL" size={24} stroke={2.2} />
-        </button>
+        <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
+          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
+        </MButton>
         <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>SESSION BEARBEITEN</span>
-        <button
+        <MButton
           disabled={saving || exercises.length === 0}
           onClick={handleSave}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: saving || exercises.length === 0 ? "not-allowed" : "pointer",
-            fontFamily: M.disp,
-            fontWeight: 700,
-            color: M.acc,
-            fontSize: 16,
-            letterSpacing: 0.5,
-            opacity: saving || exercises.length === 0 ? 0.5 : 1,
-          }}
+          variant="ghost"
+          size="sm"
+          loading={saving}
+          style={{ fontFamily: M.disp, color: M.fg, letterSpacing: 0.4 }}
         >
-          SAVE
-        </button>
+          Speichern
+        </MButton>
       </div>
 
       {saveError && <div style={{ padding: "0 22px 8px", color: "#ff8a8a", fontSize: 13 }}>{saveError}</div>}

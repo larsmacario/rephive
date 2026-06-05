@@ -5,6 +5,7 @@ import { usePreferences } from "../lib/preferences";
 import { Icon } from "../components/Icon";
 import { TimerConfigPanel } from "../components/TimerConfigPanel";
 import { MStepper, MSwitch } from "../components/widgets";
+import { MButton } from "../components/MButton";
 
 export interface SettingsScreenProps {
   onBack: () => void;
@@ -96,12 +97,9 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
           justifyContent: "space-between",
         }}
       >
-        <button
-          onClick={onBack}
-          style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex" }}
-        >
-          <Icon name="chevL" size={24} stroke={2.2} />
-        </button>
+        <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
+          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
+        </MButton>
         <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>EINSTELLUNGEN</span>
         <span style={{ width: 24, fontSize: 11, color: saving ? M.acc : "transparent", fontWeight: 700 }}>
           {saving ? "…" : ""}
@@ -169,46 +167,33 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
             }}
           >
             {TIMER_MODES.map((m) => (
-              <button
+              <MButton
                 key={m.id}
                 onClick={() => setTimerMode(m.id)}
+                variant={timerMode === m.id ? "primary" : "ghost"}
+                size="sm"
                 style={{
                   flex: 1,
-                  padding: "8px 0",
-                  borderRadius: 9,
-                  border: "none",
-                  cursor: "pointer",
                   fontFamily: M.disp,
-                  fontWeight: 700,
                   fontSize: 13,
-                  letterSpacing: 0.4,
-                  background: timerMode === m.id ? M.acc : "transparent",
-                  color: timerMode === m.id ? M.accInk : M.mut,
+                  letterSpacing: 0.3,
+                  ...(timerMode === m.id ? null : { color: M.mut }),
                 }}
               >
                 {m.name}
-              </button>
+              </MButton>
             ))}
           </div>
           <TimerConfigPanel mode={timerMode} cfg={timerCfg} setCfg={setTimerCfg} layout="wrap" />
-          <button
+          <MButton
             onClick={resetTimerDefaults}
-            style={{
-              width: "100%",
-              marginTop: 14,
-              padding: "12px 0",
-              borderRadius: 12,
-              border: "1px solid " + M.line,
-              background: "transparent",
-              color: M.mut,
-              fontFamily: M.body,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
+            variant="secondary"
+            size="sm"
+            fullWidth
+            style={{ marginTop: 14, color: M.mut, fontFamily: M.body, fontWeight: 600 }}
           >
             Auf Werkseinstellungen zurücksetzen
-          </button>
+          </MButton>
         </Section>
 
         <div style={{ fontSize: 11, color: M.mut2, textAlign: "center", paddingTop: 4 }}>

@@ -5,6 +5,7 @@ import { formatTimerHistorySubtitle, isTimerSession } from "../lib/timerSession"
 import { Icon } from "../components/Icon";
 import { MStat } from "../components/widgets";
 import { FLOAT_NAV_SCROLL_BOTTOM_GAP } from "../components/FloatNav";
+import { MButton } from "../components/MButton";
 
 export interface HistoryScreenProps {
   onOpenSession: (sessionId: string) => void;
@@ -28,27 +29,10 @@ export function HistoryScreen({ onOpenSession, onOpenStats, refreshKey = 0 }: Hi
       <div style={{ padding: "4px 22px 12px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 30, lineHeight: 1 }}>Verlauf</div>
-          <button
-            type="button"
-            onClick={onOpenStats}
-            style={{
-              flex: "0 0 auto",
-              padding: "8px 12px",
-              borderRadius: 10,
-              border: "1px solid " + M.line2,
-              background: M.card,
-              color: M.acc,
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-            }}
-          >
+          <MButton type="button" onClick={onOpenStats} variant="secondary" size="sm" style={{ flexShrink: 0, color: M.fg }}>
             Statistik
-            <Icon name="chevR" size={14} color={M.acc} stroke={2.2} />
-          </button>
+            <Icon name="chevR" size={12} color={M.mut} stroke={2.2} />
+          </MButton>
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
           <MStat label="SESSIONS" value={list.length} sub="gesamt" />
@@ -100,7 +84,7 @@ export function HistoryScreen({ onOpenSession, onOpenStats, refreshKey = 0 }: Hi
               border: "1px solid " + (h.pr ? M.acc : M.line2),
               borderLeft: h.pr ? "3px solid " + M.acc : "1px solid " + M.line2,
               borderRadius: 14,
-              padding: "14px 16px",
+              padding: "12px 14px",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",

@@ -9,7 +9,8 @@ import {
 } from "recharts";
 import { M } from "../theme";
 
-const ACCENT_FALLBACK = "oklch(0.87 0.21 143)";
+const ACCENT_FALLBACK = "#fafafa";
+const BRAND_FALLBACK = "#7ef67b";
 
 export interface TrendLineChartPoint {
   label: string;
@@ -27,6 +28,12 @@ function resolveAccentColor(): string {
   if (typeof document === "undefined") return ACCENT_FALLBACK;
   const raw = getComputedStyle(document.documentElement).getPropertyValue("--mom-acc").trim();
   return raw || ACCENT_FALLBACK;
+}
+
+function resolveBrandColor(): string {
+  if (typeof document === "undefined") return BRAND_FALLBACK;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue("--mom-brand").trim();
+  return raw || BRAND_FALLBACK;
 }
 
 function defaultValueFormatter(value: number): string {
@@ -54,6 +61,7 @@ export function TrendLineChart({
   valueFormatter = defaultValueFormatter,
 }: TrendLineChartProps) {
   const accent = useMemo(() => resolveAccentColor(), []);
+  const brand = useMemo(() => resolveBrandColor(), []);
 
   const data = useMemo<ChartRow[]>(
     () => points.map((p, index) => ({ label: p.label, value: p.value, index })),
@@ -117,14 +125,14 @@ export function TrendLineChart({
                   cx={cx}
                   cy={cy}
                   r={isLast ? 4 : 3}
-                  fill={accent}
+                  fill={isLast ? brand : accent}
                   fillOpacity={isLast ? 1 : 0.55}
                   stroke={M.card}
                   strokeWidth={1.5}
                 />
               );
             }}
-            activeDot={{ r: 5, fill: accent, stroke: M.card, strokeWidth: 2 }}
+            activeDot={{ r: 5, fill: brand, stroke: M.card, strokeWidth: 2 }}
           />
         </LineChart>
       </ResponsiveContainer>

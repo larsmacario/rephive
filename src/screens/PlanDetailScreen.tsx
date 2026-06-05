@@ -9,6 +9,7 @@ import { HorizontalSlidePager } from "../components/HorizontalSlidePager";
 import { PlanDaySlide } from "../components/PlanDaySlide";
 import { OneRmPercentInfoCard } from "../components/OneRmPercentInfoCard";
 import { MStat, MTag } from "../components/widgets";
+import { MButton } from "../components/MButton";
 
 export interface PlanDetailScreenProps {
   planId: string;
@@ -74,21 +75,9 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
     return (
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 22 }}>
         <div style={{ color: M.mut, fontSize: 14 }}>{error ?? "Plan nicht gefunden."}</div>
-        <button
-          onClick={onBack}
-          style={{
-            padding: "10px 16px",
-            borderRadius: 12,
-            border: "none",
-            background: M.acc,
-            color: M.accInk,
-            fontFamily: M.disp,
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
+        <MButton onClick={onBack} variant="primary" size="sm">
           Zurück
-        </button>
+        </MButton>
       </div>
     );
   }
@@ -122,7 +111,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
           minHeight: 0,
           overflowY: "auto",
           WebkitOverflowScrolling: "touch",
-          touchAction: "pan-y",
+          overscrollBehavior: "contain",
           paddingBottom: 8,
         }}
       >
@@ -298,90 +287,61 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
         </HorizontalSlidePager>
       </div>
 
-      <div style={{ padding: "12px 22px 18px", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid " + M.line2 }}>
+      <div
+        style={{
+          padding: "10px 22px 14px",
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "stretch",
+          gap: 8,
+          flexWrap: "nowrap",
+          borderTop: "1px solid " + M.line2,
+        }}
+      >
         {plan.isActive ? (
-          <div
-            style={{
-              padding: "13px 0",
-              borderRadius: 12,
-              border: "1px solid " + M.line,
-              background: M.accSoft,
-              color: M.acc,
-              fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 15,
-              letterSpacing: 0.5,
-              textAlign: "center",
-            }}
+          <MButton
+            type="button"
+            disabled
+            variant="secondary"
+            size="sm"
+            style={{ flex: 1, minWidth: 0, background: M.accSoft, color: M.fg, opacity: 1 }}
           >
-            Aktiver Plan
-          </div>
+            Aktiv
+          </MButton>
         ) : (
-          <button
+          <MButton
+            type="button"
             disabled={busy}
             onClick={handleActivate}
-            style={{
-              padding: "13px 0",
-              borderRadius: 12,
-              border: "none",
-              background: M.acc,
-              color: M.accInk,
-              fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 15,
-              letterSpacing: 0.5,
-              cursor: busy ? "wait" : "pointer",
-              opacity: busy ? 0.7 : 1,
-            }}
+            variant="primary"
+            size="sm"
+            style={{ flex: 1, minWidth: 0 }}
           >
-            Als aktiv setzen
-          </button>
+            Aktivieren
+          </MButton>
         )}
-
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            disabled={busy}
-            onClick={() => onEdit(plan.id)}
-            style={{
-              flex: 1,
-              padding: "13px 0",
-              borderRadius: 12,
-              border: "1px solid " + M.line,
-              background: M.card,
-              color: M.fg,
-              fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 15,
-              cursor: busy ? "wait" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              opacity: busy ? 0.7 : 1,
-            }}
-          >
-            <Icon name="edit" size={18} stroke={2} color={M.acc} />
-            Bearbeiten
-          </button>
-          <button
-            disabled={busy}
-            onClick={() => setDeleteConfirmOpen(true)}
-            style={{
-              padding: "13px 16px",
-              borderRadius: 12,
-              border: "1px solid " + M.line,
-              background: "transparent",
-              color: M.mut2,
-              cursor: busy ? "wait" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: busy ? 0.7 : 0.65,
-            }}
-          >
-            <Icon name="trash" size={18} stroke={2} color={M.mut2} />
-          </button>
-        </div>
+        <MButton
+          type="button"
+          disabled={busy}
+          onClick={() => onEdit(plan.id)}
+          variant="secondary"
+          size="sm"
+          style={{ flex: 1, minWidth: 0, background: M.card }}
+        >
+          <Icon name="edit" size={16} stroke={2} color={M.fg} />
+          Bearbeiten
+        </MButton>
+        <MButton
+          type="button"
+          disabled={busy}
+          onClick={() => setDeleteConfirmOpen(true)}
+          variant="danger"
+          size="icon"
+          aria-label="Plan löschen"
+          style={{ flexShrink: 0 }}
+        >
+          <Icon name="trash" size={16} stroke={2} color={M.mut2} />
+        </MButton>
       </div>
 
       {deleteConfirmOpen && plan && (

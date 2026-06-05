@@ -13,8 +13,8 @@ export const NAV: { id: Tab; label: string; icon: string }[] = [
 ];
 
 export const FLOAT_NAV_EDGE_MARGIN = 12;
-export const FLOAT_NAV_ICON_SIZE = 44;
-export const FLOAT_NAV_PADDING_Y = 6;
+export const FLOAT_NAV_ICON_SIZE = 36;
+export const FLOAT_NAV_PADDING_Y = 5;
 export const FLOAT_NAV_BOTTOM_MARGIN = 8;
 /** Bottom padding for tab scroll areas — matches gap above the nav bar. */
 export const FLOAT_NAV_SCROLL_BOTTOM_GAP = FLOAT_NAV_BOTTOM_MARGIN;
@@ -74,12 +74,12 @@ export function FloatNav({
           display: "flex",
           flexDirection: horizontal ? "row" : "column",
           alignItems: "center",
-          gap: horizontal ? 0 : 4,
+          gap: horizontal ? 0 : 3,
           padding: horizontal
             ? `${FLOAT_NAV_PADDING_Y}px ${FLOAT_NAV_ACTIVE_EDGE_INSET}px`
             : 6,
           width: horizontal ? "100%" : undefined,
-          borderRadius: horizontal ? 20 : 22,
+          borderRadius: horizontal ? 18 : 20,
           background: M.card,
           border: "1px solid " + M.line,
           boxShadow: horizontal
@@ -105,18 +105,18 @@ export function FloatNav({
                 alignItems: "center",
                 justifyContent: "center",
                 border: "none",
-                borderRadius: 14,
+                borderRadius: 10,
                 cursor: "pointer",
                 background: on ? M.accSoft : "transparent",
                 color: on ? M.acc : M.mut,
                 position: "relative",
-                transition: "all 0.2s ease",
+                transition: "all 0.15s ease",
               }}
             >
               <span style={{ position: "relative", display: "flex" }}>
                 <Icon
                   name={n.icon}
-                  size={23}
+                  size={20}
                   stroke={2}
                   color={on ? M.acc : M.mut}
                 />

@@ -424,7 +424,10 @@ export function useWorkout(initial: Workout, opts?: WorkoutOptions) {
   };
 
   const removeExercise = (exId: string) => {
-    setWo((w) => ({ ...w, exercises: w.exercises.filter((e) => e.id !== exId) }));
+    setWo((w) => ({
+      ...w,
+      exercises: sanitizeSupersetIds(w.exercises.filter((e) => e.id !== exId)),
+    }));
   };
 
   const defaultSet = (sets: WorkoutSet[], metric: ExerciseMetric): WorkoutSet => {

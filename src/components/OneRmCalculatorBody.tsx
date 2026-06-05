@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
 import { M } from "../theme";
 import { Icon } from "./Icon";
+import { MButton } from "./MButton";
 import { KG_STEP, clampKg, formatKgDisplay } from "../lib/exerciseSets";
 import {
   calculateOneRepMax,
@@ -15,20 +15,6 @@ export interface OneRmCalculatorBodyProps {
   initialReps?: number;
   compact?: boolean;
 }
-
-const stepBtn: CSSProperties = {
-  width: 36,
-  height: 36,
-  borderRadius: 10,
-  border: "1px solid " + M.line,
-  background: M.panel,
-  color: M.fg,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  flexShrink: 0,
-};
 
 interface CalculatorStepperProps {
   label: string;
@@ -61,9 +47,9 @@ function CalculatorStepper({ label, value, displayValue, step, min, max, onChang
         {label}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <button type="button" onClick={dec} style={stepBtn} aria-label={`${label} verringern`}>
+        <MButton type="button" onClick={dec} variant="secondary" size="icon" aria-label={`${label} verringern`} style={{ background: M.panel }}>
           <span style={{ fontWeight: 700 }}>−</span>
-        </button>
+        </MButton>
         <div
           style={{
             flex: 1,
@@ -89,9 +75,9 @@ function CalculatorStepper({ label, value, displayValue, step, min, max, onChang
             {displayValue}
           </span>
         </div>
-        <button type="button" onClick={inc} style={stepBtn} aria-label={`${label} erhöhen`}>
+        <MButton type="button" onClick={inc} variant="secondary" size="icon" aria-label={`${label} erhöhen`} style={{ background: M.panel }}>
           <span style={{ fontWeight: 700 }}>+</span>
-        </button>
+        </MButton>
       </div>
     </div>
   );

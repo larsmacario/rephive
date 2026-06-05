@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { M } from "../theme";
 
 export interface HorizontalSlidePagerProps {
@@ -21,11 +21,9 @@ export function HorizontalSlidePager({
   showIndicators = true,
 }: HorizontalSlidePagerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const ignoreScrollRef = useRef(false);
-  const indexFromScrollRef = useRef(false);
-  const ignoreScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scrollDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const programmaticScrollRef = useRef(false);
   const activeIndexRef = useRef(activeIndex);
+  const scrollDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     activeIndexRef.current = activeIndex;
@@ -37,80 +35,58 @@ export function HorizontalSlidePager({
     const targetLeft = index * el.clientWidth;
     if (Math.abs(el.scrollLeft - targetLeft) < 2) return;
 
-    ignoreScrollRef.current = true;
+    programmaticScrollRef.current = true;
     el.scrollTo({ left: targetLeft, behavior });
-
-    if (ignoreScrollTimerRef.current) clearTimeout(ignoreScrollTimerRef.current);
-    ignoreScrollTimerRef.current = setTimeout(() => {
-      ignoreScrollRef.current = false;
-      ignoreScrollTimerRef.current = null;
-    }, behavior === "smooth" ? 400 : 80);
+    window.setTimeout(() => {
+      programmaticScrollRef.current = false;
+    }, behavior === "smooth" ? 450 : 100);
   }, []);
-
-  const readIndexFromScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el || el.clientWidth === 0) return activeIndexRef.current;
-    return Math.max(0, Math.min(count - 1, Math.round(el.scrollLeft / el.clientWidth)));
-  }, [count]);
-
-  const syncIndexFromScroll = useCallback(() => {
-    if (ignoreScrollRef.current) return;
-    const next = readIndexFromScroll();
-    if (next === activeIndexRef.current) return;
-    indexFromScrollRef.current = true;
-    onIndexChange(next);
-    requestAnimationFrame(() => {
-      indexFromScrollRef.current = false;
-    });
-  }, [onIndexChange, readIndexFromScroll]);
 
   const goTo = useCallback(
     (index: number) => {
       const next = Math.max(0, Math.min(count - 1, index));
-      scrollToIndex(next);
       onIndexChange(next);
+      scrollToIndex(next);
     },
     [count, onIndexChange, scrollToIndex],
   );
 
-  useEffect(() => {
-    if (indexFromScrollRef.current || ignoreScrollRef.current) return;
+  const syncIndexFromScroll = useCallback(() => {
+    if (programmaticScrollRef.current) return;
+    const el = scrollRef.current;
+    if (!el || el.clientWidth === 0) return;
+    const next = Math.max(0, Math.min(count - 1, Math.round(el.scrollLeft / el.clientWidth)));
+    if (next !== activeIndexRef.current) onIndexChange(next);
+  }, [count, onIndexChange]);
+
+  useLayoutEffect(() => {
     scrollToIndex(activeIndex, "auto");
-  }, [activeIndex, scrollToIndex]);
+  }, [activeIndex, count, scrollToIndex]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
+    const onScroll = () => {
+      if (programmaticScrollRef.current) return;
+      if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
+      scrollDebounceRef.current = setTimeout(() => {
+        scrollDebounceRef.current = null;
+        syncIndexFromScroll();
+      }, 80);
+    };
+
     const onScrollEnd = () => syncIndexFromScroll();
 
-    const onScroll = () => {
-      if (ignoreScrollRef.current) return;
-      if (scrollDebounceTimerRef.current) clearTimeout(scrollDebounceTimerRef.current);
-      scrollDebounceTimerRef.current = setTimeout(() => {
-        scrollDebounceTimerRef.current = null;
-        syncIndexFromScroll();
-      }, 120);
-    };
-
-    el.addEventListener("scrollend", onScrollEnd);
     el.addEventListener("scroll", onScroll, { passive: true });
-
-    const observer = new ResizeObserver(() => {
-      if (ignoreScrollRef.current) return;
-      const idx = readIndexFromScroll();
-      scrollToIndex(idx, "auto");
-    });
-    observer.observe(el);
+    el.addEventListener("scrollend", onScrollEnd);
 
     return () => {
-      el.removeEventListener("scrollend", onScrollEnd);
       el.removeEventListener("scroll", onScroll);
-      observer.disconnect();
-      if (ignoreScrollTimerRef.current) clearTimeout(ignoreScrollTimerRef.current);
-      if (scrollDebounceTimerRef.current) clearTimeout(scrollDebounceTimerRef.current);
+      el.removeEventListener("scrollend", onScrollEnd);
+      if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
     };
-  }, [readIndexFromScroll, scrollToIndex, syncIndexFromScroll]);
+  }, [syncIndexFromScroll]);
 
   if (count === 0) return null;
 
@@ -132,21 +108,22 @@ export function HorizontalSlidePager({
           flex: 1,
           minHeight: 0,
           display: "flex",
-          overflowX: "auto",
+          overflowX: "scroll",
           overflowY: "hidden",
           scrollSnapType: "x mandatory",
           WebkitOverflowScrolling: "touch",
-          scrollbarWidth: "none",
-          msOverflowStyle: "none",
-          touchAction: "pan-x pan-y",
+          overscrollBehaviorX: "contain",
         }}
       >
         {children.map((slide, i) => (
           <div
             key={i}
+            aria-hidden={activeIndex !== i}
             style={{
               flex: "0 0 100%",
               width: "100%",
+              minWidth: "100%",
+              maxWidth: "100%",
               height: "100%",
               scrollSnapAlign: "start",
               scrollSnapStop: "always",
@@ -154,6 +131,7 @@ export function HorizontalSlidePager({
               flexDirection: "column",
               minHeight: 0,
               boxSizing: "border-box",
+              overflow: "hidden",
             }}
           >
             {slide}
@@ -209,7 +187,7 @@ export function HorizontalSlidePager({
                     width: activeIndex === i ? 24 : 8,
                     height: 8,
                     borderRadius: activeIndex === i ? 5 : 4,
-                    background: activeIndex === i ? M.acc : M.line,
+                    background: activeIndex === i ? M.brand : M.line,
                     transition: "width 0.2s ease, background 0.2s ease",
                   }}
                 />

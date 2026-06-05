@@ -7,6 +7,7 @@ import { AlertSheet } from "../components/AlertSheet";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { TrendLineChart } from "../components/TrendLineChart";
 import { buildWeightSeries } from "../lib/bodyChart";
+import { MButton } from "../components/MButton";
 import {
   useBodyMeasurements,
   createBodyMeasurement,
@@ -483,12 +484,9 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
           justifyContent: "space-between",
         }}
       >
-        <button
-          onClick={onBack}
-          style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex" }}
-        >
-          <Icon name="chevL" size={24} stroke={2.2} />
-        </button>
+        <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
+          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
+        </MButton>
         <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>
           {editingId ? "EINTRAG BEARBEITEN" : "KÖRPERWERTE"}
         </span>
@@ -506,44 +504,24 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
             border: "1px solid " + M.line2,
           }}
         >
-          <button
+          <MButton
             type="button"
             onClick={() => setActiveTab("werte")}
-            style={{
-              flex: 1,
-              padding: "10px 0",
-              borderRadius: 10,
-              border: "none",
-              background: activeTab === "werte" ? M.acc : "transparent",
-              color: activeTab === "werte" ? M.accInk : M.mut,
-              fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 14,
-              letterSpacing: 0.4,
-              cursor: "pointer",
-            }}
+            variant={activeTab === "werte" ? "primary" : "ghost"}
+            size="sm"
+            style={{ flex: 1, fontFamily: M.disp, letterSpacing: 0.3, ...(activeTab === "werte" ? null : { color: M.mut }) }}
           >
-            WERTE
-          </button>
-          <button
+            Werte
+          </MButton>
+          <MButton
             type="button"
             onClick={() => setActiveTab("fotos")}
-            style={{
-              flex: 1,
-              padding: "10px 0",
-              borderRadius: 10,
-              border: "none",
-              background: activeTab === "fotos" ? M.acc : "transparent",
-              color: activeTab === "fotos" ? M.accInk : M.mut,
-              fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 14,
-              letterSpacing: 0.4,
-              cursor: "pointer",
-            }}
+            variant={activeTab === "fotos" ? "primary" : "ghost"}
+            size="sm"
+            style={{ flex: 1, fontFamily: M.disp, letterSpacing: 0.3, ...(activeTab === "fotos" ? null : { color: M.mut }) }}
           >
-            FOTOS
-          </button>
+            Fotos
+          </MButton>
         </div>
       </div>
 
@@ -962,46 +940,14 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
             {/* Action Buttons */}
             <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
               {editingId && (
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  style={{
-                    flex: 1,
-                    height: 40,
-                    borderRadius: 12,
-                    border: "1px solid " + M.line,
-                    background: "transparent",
-                    color: M.fg,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    fontSize: 14,
-                  }}
-                >
-                  ABBRECHEN
-                </button>
+                <MButton type="button" onClick={handleCancelEdit} variant="secondary" size="md" style={{ flex: 1 }}>
+                  Abbrechen
+                </MButton>
               )}
-              <button
-                type="submit"
-                disabled={saving}
-                style={{
-                  flex: 2,
-                  height: 40,
-                  borderRadius: 12,
-                  border: "none",
-                  background: M.acc,
-                  color: M.accInk,
-                  fontWeight: 700,
-                  cursor: saving ? "wait" : "pointer",
-                  fontSize: 14,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                }}
-              >
-                <Icon name="check" size={16} color={M.accInk} />
-                {editingId ? "SPEICHERN" : "EINTRAGEN"}
-              </button>
+              <MButton type="submit" disabled={saving} variant="primary" size="md" loading={saving} style={{ flex: 2 }}>
+                <Icon name="check" size={14} color={M.accInk} />
+                {editingId ? "Speichern" : "Eintragen"}
+              </MButton>
             </div>
           </div>
         </form>

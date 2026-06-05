@@ -8,6 +8,7 @@ import { MTag } from "../components/widgets";
 import { SupersetBlock } from "../components/SupersetBlock";
 import { segmentExercises } from "../lib/superset";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
+import { MButton } from "../components/MButton";
 
 export interface SessionDetailScreenProps {
   sessionId: string;
@@ -70,21 +71,9 @@ export function SessionDetailScreen({
     return (
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 22 }}>
         <div style={{ color: M.mut, fontSize: 14 }}>{error ?? "Session nicht gefunden."}</div>
-        <button
-          onClick={onBack}
-          style={{
-            padding: "10px 16px",
-            borderRadius: 12,
-            border: "none",
-            background: M.acc,
-            color: M.accInk,
-            fontFamily: M.disp,
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
+        <MButton onClick={onBack} variant="primary" size="sm">
           Zurück
-        </button>
+        </MButton>
       </div>
     );
   }
@@ -99,9 +88,9 @@ export function SessionDetailScreen({
           justifyContent: "space-between",
         }}
       >
-        <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex" }}>
-          <Icon name="chevL" size={24} stroke={2.2} />
-        </button>
+        <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
+          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
+        </MButton>
         <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>SESSION</span>
         <div style={{ width: 24 }} />
       </div>
@@ -240,77 +229,42 @@ export function SessionDetailScreen({
         )}
       </div>
 
-      <div style={{ padding: "12px 22px 18px", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid " + M.line2 }}>
+      <div style={{ padding: "10px 22px 14px", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid " + M.line2 }}>
         {session.workoutId && (
-          <button
+          <MButton
             disabled={trackLoading || busy}
             onClick={() => onStart(session.workoutId!)}
-            style={{
-              padding: "13px 0",
-              borderRadius: 12,
-              border: "none",
-              background: M.acc,
-              color: M.accInk,
-              fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 15,
-              letterSpacing: 0.5,
-              cursor: trackLoading || busy ? "wait" : "pointer",
-              opacity: trackLoading || busy ? 0.7 : 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
+            variant="primary"
+            size="md"
+            fullWidth
+            loading={trackLoading || busy}
           >
-            <Icon name="play" size={20} color={M.accInk} />
-            WORKOUT ERNEUT STARTEN
-          </button>
+            <Icon name="play" size={16} color={M.accInk} />
+            Workout erneut starten
+          </MButton>
         )}
 
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
+        <div style={{ display: "flex", flexDirection: "row", alignItems: "stretch", gap: 8, flexWrap: "nowrap" }}>
+          <MButton
             disabled={busy || trackLoading}
             onClick={() => onEdit(session.id)}
-            style={{
-              flex: 1,
-              padding: "13px 0",
-              borderRadius: 12,
-              border: "1px solid " + M.line,
-              background: M.card,
-              color: M.fg,
-              fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 15,
-              cursor: busy || trackLoading ? "wait" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              opacity: busy || trackLoading ? 0.7 : 1,
-            }}
+            variant="secondary"
+            size="sm"
+            style={{ flex: 1, minWidth: 0, background: M.card }}
           >
-            <Icon name="edit" size={18} stroke={2} color={M.acc} />
+            <Icon name="edit" size={16} stroke={2} color={M.fg} />
             Bearbeiten
-          </button>
-          <button
+          </MButton>
+          <MButton
             disabled={busy || trackLoading}
             onClick={() => setDeleteConfirmOpen(true)}
-            style={{
-              padding: "13px 16px",
-              borderRadius: 12,
-              border: "1px solid " + M.line,
-              background: "transparent",
-              color: M.mut2,
-              cursor: busy || trackLoading ? "wait" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: busy || trackLoading ? 0.7 : 0.65,
-            }}
+            variant="danger"
+            size="icon"
+            aria-label="Session löschen"
+            style={{ flexShrink: 0 }}
           >
-            <Icon name="trash" size={18} stroke={2} color={M.mut2} />
-          </button>
+            <Icon name="trash" size={16} stroke={2} color={M.mut2} />
+          </MButton>
         </div>
       </div>
 

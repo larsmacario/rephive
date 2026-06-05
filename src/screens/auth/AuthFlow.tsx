@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { M } from "../../theme";
 import { useAuth } from "../../lib/auth";
 import { AppLogo } from "../../components/AppLogo";
+import { MButton } from "../../components/MButton";
 
 export type AuthStep = "login" | "signup" | "forgot" | "reset";
 
@@ -16,21 +17,6 @@ const inputStyle: React.CSSProperties = {
   fontSize: 15,
   outline: "none",
   boxSizing: "border-box",
-};
-
-const btnPrimary: React.CSSProperties = {
-  width: "100%",
-  padding: "15px 0",
-  borderRadius: 14,
-  border: "none",
-  background: M.acc,
-  color: M.accInk,
-  fontFamily: M.disp,
-  fontWeight: 700,
-  fontSize: 19,
-  letterSpacing: 1,
-  cursor: "pointer",
-  marginTop: 8,
 };
 
 const linkBtn: React.CSSProperties = {
@@ -237,9 +223,9 @@ export function AuthFlow({ initialStep = "login" }: AuthFlowProps) {
 
         {step === "login" && (
           <>
-            <button disabled={busy} onClick={submitLogin} style={{ ...btnPrimary, opacity: busy ? 0.7 : 1 }}>
+            <MButton disabled={busy} onClick={submitLogin} variant="primary" size="md" fullWidth style={{ marginTop: 8 }}>
               ANMELDEN
-            </button>
+            </MButton>
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
               <button type="button" style={linkBtn} onClick={() => setStep("forgot")}>
                 Passwort vergessen?
@@ -253,9 +239,9 @@ export function AuthFlow({ initialStep = "login" }: AuthFlowProps) {
 
         {step === "signup" && (
           <>
-            <button disabled={busy} onClick={submitSignup} style={{ ...btnPrimary, opacity: busy ? 0.7 : 1 }}>
+            <MButton disabled={busy} onClick={submitSignup} variant="primary" size="md" fullWidth style={{ marginTop: 8 }}>
               REGISTRIEREN
-            </button>
+            </MButton>
             <div style={{ textAlign: "center", marginTop: 16 }}>
               <button type="button" style={linkBtn} onClick={() => setStep("login")}>
                 Bereits ein Konto? Anmelden
@@ -266,9 +252,9 @@ export function AuthFlow({ initialStep = "login" }: AuthFlowProps) {
 
         {step === "forgot" && (
           <>
-            <button disabled={busy} onClick={submitForgot} style={{ ...btnPrimary, opacity: busy ? 0.7 : 1 }}>
+            <MButton disabled={busy} onClick={submitForgot} variant="primary" size="md" fullWidth style={{ marginTop: 8 }}>
               CODE SENDEN
-            </button>
+            </MButton>
             <div style={{ textAlign: "center", marginTop: 16 }}>
               <button type="button" style={linkBtn} onClick={() => setStep("login")}>
                 Zurück zur Anmeldung
@@ -279,9 +265,9 @@ export function AuthFlow({ initialStep = "login" }: AuthFlowProps) {
 
         {step === "reset" && (
           <>
-            <button disabled={busy} onClick={submitReset} style={{ ...btnPrimary, opacity: busy ? 0.7 : 1 }}>
+            <MButton disabled={busy} onClick={submitReset} variant="primary" size="md" fullWidth style={{ marginTop: 8 }}>
               PASSWORT SPEICHERN
-            </button>
+            </MButton>
             <div style={{ textAlign: "center", marginTop: 16 }}>
               <button type="button" style={linkBtn} onClick={() => setStep("login")}>
                 Zurück zur Anmeldung

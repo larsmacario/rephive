@@ -17,6 +17,7 @@ import { WorkoutFinishSheet } from "../components/WorkoutFinishSheet";
 import { ConfirmSheet } from "../components/ConfirmSheet";
 import { AlertSheet } from "../components/AlertSheet";
 import { MStat, MTag } from "../components/widgets";
+import { MButton } from "../components/MButton";
 import { FLOAT_NAV_SCROLL_BOTTOM_GAP } from "../components/FloatNav";
 
 export interface HomeScreenProps {
@@ -260,11 +261,11 @@ export function HomeScreen({
           position: "relative",
           overflow: "hidden",
           background:
-            "linear-gradient(160deg, color-mix(in oklab, var(--mom-acc, oklch(0.87 0.21 143)) 24%, #151915), #121512)",
+            "linear-gradient(160deg, color-mix(in oklab, var(--mom-brand, #7ef67b) 10%, #1a1a1a), #111111)",
           border: "1px solid " + M.line,
         }}
       >
-        <div style={{ fontSize: 11, letterSpacing: 1.4, color: M.acc, fontWeight: 700 }}>
+        <div style={{ fontSize: 11, letterSpacing: 1.4, color: M.brand, fontWeight: 700 }}>
           AKTIVES WORKOUT · {fmtUp(durationSec)}
         </div>
         <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 28, lineHeight: 1, marginTop: 8 }}>
@@ -290,47 +291,13 @@ export function HomeScreen({
             {(activeMetrics.volumeKg / 1000).toFixed(1)}t
           </span>
         </div>
-        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-          <button
-            onClick={onResumeActive}
-            style={{
-              flex: 1,
-              padding: "14px 0",
-              borderRadius: 14,
-              border: "none",
-              background: M.acc,
-              color: M.accInk,
-              fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 17,
-              letterSpacing: 0.8,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
-          >
-            <Icon name="play" size={18} color={M.accInk} /> FORTSETZEN
-          </button>
-          <button
-            onClick={() => setFinishSheet(true)}
-            style={{
-              flex: 1,
-              padding: "14px 0",
-              borderRadius: 14,
-              border: "1px solid " + M.line,
-              background: M.panel,
-              color: M.fg,
-              fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 17,
-              letterSpacing: 0.8,
-              cursor: "pointer",
-            }}
-          >
-            BEENDEN
-          </button>
+        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          <MButton onClick={onResumeActive} variant="primary" size="md" style={{ flex: 1 }}>
+            <Icon name="play" size={16} color={M.accInk} /> Fortsetzen
+          </MButton>
+          <MButton onClick={() => setFinishSheet(true)} variant="secondary" size="md" style={{ flex: 1, background: M.panel }}>
+            Beenden
+          </MButton>
         </div>
       </div>
     ) : null;
@@ -351,29 +318,9 @@ export function HomeScreen({
       <div style={{ color: M.mut, fontSize: 14, marginTop: 10, lineHeight: 1.4 }}>
         Erstelle einen Trainingsplan und ordne deine Workouts den Tagen zu.
       </div>
-      <button
-        onClick={onOpenPlans}
-        style={{
-          width: "100%",
-          marginTop: 16,
-          padding: "14px 0",
-          borderRadius: 14,
-          border: "none",
-          background: M.acc,
-          color: M.accInk,
-          fontFamily: M.disp,
-          fontWeight: 700,
-          fontSize: 19,
-          letterSpacing: 1,
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-        }}
-      >
-        <Icon name="layers" size={20} color={M.accInk} /> PLAN ERSTELLEN
-      </button>
+      <MButton onClick={onOpenPlans} variant="primary" size="md" fullWidth style={{ marginTop: 16 }}>
+        <Icon name="layers" size={16} color={M.accInk} /> Plan erstellen
+      </MButton>
     </div>
   ) : currentDay.isRestDay ? (
     <div
@@ -392,31 +339,9 @@ export function HomeScreen({
       </div>
       <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 28, lineHeight: 1, marginTop: 8 }}>Ruhetag</div>
       <div style={{ color: M.mut, fontSize: 14, marginTop: 10 }}>Heute ist Erholung angesagt. Gönn dir die Pause.</div>
-      <button
-        disabled={advancing}
-        onClick={handleRestDay}
-        style={{
-          width: "100%",
-          marginTop: 16,
-          padding: "14px 0",
-          borderRadius: 14,
-          border: "1px solid " + M.line,
-          background: M.panel,
-          color: M.fg,
-          fontFamily: M.disp,
-          fontWeight: 700,
-          fontSize: 17,
-          letterSpacing: 0.8,
-          cursor: advancing ? "wait" : "pointer",
-          opacity: advancing ? 0.7 : 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-        }}
-      >
-        <Icon name="check" size={20} color={M.fg} /> RUHETAG ABHAKEN
-      </button>
+      <MButton disabled={advancing} onClick={handleRestDay} variant="secondary" size="md" fullWidth style={{ marginTop: 16, background: M.panel }}>
+        <Icon name="check" size={16} color={M.fg} /> Ruhetag abhaken
+      </MButton>
     </div>
   ) : (
     <div
@@ -427,7 +352,7 @@ export function HomeScreen({
         position: "relative",
         overflow: "hidden",
         background:
-          "linear-gradient(160deg, color-mix(in oklab, var(--mom-acc, oklch(0.87 0.21 143)) 20%, #151915), #121512)",
+          "linear-gradient(160deg, color-mix(in oklab, var(--mom-brand, #7ef67b) 10%, #1a1a1a), #111111)",
         border: "1px solid " + M.line,
       }}
     >
@@ -465,50 +390,25 @@ export function HomeScreen({
           </div>
         </>
       )}
-      <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-        <button
+      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+        <MButton
           disabled={trackLoading || !currentDay.workout}
           onClick={() => currentDay.workout && onStart(currentDay.workout.id, activePlan.id)}
-          style={{
-            flex: 1,
-            padding: "14px 0",
-            borderRadius: 14,
-            border: "none",
-            background: M.acc,
-            color: M.accInk,
-            fontFamily: M.disp,
-            fontWeight: 700,
-            fontSize: 19,
-            letterSpacing: 1,
-            cursor: trackLoading ? "wait" : "pointer",
-            opacity: trackLoading ? 0.7 : 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-          }}
+          variant="primary"
+          size="md"
+          style={{ flex: 1 }}
         >
-          <Icon name="play" size={20} color={M.accInk} /> WORKOUT STARTEN
-        </button>
-        <button
+          <Icon name="play" size={16} color={M.accInk} /> Workout starten
+        </MButton>
+        <MButton
           disabled={advancing}
           onClick={handleSkipWorkout}
           aria-label="Workout überspringen"
-          style={{
-            padding: "13px 16px",
-            borderRadius: 12,
-            border: "1px solid " + M.line,
-            background: "transparent",
-            color: M.mut2,
-            cursor: advancing ? "wait" : "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: advancing ? 0.7 : 0.65,
-          }}
+          variant="secondary"
+          size="icon"
         >
-          <Icon name="skipFwd" size={18} stroke={2} color={M.mut2} />
-        </button>
+          <Icon name="skipFwd" size={16} stroke={2} color={M.mut2} />
+        </MButton>
       </div>
     </div>
   );
@@ -571,7 +471,7 @@ export function HomeScreen({
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <span style={{ fontSize: 11, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>VOLUMEN / WOCHE</span>
-        <span style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 16, color: M.acc }}>
+        <span style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 16, color: M.brand }}>
           {weekData.reduce((a, w) => a + w.v, 0) > 0 ? "●" : "—"}
         </span>
       </div>
@@ -584,8 +484,12 @@ export function HomeScreen({
                   width: "100%",
                   height: (w.v ? Math.max(8, (w.v / maxV) * 64) : 3) + "px",
                   borderRadius: 5,
-                  background: w.v ? M.acc : "rgba(255,255,255,.08)",
-                  opacity: w.v ? (i === weekData.length - 1 ? 1 : 0.55) : 1,
+                  background: w.v
+                    ? i === weekData.length - 1
+                      ? M.brand
+                      : M.acc
+                    : "rgba(255,255,255,.08)",
+                  opacity: w.v ? (i === weekData.length - 1 ? 1 : 0.45) : 1,
                 }}
               />
             </div>
@@ -607,53 +511,36 @@ export function HomeScreen({
         }}
       >
         <span style={{ fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>STATISTIK</span>
-        <button
-          type="button"
-          onClick={onOpenStats}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: M.acc,
-            fontSize: 12,
-            fontWeight: 700,
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            padding: 0,
-          }}
-        >
+        <MButton type="button" onClick={onOpenStats} variant="ghost" size="sm" style={{ padding: 0, color: M.fg }}>
           Alle anzeigen
-          <Icon name="chevR" size={14} color={M.acc} stroke={2.2} />
-        </button>
+          <Icon name="chevR" size={14} color={M.fg} stroke={2.2} />
+        </MButton>
       </div>
       {statsRow}
       {volumeChart}
     </div>
   );
 
+  const homeCardLinkStyle: React.CSSProperties = {
+    width: "100%",
+    marginTop: 14,
+    padding: "12px 14px",
+    borderRadius: 12,
+    justifyContent: "flex-start",
+    textAlign: "left",
+    background: M.card,
+    gap: 12,
+    minHeight: 56,
+    height: "auto",
+  };
+
   const customTrainingLink = (
-    <button
-      onClick={onStartCustom}
-      style={{
-        width: "100%",
-        marginTop: 14,
-        padding: "15px 16px",
-        borderRadius: 16,
-        border: "1px solid " + M.line,
-        background: M.card,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: 13,
-        textAlign: "left",
-      }}
-    >
+    <MButton onClick={onStartCustom} variant="secondary" size="md" fullWidth style={homeCardLinkStyle}>
       <div
         style={{
-          width: 40,
-          height: 40,
-          borderRadius: 12,
+          width: 36,
+          height: 36,
+          borderRadius: 10,
           background: M.accSoft,
           color: M.acc,
           display: "flex",
@@ -662,33 +549,18 @@ export function HomeScreen({
           flex: "0 0 auto",
         }}
       >
-        <Icon name="flame" size={20} stroke={2} />
+        <Icon name="flame" size={18} stroke={2} />
       </div>
       <div style={{ flex: 1 }}>
-        <div style={{ color: M.fg, fontWeight: 600, fontSize: 15 }}>Individuelles Training</div>
+        <div style={{ color: M.fg, fontWeight: 600, fontSize: 14 }}>Individuelles Training</div>
         <div style={{ color: M.mut, fontSize: 12, marginTop: 1 }}>Frei trainieren · ohne Plan</div>
       </div>
-      <Icon name="chevR" size={18} color={M.mut2} stroke={2.2} />
-    </button>
+      <Icon name="chevR" size={16} color={M.mut2} stroke={2.2} />
+    </MButton>
   );
 
   const timerLink = (
-    <button
-      onClick={onOpenTimer}
-      style={{
-        width: "100%",
-        marginTop: 14,
-        padding: "15px 16px",
-        borderRadius: 16,
-        border: "1px solid " + M.line,
-        background: M.card,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: 13,
-        textAlign: "left",
-      }}
-    >
+    <MButton onClick={onOpenTimer} variant="secondary" size="md" fullWidth style={homeCardLinkStyle}>
       <div
         style={{
           width: 40,
@@ -702,33 +574,18 @@ export function HomeScreen({
           flex: "0 0 auto",
         }}
       >
-        <Icon name="timer" size={20} stroke={2} />
+        <Icon name="timer" size={18} stroke={2} />
       </div>
       <div style={{ flex: 1 }}>
-        <div style={{ color: M.fg, fontWeight: 600, fontSize: 15 }}>Interval-Timer</div>
+        <div style={{ color: M.fg, fontWeight: 600, fontSize: 14 }}>Interval-Timer</div>
         <div style={{ color: M.mut, fontSize: 12, marginTop: 1 }}>EMOM · AMRAP · TABATA · For Time</div>
       </div>
-      <Icon name="chevR" size={18} color={M.mut2} stroke={2.2} />
-    </button>
+      <Icon name="chevR" size={16} color={M.mut2} stroke={2.2} />
+    </MButton>
   );
 
   const calculatorLink = (
-    <button
-      onClick={onOpenCalculator}
-      style={{
-        width: "100%",
-        marginTop: 14,
-        padding: "15px 16px",
-        borderRadius: 16,
-        border: "1px solid " + M.line,
-        background: M.card,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: 13,
-        textAlign: "left",
-      }}
-    >
+    <MButton onClick={onOpenCalculator} variant="secondary" size="md" fullWidth style={homeCardLinkStyle}>
       <div
         style={{
           width: 40,
@@ -742,36 +599,18 @@ export function HomeScreen({
           flex: "0 0 auto",
         }}
       >
-        <Icon name="calculator" size={20} stroke={2} />
+        <Icon name="calculator" size={18} stroke={2} />
       </div>
       <div style={{ flex: 1 }}>
-        <div style={{ color: M.fg, fontWeight: 600, fontSize: 15 }}>1RM-Rechner</div>
+        <div style={{ color: M.fg, fontWeight: 600, fontSize: 14 }}>1RM-Rechner</div>
         <div style={{ color: M.mut, fontSize: 12, marginTop: 1 }}>One Rep Max kalkulieren</div>
       </div>
-      <Icon name="chevR" size={18} color={M.mut2} stroke={2.2} />
-    </button>
+      <Icon name="chevR" size={16} color={M.mut2} stroke={2.2} />
+    </MButton>
   );
 
   const bodyTrackerLink = (
-    <button
-      onClick={() => {
-        console.log("Körperwerte button clicked");
-        onOpenBodyTracker();
-      }}
-      style={{
-        width: "100%",
-        marginTop: 14,
-        padding: "15px 16px",
-        borderRadius: 16,
-        border: "1px solid " + M.line,
-        background: M.card,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: 13,
-        textAlign: "left",
-      }}
-    >
+    <MButton onClick={onOpenBodyTracker} variant="secondary" size="md" fullWidth style={homeCardLinkStyle}>
       <div
         style={{
           width: 40,
@@ -785,37 +624,22 @@ export function HomeScreen({
           flex: "0 0 auto",
         }}
       >
-        <Icon name="scale" size={20} stroke={2} />
+        <Icon name="scale" size={18} stroke={2} />
       </div>
       <div style={{ flex: 1 }}>
-        <div style={{ color: M.fg, fontWeight: 600, fontSize: 15 }}>Körperwerte</div>
+        <div style={{ color: M.fg, fontWeight: 600, fontSize: 14 }}>Körperwerte</div>
         <div style={{ color: M.mut, fontSize: 12, marginTop: 1 }}>
           {latestMeasurement
             ? `${latestMeasurement.weightKg} kg ${latestMeasurement.bodyFatPct ? `· ${latestMeasurement.bodyFatPct}% KFA` : ""}`
             : "Gewicht & Fettanteil tracken"}
         </div>
       </div>
-      <Icon name="chevR" size={18} color={M.mut2} stroke={2.2} />
-    </button>
+      <Icon name="chevR" size={16} color={M.mut2} stroke={2.2} />
+    </MButton>
   );
 
   const aiTrainingPlanLink = (
-    <button
-      onClick={onOpenAITrainingPlan}
-      style={{
-        width: "100%",
-        marginTop: 14,
-        padding: "15px 16px",
-        borderRadius: 16,
-        border: "1px solid " + M.line,
-        background: M.card,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: 13,
-        textAlign: "left",
-      }}
-    >
+    <MButton onClick={onOpenAITrainingPlan} variant="secondary" size="md" fullWidth style={homeCardLinkStyle}>
       <div
         style={{
           width: 40,
@@ -829,16 +653,16 @@ export function HomeScreen({
           flex: "0 0 auto",
         }}
       >
-        <Icon name="sparkles" size={20} />
+        <Icon name="sparkles" size={18} />
       </div>
       <div style={{ flex: 1 }}>
-        <div style={{ color: M.fg, fontWeight: 600, fontSize: 15 }}>KI Trainingsplan</div>
+        <div style={{ color: M.fg, fontWeight: 600, fontSize: 14 }}>KI Trainingsplan</div>
         <div style={{ color: M.mut, fontSize: 12, marginTop: 1 }}>
           Individuellen Plan mit KI erstellen
         </div>
       </div>
-      <Icon name="chevR" size={18} color={M.mut2} stroke={2.2} />
-    </button>
+      <Icon name="chevR" size={16} color={M.mut2} stroke={2.2} />
+    </MButton>
   );
 
   return (
@@ -867,26 +691,14 @@ export function HomeScreen({
             Hej, {displayName.split(" ")[0]}
           </div>
         </div>
-        <button
+        <MButton
           onClick={() => setMenuOpen((o) => !o)}
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            background: M.card,
-            border: "1px solid " + M.line,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontFamily: M.disp,
-            fontWeight: 700,
-            color: M.acc,
-            fontSize: 18,
-            cursor: "pointer",
-          }}
+          variant="secondary"
+          size="icon"
+          style={{ width: 36, height: 36, borderRadius: 18, background: M.card, fontFamily: M.disp, fontWeight: 700, color: M.fg, fontSize: 15 }}
         >
           {initial}
-        </button>
+        </MButton>
       </div>
       <AnimatePresence>
         {menuOpen && (
@@ -954,23 +766,9 @@ export function HomeScreen({
                   {displayName}
                 </div>
               </div>
-              <button
-                onClick={closeMenu}
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 17,
-                  border: "1px solid " + M.line,
-                  background: M.card,
-                  color: M.mut,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+              <MButton onClick={closeMenu} variant="secondary" size="icon" aria-label="Menü schließen">
                 <Icon name="x" size={16} stroke={2.3} color={M.mut} />
-              </button>
+              </MButton>
             </div>
             <div style={{ padding: "10px 12px calc(16px + env(safe-area-inset-bottom, 0px))", display: "grid", gap: 18, overflowY: "auto" }}>
               {panelSections.map((section) => (

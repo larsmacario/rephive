@@ -1,5 +1,6 @@
 import { M } from "../theme";
 import { Icon } from "../components/Icon";
+import { MButton } from "../components/MButton";
 
 export interface AboutScreenProps {
   onBack: () => void;
@@ -16,14 +17,9 @@ export function AboutScreen({ onBack }: AboutScreenProps) {
           justifyContent: "space-between",
         }}
       >
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Zurück"
-          style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex" }}
-        >
-          <Icon name="chevL" size={24} stroke={2.2} />
-        </button>
+        <MButton type="button" onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
+          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
+        </MButton>
         <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>UEBER MICH</span>
         <span style={{ width: 24 }} />
       </div>

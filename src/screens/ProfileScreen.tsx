@@ -3,6 +3,7 @@ import { M } from "../theme";
 import { useAuth } from "../lib/auth";
 import { Icon } from "../components/Icon";
 import { usePreferences } from "../lib/preferences";
+import { MButton } from "../components/MButton";
 
 export interface ProfileScreenProps {
   onBack: () => void;
@@ -219,12 +220,9 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
           justifyContent: "space-between",
         }}
       >
-        <button
-          onClick={onBack}
-          style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex" }}
-        >
-          <Icon name="chevL" size={24} stroke={2.2} />
-        </button>
+        <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
+          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
+        </MButton>
         <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>PROFIL</span>
         <div
           style={{
@@ -529,36 +527,26 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
             AKTIONEN
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <button
+            <MButton
               onClick={() => setInfo("Kauf-Wiederherstellung folgt im nächsten Schritt.")}
-              style={{
-                ...smallOutlineBtn,
-                width: "100%",
-                height: 42,
-                textAlign: "left",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
+              variant="secondary"
+              size="sm"
+              fullWidth
+              style={{ justifyContent: "space-between", textAlign: "left" }}
             >
               Kauf wiederherstellen
               <Icon name="chevR" size={14} stroke={2.1} color={M.mut} />
-            </button>
-            <button
+            </MButton>
+            <MButton
               onClick={() => void signOut()}
-              style={{
-                ...smallOutlineBtn,
-                width: "100%",
-                height: 42,
-                textAlign: "left",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
+              variant="secondary"
+              size="sm"
+              fullWidth
+              style={{ justifyContent: "space-between", textAlign: "left" }}
             >
               Abmelden
               <Icon name="chevR" size={14} stroke={2.1} color={M.mut} />
-            </button>
+            </MButton>
           </div>
         </div>
       </div>

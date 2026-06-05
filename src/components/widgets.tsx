@@ -26,9 +26,9 @@ export function MStepper({
       disabled={disabled}
       onClick={() => onChange(Math.min(max, Math.max(min, value + d)))}
       style={{
-        width: 30,
-        height: 30,
-        borderRadius: 9,
+        width: 26,
+        height: 26,
+        borderRadius: 8,
         border: "1px solid " + M.line,
         background: M.card,
         color: disabled ? M.mut2 : M.fg,
@@ -39,7 +39,7 @@ export function MStepper({
         flex: "0 0 auto",
       }}
     >
-      <Icon name={d > 0 ? "plus" : "minus"} size={15} stroke={2.4} />
+      <Icon name={d > 0 ? "plus" : "minus"} size={14} stroke={2.4} />
     </button>
   );
   return (
@@ -78,9 +78,9 @@ export function MSwitch({ checked, onChange, disabled }: MSwitchProps) {
       disabled={disabled}
       onClick={() => onChange(!checked)}
       style={{
-        width: 52,
-        height: 30,
-        borderRadius: 15,
+        width: 46,
+        height: 26,
+        borderRadius: 13,
         border: "1px solid " + (checked ? "transparent" : M.line),
         background: checked ? M.acc : M.card,
         cursor: disabled ? "default" : "pointer",
@@ -94,11 +94,11 @@ export function MSwitch({ checked, onChange, disabled }: MSwitchProps) {
       <span
         style={{
           position: "absolute",
-          top: 3,
-          left: checked ? 25 : 3,
-          width: 22,
-          height: 22,
-          borderRadius: 11,
+          top: 2,
+          left: checked ? 23 : 2,
+          width: 20,
+          height: 20,
+          borderRadius: 10,
           background: checked ? M.accInk : M.fg,
           transition: "left .15s",
         }}

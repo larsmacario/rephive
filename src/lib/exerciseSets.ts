@@ -35,6 +35,82 @@ export function formatKgDisplay(kg: number): string {
   return Number.isInteger(kg) ? String(kg) : String(+kg.toFixed(2));
 }
 
+export function parseRepsInput(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === "") return 1;
+  const n = parseInt(trimmed, 10);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return n;
+}
+
+export function formatRepsDisplay(reps: number): string {
+  return String(Math.max(1, Math.round(reps)));
+}
+
+export function formatDurationEdit(sec: number): string {
+  const s = Math.max(0, Math.round(sec));
+  if (s < 60) return String(s);
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+
+export function parseDurationInput(raw: string): number | null {
+  const trimmed = raw.trim().toLowerCase();
+  if (trimmed === "") return TIME_STEP_SEC;
+
+  if (trimmed.includes(":")) {
+    const parts = trimmed.split(":").map((p) => parseInt(p, 10));
+    if (parts.some((p) => !Number.isFinite(p) || p < 0)) return null;
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    return null;
+  }
+
+  if (/m$/.test(trimmed) && !trimmed.endsWith("mm")) {
+    const n = Number(trimmed.replace(/m$/, "").trim().replace(",", "."));
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return Math.round(n * 60);
+  }
+
+  if (/s$/.test(trimmed)) {
+    const n = Number(trimmed.replace(/s$/, "").trim().replace(",", "."));
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return Math.round(n);
+  }
+
+  const n = Number(trimmed.replace(",", "."));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n);
+}
+
+export function formatDistanceEdit(meters: number): string {
+  return String(Math.max(0, Math.round(meters)));
+}
+
+export function parseDistanceInput(raw: string): number | null {
+  const trimmed = raw.trim().toLowerCase().replace(/\s+/g, "");
+  if (trimmed === "") return DISTANCE_STEP_M;
+
+  const kmMatch = trimmed.match(/^([\d.,]+)km$/);
+  if (kmMatch) {
+    const n = Number(kmMatch[1].replace(",", "."));
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return Math.round(n * 1000);
+  }
+
+  const mMatch = trimmed.match(/^([\d.,]+)m$/);
+  if (mMatch) {
+    const n = Number(mMatch[1].replace(",", "."));
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return Math.round(n);
+  }
+
+  const n = Number(trimmed.replace(",", "."));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n);
+}
+
 export function isUniform(sets: TemplateSet[]): boolean {
   if (sets.length <= 1) return true;
   const first = sets[0];

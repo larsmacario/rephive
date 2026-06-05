@@ -4,6 +4,7 @@ import { useWorkouts } from "../lib/db";
 import { CatalogStandardLock } from "../components/CatalogStandardLock";
 import { Icon } from "../components/Icon";
 import { FLOAT_NAV_SCROLL_BOTTOM_GAP } from "../components/FloatNav";
+import { MButton } from "../components/MButton";
 
 export interface LibraryScreenProps {
   onOpenBuilder: () => void;
@@ -36,23 +37,9 @@ export function LibraryScreen({ onOpenBuilder, onOpenWorkout, refreshKey = 0 }: 
             {loading ? "…" : `${list.length} gespeicherte Workouts`}
           </div>
         </div>
-        <button
-          onClick={onOpenBuilder}
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 14,
-            border: "none",
-            background: M.acc,
-            color: M.accInk,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-          }}
-        >
-          <Icon name="plus" size={24} stroke={2.6} />
-        </button>
+        <MButton onClick={onOpenBuilder} variant="primary" size="icon" aria-label="Workout erstellen">
+          <Icon name="plus" size={18} stroke={2.6} color={M.accInk} />
+        </MButton>
       </div>
 
       <div
@@ -87,7 +74,7 @@ export function LibraryScreen({ onOpenBuilder, onOpenWorkout, refreshKey = 0 }: 
                 background: M.card,
                 border: "1px solid " + M.line2,
                 borderRadius: 14,
-                padding: "14px 16px",
+                padding: "12px 14px",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",

@@ -18,6 +18,7 @@ import { MetricCategorySheet } from "./MetricCategorySheet";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import { isValidYouTubeUrl, normalizeYouTubeUrl } from "../lib/youtube";
 import { Icon } from "./Icon";
+import { MButton } from "./MButton";
 
 export interface ExerciseFormSheetProps {
   open: boolean;
@@ -211,23 +212,16 @@ export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: Exercise
           <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 6 }}>
             KATEGORIE
           </div>
-          <button
+          <MButton
             type="button"
             onClick={() => setMetricSheetOpen(true)}
+            variant="secondary"
+            size="md"
+            fullWidth
             style={{
-              width: "100%",
-              display: "flex",
-              alignItems: "center",
               justifyContent: "space-between",
-              gap: 10,
-              padding: "12px 14px",
-              borderRadius: 12,
-              border: "1px solid " + M.line,
+              padding: "0 14px",
               background: M.card,
-              color: M.fg,
-              fontSize: 15,
-              fontWeight: 500,
-              cursor: "pointer",
               textAlign: "left",
             }}
           >
@@ -235,7 +229,7 @@ export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: Exercise
               {metricLabel(metric)}
             </span>
             <Icon name="chevR" size={18} color={M.mut2} stroke={2.2} />
-          </button>
+          </MButton>
         </div>
         <MetricCategorySheet
           open={metricSheetOpen}
@@ -247,49 +241,28 @@ export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: Exercise
           <div style={{ color: "#ff8a8a", fontSize: 13, marginBottom: 12, flexShrink: 0 }}>{error}</div>
         )}
         <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-          <button
+          <MButton
             type="button"
             disabled={saving || deleting}
             onClick={handleSave}
-            style={{
-              flex: 1,
-              padding: "14px 0",
-              borderRadius: 14,
-              border: "none",
-              background: M.acc,
-              color: M.accInk,
-              fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 17,
-              letterSpacing: 0.8,
-              cursor: saving || deleting ? "wait" : "pointer",
-              opacity: saving || deleting ? 0.7 : 1,
-            }}
+            variant="primary"
+            size="md"
+            style={{ flex: 1 }}
           >
             {saving ? "Speichern…" : "SPEICHERN"}
-          </button>
+          </MButton>
           {isEdit && (
-            <button
+            <MButton
               type="button"
               disabled={saving || deleting}
               onClick={() => setDeleteConfirmOpen(true)}
               aria-label="Übung löschen"
-              style={{
-                padding: "14px 16px",
-                borderRadius: 14,
-                border: "1px solid " + M.line,
-                background: "transparent",
-                color: M.mut2,
-                cursor: saving || deleting ? "wait" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                opacity: saving || deleting ? 0.6 : 0.65,
-                flexShrink: 0,
-              }}
+              variant="secondary"
+              size="icon"
+              style={{ flexShrink: 0, width: 40, height: 40 }}
             >
               <Icon name="trash" size={18} stroke={2} color={M.mut2} />
-            </button>
+            </MButton>
           )}
         </div>
       </div>

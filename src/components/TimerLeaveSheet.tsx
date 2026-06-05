@@ -1,6 +1,7 @@
 import { M } from "../theme";
 import { Icon } from "./Icon";
 import { BottomSheet } from "./BottomSheet";
+import { MButton } from "./MButton";
 
 export interface TimerLeaveSheetProps {
   onConfirm: () => void;
@@ -36,46 +37,12 @@ export function TimerLeaveSheet({
       </div>
       <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 22, marginBottom: 8, flexShrink: 0 }}>{title}</div>
       <div style={{ color: M.mut, fontSize: 14, marginBottom: 18, lineHeight: 1.45, flexShrink: 0 }}>{message}</div>
-      <button
-        type="button"
-        onClick={onConfirm}
-        style={{
-          width: "100%",
-          padding: "14px 0",
-          borderRadius: 14,
-          border: "none",
-          background: M.acc,
-          color: M.accInk,
-          fontFamily: M.disp,
-          fontWeight: 700,
-          fontSize: 17,
-          letterSpacing: 0.8,
-          cursor: "pointer",
-          marginBottom: 10,
-          flexShrink: 0,
-        }}
-      >
+      <MButton type="button" onClick={onConfirm} variant="primary" size="md" fullWidth style={{ marginBottom: 10, flexShrink: 0 }}>
         {confirmLabel}
-      </button>
-      <button
-        type="button"
-        onClick={onCancel}
-        style={{
-          width: "100%",
-          padding: "12px 0",
-          borderRadius: 14,
-          border: "none",
-          background: "transparent",
-          color: M.mut,
-          fontFamily: M.body,
-          fontWeight: 600,
-          fontSize: 15,
-          cursor: "pointer",
-          flexShrink: 0,
-        }}
-      >
+      </MButton>
+      <MButton type="button" onClick={onCancel} variant="ghost" size="md" fullWidth style={{ flexShrink: 0 }}>
         Abbrechen
-      </button>
+      </MButton>
     </BottomSheet>
   );
 }

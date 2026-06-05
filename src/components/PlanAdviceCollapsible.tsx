@@ -34,7 +34,7 @@ export function PlanAdviceCollapsible({
           display: "flex",
           alignItems: "center",
           gap: 10,
-          padding: "14px 16px",
+          padding: "12px 14px",
           textAlign: "left",
           background: "transparent",
           border: "none",

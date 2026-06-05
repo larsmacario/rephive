@@ -6,6 +6,7 @@ import { Icon } from "../components/Icon";
 import { MStat } from "../components/widgets";
 import { TrendLineChart } from "../components/TrendLineChart";
 import { useBodyMeasurements } from "../lib/db";
+import { MButton } from "../components/MButton";
 
 const PERIODS: { id: StatsPeriod; label: string }[] = [
   { id: "d7", label: "7 Tage" },
@@ -74,12 +75,9 @@ export function StatsScreen({ onBack, refreshKey = 0 }: StatsScreenProps) {
           justifyContent: "space-between",
         }}
       >
-        <button
-          onClick={onBack}
-          style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex" }}
-        >
-          <Icon name="chevL" size={24} stroke={2.2} />
-        </button>
+        <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
+          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
+        </MButton>
         <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>STATISTIK</span>
         <span style={{ width: 24 }} />
       </div>
@@ -98,24 +96,15 @@ export function StatsScreen({ onBack, refreshKey = 0 }: StatsScreenProps) {
           {PERIODS.map((p) => {
             const on = period === p.id;
             return (
-              <button
+              <MButton
                 key={p.id}
                 onClick={() => setPeriod(p.id)}
-                style={{
-                  flex: 1,
-                  padding: "10px 8px",
-                  borderRadius: 9,
-                  border: "none",
-                  cursor: "pointer",
-                  background: on ? M.acc : "transparent",
-                  color: on ? "#000" : M.mut,
-                  fontWeight: 700,
-                  fontSize: 11,
-                  letterSpacing: 0.1,
-                }}
+                variant={on ? "primary" : "ghost"}
+                size="sm"
+                style={{ flex: 1, fontSize: 11, letterSpacing: 0.1, ...(on ? null : { color: M.mut }) }}
               >
                 {p.label}
-              </button>
+              </MButton>
             );
           })}
         </div>

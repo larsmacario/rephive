@@ -18,6 +18,7 @@ import { MUSCLE_GROUP_SECTIONS } from "../lib/exerciseCatalog";
 import { normalizeMusclePriorities, type MusclePriorities } from "../lib/musclePriorities";
 import { MusclePrioritySliderRow } from "../components/MusclePrioritySliderRow";
 import { getExerciseCountHint } from "../lib/ai-plan-volume";
+import { MButton } from "../components/MButton";
 
 function formatSleepHours(hours: number): string {
   const rounded = Math.round(hours * 2) / 2;
@@ -113,39 +114,6 @@ const listTileStyle = (selected: boolean): React.CSSProperties => ({
   boxSizing: "border-box",
 });
 
-const btnPrimary: React.CSSProperties = {
-  padding: "15px 32px",
-  borderRadius: 14,
-  border: "none",
-  background: M.acc,
-  color: M.accInk,
-  fontFamily: M.disp,
-  fontWeight: 700,
-  fontSize: 18,
-  letterSpacing: 1,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 8,
-};
-
-const btnSecondary: React.CSSProperties = {
-  padding: "15px 24px",
-  borderRadius: 14,
-  border: "1px solid " + M.line,
-  background: "transparent",
-  color: M.fg,
-  fontFamily: M.disp,
-  fontWeight: 600,
-  fontSize: 18,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 8,
-};
-
 /** Gleiche Maße wie „Trainingstage pro Woche“ — inkl. sichtbarer +/- Farbe. */
 const stepperBtnStyle: React.CSSProperties = {
   width: 40,
@@ -164,16 +132,16 @@ const stepperBtnStyle: React.CSSProperties = {
 function getHtvClassification(htv: number, gender: string | null): { text: string; color: string } {
   if (gender === "male") {
     if (htv < 0.90) return { text: "Geringes Risiko (Normalwert)", color: M.acc };
-    if (htv < 1.0) return { text: "Mäßiges Risiko (Übergewicht)", color: "#ffeb3b" };
-    return { text: "Hohes Risiko (Adipositas)", color: "#ff5050" };
+    if (htv < 1.0) return { text: "Mäßiges Risiko (Übergewicht)", color: "#9ca3af" };
+    return { text: "Hohes Risiko (Adipositas)", color: "#6b7280" };
   } else if (gender === "female") {
     if (htv < 0.80) return { text: "Geringes Risiko (Normalwert)", color: M.acc };
-    if (htv < 0.85) return { text: "Mäßiges Risiko (Übergewicht)", color: "#ffeb3b" };
-    return { text: "Hohes Risiko (Adipositas)", color: "#ff5050" };
+    if (htv < 0.85) return { text: "Mäßiges Risiko (Übergewicht)", color: "#9ca3af" };
+    return { text: "Hohes Risiko (Adipositas)", color: "#6b7280" };
   } else {
     if (htv < 0.85) return { text: "Geringes Risiko (Normalwert)", color: M.acc };
-    if (htv < 0.92) return { text: "Mäßiges Risiko (Übergewicht)", color: "#ffeb3b" };
-    return { text: "Hohes Risiko (Adipositas)", color: "#ff5050" };
+    if (htv < 0.92) return { text: "Mäßiges Risiko (Übergewicht)", color: "#9ca3af" };
+    return { text: "Hohes Risiko (Adipositas)", color: "#6b7280" };
   }
 }
 
@@ -1171,9 +1139,9 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                   onKeyDown={(e) => e.key === "Enter" && addAllergy()}
                   style={{ ...inputStyle, textAlign: "left", flex: 1, padding: "10px 12px" }}
                 />
-                <button type="button" onClick={addAllergy} style={{ ...btnSecondary, padding: "10px 14px", fontSize: 14 }}>
+                <MButton type="button" onClick={addAllergy} variant="secondary" size="sm" style={{ width: 36, minWidth: 36 }}>
                   +
-                </button>
+                </MButton>
               </div>
               {dietAllergies.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -1719,7 +1687,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
             {/* Preis-Box */}
             <div
               style={{
-                background: "linear-gradient(160deg, #182218, #0e120e)",
+                background: "linear-gradient(160deg, #161616, #0d0d0d)",
                 border: "1px solid " + M.acc,
                 borderRadius: 20,
                 padding: "24px 20px",
@@ -1779,15 +1747,18 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
             })()}
 
             {/* Simulierter Bezahlbutton */}
-            <button
+            <MButton
               type="button"
               onClick={handleCheckout}
               disabled={busy}
-              style={{ ...btnPrimary, width: "100%", height: 54, fontSize: 19, letterSpacing: 1.2, marginTop: 12 }}
+              variant="primary"
+              size="lg"
+              fullWidth
+              style={{ marginTop: 12 }}
             >
               {busy ? "BEZAHLVORGANG..." : "JETZT SICHER BEZAHLEN"}
               {!busy && <Icon name="check" size={20} color={M.accInk} />}
-            </button>
+            </MButton>
           </div>
         )}
 
@@ -1814,9 +1785,9 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                 </div>
                 <style>{`
                   @keyframes pulse {
-                    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(140,255,140, 0.4); }
-                    70% { transform: scale(1); box-shadow: 0 0 0 16px rgba(140,255,140, 0); }
-                    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(140,255,140, 0); }
+                    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255,255,255, 0.3); }
+                    70% { transform: scale(1); box-shadow: 0 0 0 16px rgba(255,255,255, 0); }
+                    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255,255,255, 0); }
                   }
                 `}</style>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1856,21 +1827,24 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                   </p>
                 </div>
                 <OneRmPercentInfoCard compact style={{ width: "100%", textAlign: "left" }} />
-                <button
+                <MButton
                   type="button"
                   onClick={() => generatedPlanId && onPlanGenerated(generatedPlanId)}
-                  style={{ ...btnPrimary, width: "100%", height: 50, marginTop: 12 }}
+                  variant="primary"
+                  size="md"
+                  fullWidth
+                  style={{ marginTop: 12 }}
                 >
                   TRAININGSPLAN ANSEHEN
                   <Icon name="play" size={18} color={M.accInk} />
-                </button>
+                </MButton>
               </>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <p style={{ color: "#ff8a8a", fontWeight: 600 }}>Generierung fehlgeschlagen.</p>
-                <button type="button" onClick={runGeneration} style={btnPrimary}>
+                <MButton type="button" onClick={runGeneration} variant="primary" size="md">
                   Erneut versuchen
-                </button>
+                </MButton>
               </div>
             )}
           </div>
@@ -1880,29 +1854,29 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
       {/* Footer-Navigationsbar */}
       {step === 0 && (
         <div style={{ width: "100%", maxWidth: 460, flexShrink: 0 }}>
-          <button type="button" onClick={nextStep} style={{ ...btnPrimary, width: "100%" }}>
+          <MButton type="button" onClick={nextStep} variant="primary" size="md" fullWidth>
             JETZT STARTEN <Icon name="chevR" size={16} color={M.accInk} />
-          </button>
+          </MButton>
         </div>
       )}
 
       {step > 0 && step < 11 && (
         <div style={{ width: "100%", maxWidth: 460, flexShrink: 0, display: "flex", justifyContent: "space-between", gap: 12 }}>
-          <button type="button" onClick={prevStep} style={btnSecondary}>
+          <MButton type="button" onClick={prevStep} variant="secondary" size="md">
             <Icon name="chevL" size={16} /> ZURÜCK
-          </button>
-          <button type="button" onClick={nextStep} style={btnPrimary}>
+          </MButton>
+          <MButton type="button" onClick={nextStep} variant="primary" size="md">
             WEITER <Icon name="chevR" size={16} />
-          </button>
+          </MButton>
         </div>
       )}
 
       {step === 11 && (
         <div style={{ width: "100%", maxWidth: 460, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
           <div style={{ width: "100%", display: "flex", justifyContent: "flex-start" }}>
-            <button type="button" onClick={prevStep} style={btnSecondary}>
+            <MButton type="button" onClick={prevStep} variant="secondary" size="md">
               <Icon name="chevL" size={16} /> ZURÜCK
-            </button>
+            </MButton>
           </div>
           <button
             type="button"

@@ -10,6 +10,7 @@ import { AlertSheet } from "../components/AlertSheet";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { ExerciseFormSheet } from "../components/ExerciseFormSheet";
 import { FLOAT_NAV_SCROLL_BOTTOM_GAP } from "../components/FloatNav";
+import { MButton } from "../components/MButton";
 
 export interface ExercisesScreenProps {
   refreshKey?: number;
@@ -87,23 +88,9 @@ export function ExercisesScreen({ refreshKey = 0 }: ExercisesScreenProps) {
             {loading ? "…" : `${list.length} Übungen · ${ownedCount} eigene`}
           </div>
         </div>
-        <button
-          onClick={openCreate}
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 14,
-            border: "none",
-            background: M.acc,
-            color: M.accInk,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-          }}
-        >
-          <Icon name="plus" size={24} stroke={2.6} />
-        </button>
+        <MButton onClick={openCreate} variant="primary" size="icon" aria-label="Übung erstellen">
+          <Icon name="plus" size={18} stroke={2.6} color={M.accInk} />
+        </MButton>
       </div>
 
       <div style={{ padding: "0 22px 10px" }}>
@@ -205,21 +192,16 @@ export function ExercisesScreen({ refreshKey = 0 }: ExercisesScreenProps) {
                 </div>
               </button>
               {isOwned && (
-                <button
+                <MButton
                   type="button"
                   onClick={() => setDeleteTarget(ex)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: M.mut2,
-                    display: "flex",
-                    padding: 4,
-                  }}
+                  variant="ghost"
+                  size="icon"
                   aria-label="Löschen"
+                  style={{ color: M.mut2 }}
                 >
-                  <Icon name="trash" size={18} stroke={2} />
-                </button>
+                  <Icon name="trash" size={16} stroke={2} />
+                </MButton>
               )}
             </div>
           );

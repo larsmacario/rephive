@@ -1,6 +1,7 @@
 import { M } from "../theme";
 import { Icon } from "./Icon";
 import { BottomSheet } from "./BottomSheet";
+import { MButton } from "./MButton";
 
 export interface AlertSheetProps {
   title: string;
@@ -38,26 +39,9 @@ export function AlertSheet({
       )}
       <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 22, marginBottom: 8, flexShrink: 0 }}>{title}</div>
       <div style={{ color: M.mut, fontSize: 14, marginBottom: 18, lineHeight: 1.45, flexShrink: 0 }}>{message}</div>
-      <button
-        type="button"
-        onClick={onClose}
-        style={{
-          width: "100%",
-          padding: "14px 0",
-          borderRadius: 14,
-          border: "none",
-          background: M.acc,
-          color: M.accInk,
-          fontFamily: M.disp,
-          fontWeight: 700,
-          fontSize: 17,
-          letterSpacing: 0.8,
-          cursor: "pointer",
-          flexShrink: 0,
-        }}
-      >
+      <MButton type="button" onClick={onClose} variant="primary" size="md" fullWidth style={{ flexShrink: 0 }}>
         {buttonLabel}
-      </button>
+      </MButton>
     </BottomSheet>
   );
 }

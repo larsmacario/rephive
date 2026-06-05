@@ -55,14 +55,14 @@ export function WelcomeHero({ size = 220 }: WelcomeHeroProps) {
           <motion.path
             d={HEX_RING}
             fill="none"
-            stroke={M.acc}
+            stroke={M.brand}
             strokeWidth={10}
             strokeLinejoin="round"
             strokeLinecap="round"
             initial={reducedMotion ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 1 }}
             animate={{ pathLength: 1 }}
             transition={ringTransition}
-            style={{ filter: "drop-shadow(0 0 14px color-mix(in oklab, var(--mom-acc, oklch(0.87 0.21 143)) 55%, transparent))" }}
+            style={{ filter: "drop-shadow(0 0 14px color-mix(in oklab, var(--mom-brand, #7ef67b) 55%, transparent))" }}
           />
           <motion.path
             d="M280 150 L390 214 L390 346 L280 410 L170 346 L170 214 Z"
@@ -83,7 +83,7 @@ export function WelcomeHero({ size = 220 }: WelcomeHeroProps) {
               cx={dot.cx}
               cy={dot.cy}
               r={11}
-              fill={M.acc}
+              fill={M.brand}
               initial={reducedMotion ? { opacity: 1 } : { opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={reducedMotion ? { duration: 0 } : { duration: 0.6, delay: dot.delay }}
@@ -109,7 +109,7 @@ export function WelcomeHero({ size = 220 }: WelcomeHeroProps) {
               width: "100%",
               height: "auto",
               display: "block",
-              filter: "drop-shadow(0 0 18px color-mix(in oklab, var(--mom-acc, oklch(0.87 0.21 143)) 45%, transparent))",
+              filter: "drop-shadow(0 0 18px color-mix(in oklab, var(--mom-brand, #7ef67b) 45%, transparent))",
             }}
             initial={reducedMotion ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.7 }}
             animate={{ opacity: 1, scale: 1 }}

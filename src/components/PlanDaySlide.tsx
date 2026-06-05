@@ -95,7 +95,7 @@ export function PlanDaySlide({
           minHeight: 0,
           overflowY: "auto",
           WebkitOverflowScrolling: "touch",
-          touchAction: "pan-y",
+          overscrollBehavior: "contain",
           padding: "0 0 14px",
         }}
       >

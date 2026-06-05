@@ -26,6 +26,8 @@ import {
   segmentExercises,
 } from "../lib/superset";
 import type { Exercise } from "../lib/engine";
+import { MButton } from "../components/MButton";
+import { ConfirmSheet } from "../components/ConfirmSheet";
 
 export interface TrackScreenProps {
   session: Workout;
@@ -71,6 +73,7 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
   const [historyExercise, setHistoryExercise] = useState<string | null>(null);
   const [videoExercise, setVideoExercise] = useState<{ name: string; youtubeUrl: string } | null>(null);
   const [oneRmOpen, setOneRmOpen] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
   const pct = W.totalSets ? Math.round((W.doneSets / W.totalSets) * 100) : 0;
   const exLibrary = library ?? [];
 
@@ -159,6 +162,14 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
     onDiscard();
   };
 
+  const handleConfirmRemoveExercise = () => {
+    if (!removeTarget) return;
+    const remaining = W.wo.exercises.filter((e) => e.id !== removeTarget.id);
+    W.removeExercise(removeTarget.id);
+    if (open === removeTarget.id) setOpen(remaining[0]?.id ?? "");
+    setRemoveTarget(null);
+  };
+
   return (
     <div
       style={{
@@ -173,25 +184,11 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "2px 18px 10px" }}>
-        <button
-          onClick={handlePause}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 11,
-            border: "1px solid " + M.line,
-            background: M.card,
-            color: M.fg,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-          }}
-        >
-          <Icon name="chevL" size={20} stroke={2.2} />
-        </button>
+        <MButton onClick={handlePause} variant="secondary" size="icon" aria-label="Workout pausieren">
+          <Icon name="chevL" size={18} stroke={2.2} />
+        </MButton>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 10.5, letterSpacing: 2, color: M.acc, fontWeight: 700 }}>
+          <div style={{ fontSize: 10.5, letterSpacing: 2, color: M.brand, fontWeight: 700 }}>
             ● LÄUFT · {fmtUp(elapsedSec)}
           </div>
           {isCustom ? (
@@ -229,26 +226,16 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
             </div>
           )}
         </div>
-        <button
+        <MButton
           type="button"
           aria-label="1RM-Rechner"
           onClick={() => setOneRmOpen(true)}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 11,
-            background: M.card,
-            border: "1px solid " + M.line,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: M.acc,
-            cursor: "pointer",
-            flexShrink: 0,
-          }}
+          variant="secondary"
+          size="icon"
+          style={{ flexShrink: 0, color: M.fg }}
         >
-          <Icon name="calculator" size={19} stroke={2} />
-        </button>
+          <Icon name="calculator" size={17} stroke={2} />
+        </MButton>
       </div>
       <div style={{ padding: "0 18px 12px" }}>
         <div style={{ display: "flex", gap: 10 }}>
@@ -281,7 +268,7 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
           gap: 10,
         }}
       >
-        {W.wo.exercises.length === 0 && isCustom && (
+        {W.wo.exercises.length === 0 && (
           <div
             style={{
               flex: 1,
@@ -311,7 +298,9 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
             </div>
             <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 20, color: M.fg }}>Noch keine Übungen</div>
             <div style={{ fontSize: 14, marginTop: 8, lineHeight: 1.45, maxWidth: 260 }}>
-              Füge Übungen aus der Bibliothek hinzu oder tippe einen eigenen Namen ein.
+              {isCustom
+                ? "Füge Übungen aus der Bibliothek hinzu oder tippe einen eigenen Namen ein."
+                : "Füge Übungen über das Plus-Symbol unten hinzu."}
             </div>
           </div>
         )}
@@ -427,25 +416,19 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
                 >
                   <Icon name="history" size={16} stroke={2} />
                 </button>
-                {isCustom && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      W.removeExercise(ex.id);
-                      if (open === ex.id) setOpen("");
-                    }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      color: M.mut2,
-                      display: "flex",
-                      padding: 4,
-                    }}
-                  >
-                    <Icon name="trash" size={16} stroke={2} />
-                  </button>
-                )}
+                <MButton
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setRemoveTarget({ id: ex.id, name: ex.name });
+                  }}
+                  variant="danger"
+                  size="icon"
+                  aria-label="Übung aus Session entfernen"
+                  style={{ flexShrink: 0, padding: 4, width: 32, height: 32 }}
+                >
+                  <Icon name="trash" size={16} stroke={2} color={M.mut2} />
+                </MButton>
                 <Icon name={isOpen ? "chevD" : "chevR"} size={18} color={M.mut2} stroke={2.2} />
               </div>
               {isOpen && (
@@ -537,66 +520,42 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
                           flexShrink: 0,
                         }}
                       >
-                        <button
+                        <MButton
                           onClick={() => W.removeSet(ex.id, si)}
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: 9,
-                            border: "1px solid " + M.line,
-                            background: "transparent",
-                            color: M.mut2,
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
+                          variant="secondary"
+                          size="icon"
+                          aria-label="Satz entfernen"
+                          style={{ color: M.mut2 }}
                         >
                           <Icon name="minus" size={16} stroke={2.4} />
-                        </button>
-                        <button
+                        </MButton>
+                        <MButton
                           onClick={() => handleToggleSet(ex.id, si)}
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: 9,
-                            border: s.done ? "none" : "1.5px solid " + M.line,
-                            background: s.done ? M.acc : "transparent",
-                            color: s.done ? M.accInk : M.mut,
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
+                          variant={s.done ? "primary" : "secondary"}
+                          size="icon"
+                          aria-label={s.done ? "Satz als offen markieren" : "Satz abschließen"}
+                          style={s.done ? undefined : { background: "transparent", color: M.mut }}
                         >
                           <Icon name="check" size={17} stroke={2.6} />
-                        </button>
+                        </MButton>
                       </div>
                     </div>
                   ))}
-                  <button
+                  <MButton
                     onClick={() => W.addSet(ex.id)}
+                    variant="ghost"
+                    size="sm"
+                    fullWidth
                     style={{
-                      width: "100%",
                       marginTop: 10,
-                      padding: "10px 0",
-                      borderRadius: 12,
                       border: "1px dashed " + M.line,
-                      background: "transparent",
-                      color: M.acc,
+                      color: M.fg,
                       fontFamily: M.disp,
-                      fontWeight: 700,
-                      fontSize: 14,
-                      letterSpacing: 0.6,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
+                      letterSpacing: 0.4,
                     }}
                   >
-                    <Icon name="plus" size={16} stroke={2.4} /> SATZ HINZUFÜGEN
-                  </button>
+                    <Icon name="plus" size={14} stroke={2.4} /> Satz hinzufügen
+                  </MButton>
                 </div>
               )}
             </div>
@@ -633,64 +592,37 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
             <span style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 30, fontVariantNumeric: "tabular-nums" }}>
               {fmt(W.rest)}
             </span>
-            <button
+            <MButton
               onClick={W.stopRest}
-              style={{
-                border: "1.5px solid rgba(6,33,15,.35)",
-                background: "transparent",
-                color: M.accInk,
-                borderRadius: 9,
-                padding: "7px 14px",
-                fontWeight: 700,
-                fontSize: 13,
-                cursor: "pointer",
-              }}
+              variant="secondary"
+              size="sm"
+              style={{ borderColor: "rgba(255,255,255,.25)", color: M.accInk, background: "transparent" }}
             >
-              SKIP
-            </button>
+              Skip
+            </MButton>
           </div>
         ) : (
-          <div style={{ display: "flex", gap: 10, alignItems: "stretch" }}>
-            <button
+          <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+            <MButton
               disabled={finishing}
               onClick={() => setFinishSheet(true)}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                padding: "15px 0",
-                borderRadius: 16,
-                border: "none",
-                background: M.cardHi,
-                color: M.fg,
-                fontFamily: M.disp,
-                fontWeight: 700,
-                fontSize: 19,
-                letterSpacing: 1,
-                cursor: finishing ? "wait" : "pointer",
-                opacity: finishing ? 0.7 : 1,
-              }}
+              variant="secondary"
+              size="md"
+              loading={finishing}
+              style={{ flex: 1, minWidth: 0, background: M.cardHi, fontFamily: M.disp, letterSpacing: 0.6 }}
             >
-              WORKOUT BEENDEN
-            </button>
-            <button
+              Workout beenden
+            </MButton>
+            <MButton
               type="button"
               aria-label="Übung hinzufügen"
               onClick={() => setPicker(true)}
-              style={{
-                flex: "0 0 auto",
-                padding: "13px 16px",
-                borderRadius: 12,
-                border: "1px solid " + M.line,
-                background: "transparent",
-                color: M.acc,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
+              variant="secondary"
+              size="icon"
+              style={{ flexShrink: 0 }}
             >
-              <Icon name="plus" size={22} stroke={2.4} color={M.acc} />
-            </button>
+              <Icon name="plus" size={18} stroke={2.4} color={M.fg} />
+            </MButton>
           </div>
         )}
       </div>
@@ -740,6 +672,16 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
         initialReps={oneRmPrefill.reps}
         resetKey={open}
       />
+      {removeTarget && (
+        <ConfirmSheet
+          title="Übung entfernen?"
+          message={`${removeTarget.name} wird nur aus dieser Trainingssession entfernt. Das Workout in der Library und dein Plan bleiben unverändert.`}
+          confirmLabel="Aus Session entfernen"
+          icon="trash"
+          onConfirm={handleConfirmRemoveExercise}
+          onCancel={() => setRemoveTarget(null)}
+        />
+      )}
     </div>
   );
 }

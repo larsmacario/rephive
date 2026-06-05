@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { M } from "../theme";
 import { BottomSheet } from "./BottomSheet";
+import { MButton } from "./MButton";
 
 export interface DeleteConfirmDialogProps {
   title: string;
@@ -53,48 +54,20 @@ export function DeleteConfirmDialog({
     >
       <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 22, marginBottom: 8, flexShrink: 0 }}>{displayTitle}</div>
       <div style={{ color: M.mut, fontSize: 14, marginBottom: 18, lineHeight: 1.45, flexShrink: 0 }}>{displayMessage}</div>
-      <button
+      <MButton
         type="button"
         disabled={busy && isFinalStep}
         onClick={handlePrimary}
-        style={{
-          width: "100%",
-          padding: "14px 0",
-          borderRadius: 14,
-          border: "none",
-          background: isFinalStep ? "#c44" : M.card,
-          color: isFinalStep ? "#fff" : M.fg,
-          fontFamily: M.disp,
-          fontWeight: 700,
-          fontSize: 17,
-          letterSpacing: isFinalStep ? 0 : undefined,
-          cursor: busy && isFinalStep ? "wait" : "pointer",
-          opacity: busy && isFinalStep ? 0.7 : 1,
-          marginBottom: 10,
-          flexShrink: 0,
-        }}
+        variant={isFinalStep ? "danger" : "secondary"}
+        size="md"
+        fullWidth
+        style={{ marginBottom: 10, flexShrink: 0, background: isFinalStep ? "rgba(245,180,180,.08)" : undefined }}
       >
         {busy && isFinalStep ? "…" : isFinalStep ? "Löschen" : "Weiter"}
-      </button>
-      <button
-        type="button"
-        onClick={handleCancel}
-        style={{
-          width: "100%",
-          padding: "12px 0",
-          borderRadius: 14,
-          border: "none",
-          background: "transparent",
-          color: M.mut,
-          fontFamily: M.body,
-          fontWeight: 600,
-          fontSize: 15,
-          cursor: "pointer",
-          flexShrink: 0,
-        }}
-      >
+      </MButton>
+      <MButton type="button" onClick={handleCancel} variant="ghost" size="md" fullWidth style={{ flexShrink: 0 }}>
         Abbrechen
-      </button>
+      </MButton>
     </BottomSheet>
   );
 }

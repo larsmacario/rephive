@@ -11,23 +11,91 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: #0a0a0a;
-  color: #eef2ec;
+  background: #000000;
+  color: #fafafa;
   font-family: "Archivo", system-ui, sans-serif;
   overscroll-behavior: none;
+  color-scheme: dark;
 }
 
 #root {
   height: 100%;
 }
 
-/* Lime accent, themeable. */
+/* Monochrome premium accent + logo brand green (highlights only). */
 :root {
-  --mom-acc: oklch(0.87 0.21 143);
+  --mom-acc: #fafafa;
+  --mom-brand: #7ef67b;
+  --mom-brand-soft: rgba(126, 246, 123, 0.12);
+  --mom-brand-ink: #0a1a0a;
+}
+
+/* Muscle priority slider — green thumb dot, 44px touch hit area via padding */
+.muscle-prio-range {
+  width: 100%;
+  height: 44px;
+  margin: -16px 0;
+  padding: 16px 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+  box-sizing: content-box;
+}
+
+.muscle-prio-range:focus-visible {
+  outline: 2px solid var(--mom-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.muscle-prio-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--mom-brand) 0%,
+    var(--mom-brand) var(--muscle-prio-pct, 50%),
+    rgba(255, 255, 255, 0.08) var(--muscle-prio-pct, 50%),
+    rgba(255, 255, 255, 0.08) 100%
+  );
+}
+
+.muscle-prio-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--mom-brand);
+  border: 2px solid #000000;
+  box-shadow: 0 0 0 1px rgba(126, 246, 123, 0.35);
+}
+
+.muscle-prio-range::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--mom-brand) 0%,
+    var(--mom-brand) var(--muscle-prio-pct, 50%),
+    rgba(255, 255, 255, 0.08) var(--muscle-prio-pct, 50%),
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  border: none;
+}
+
+.muscle-prio-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--mom-brand);
+  border: 2px solid #000000;
+  box-shadow: 0 0 0 1px rgba(126, 246, 123, 0.35);
 }
 
 input::placeholder {
-  color: rgba(238, 242, 236, 0.32);
+  color: rgba(255, 255, 255, 0.32);
 }
 
 button {

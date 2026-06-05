@@ -4,6 +4,7 @@ import { PhoneShell } from "../components/PhoneShell";
 import { AppLogo } from "../components/AppLogo";
 import { WelcomeHero } from "../components/WelcomeHero";
 import { M } from "../theme";
+import { MButton } from "../components/MButton";
 
 export type WelcomeExit = "signup" | "login";
 
@@ -194,9 +195,9 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
           flexDirection: "column",
           position: "relative",
           overflow: "hidden",
-          background: `radial-gradient(ellipse 90% 50% at 50% 28%, color-mix(in oklab, var(--mom-acc, oklch(0.87 0.21 143)) 13%, transparent), transparent 62%),
-            radial-gradient(ellipse 70% 40% at 50% 100%, color-mix(in oklab, oklch(0.72 0.16 143) 10%, transparent), transparent 60%),
-            linear-gradient(180deg, #0c0f0c 0%, ${M.bg} 38%, #070907 100%)`,
+          background: `radial-gradient(ellipse 90% 50% at 50% 28%, color-mix(in oklab, var(--mom-brand, #7ef67b) 10%, transparent), transparent 62%),
+            radial-gradient(ellipse 70% 40% at 50% 100%, color-mix(in oklab, #9ca3af 10%, transparent), transparent 60%),
+            linear-gradient(180deg, #111111 0%, ${M.bg} 38%, #080808 100%)`,
         }}
       >
         <HoneycombBackdrop />
@@ -219,7 +220,7 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
             inset: 0,
             pointerEvents: "none",
             background:
-              "radial-gradient(ellipse 55% 40% at 50% 38%, color-mix(in oklab, var(--mom-acc, oklch(0.87 0.21 143)) 22%, transparent), transparent 60%)",
+              "radial-gradient(ellipse 55% 40% at 50% 38%, color-mix(in oklab, var(--mom-brand, #7ef67b) 14%, transparent), transparent 60%)",
             zIndex: 1,
           }}
         />
@@ -327,52 +328,31 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
             ))}
           </div>
 
-          <button
+          <MButton
             type="button"
             onClick={() => onContinue("signup")}
+            variant="primary"
+            size="lg"
+            fullWidth
             style={{
-              width: "100%",
               maxWidth: 400,
-              minHeight: 52,
-              border: "none",
-              borderRadius: 20,
-              background: M.acc,
-              color: M.accInk,
-              fontFamily: M.disp,
-              fontWeight: 800,
-              fontSize: 20,
-              letterSpacing: 0.5,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 10,
-              cursor: "pointer",
-              boxShadow:
-                "0 16px 40px -14px color-mix(in oklab, var(--mom-acc, oklch(0.87 0.21 143)) 60%, transparent), inset 0 1px 0 rgba(255,255,255,.25)",
+              boxShadow: "0 10px 24px -12px rgba(255,255,255,.3), inset 0 1px 0 rgba(255,255,255,.2)",
             }}
           >
             Los geht&apos;s
             <ArrowIcon />
-          </button>
+          </MButton>
 
-          <button
+          <MButton
             type="button"
             onClick={() => onContinue("login")}
-            style={{
-              minHeight: 44,
-              padding: "8px 12px",
-              background: "none",
-              border: "none",
-              fontFamily: M.body,
-              fontWeight: 500,
-              fontSize: 15,
-              color: M.mut,
-              cursor: "pointer",
-            }}
+            variant="ghost"
+            size="sm"
+            style={{ fontFamily: M.body, fontWeight: 500, color: M.mut }}
           >
             Ich habe bereits ein Konto —{" "}
             <span style={{ color: M.fg, fontWeight: 700 }}>Anmelden</span>
-          </button>
+          </MButton>
         </div>
       </div>
     </PhoneShell>

@@ -3,6 +3,7 @@ import { M } from "../theme";
 import { Icon } from "../components/Icon";
 import { useAuth } from "../lib/auth";
 import { submitSupportRequest, type SupportCategory } from "../lib/support";
+import { MButton } from "../components/MButton";
 
 const CATEGORIES = [
   { id: "bug", label: "Bug" },
@@ -99,14 +100,9 @@ export function SupportScreen({ onBack }: SupportScreenProps) {
           justifyContent: "space-between",
         }}
       >
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Zurück"
-          style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex" }}
-        >
-          <Icon name="chevL" size={24} stroke={2.2} />
-        </button>
+        <MButton type="button" onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
+          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
+        </MButton>
         <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>SUPPORT</span>
         <span style={{ width: 24 }} />
       </div>
@@ -146,25 +142,9 @@ export function SupportScreen({ onBack }: SupportScreenProps) {
               Deine Anfrage ist bei uns eingegangen. Wir melden uns per E-Mail an{" "}
               {email.trim() || "deine Adresse"}.
             </p>
-            <button
-              type="button"
-              onClick={onBack}
-              style={{
-                marginTop: 20,
-                width: "100%",
-                padding: "14px 0",
-                borderRadius: 12,
-                border: "none",
-                background: M.acc,
-                color: M.accInk,
-                fontFamily: M.disp,
-                fontWeight: 700,
-                fontSize: 17,
-                cursor: "pointer",
-              }}
-            >
-              ZURÜCK
-            </button>
+            <MButton type="button" onClick={onBack} variant="primary" size="md" fullWidth style={{ marginTop: 20 }}>
+              Zurück
+            </MButton>
           </div>
         ) : (
           <>
@@ -240,25 +220,9 @@ export function SupportScreen({ onBack }: SupportScreenProps) {
                 <p style={{ margin: "0 0 12px", fontSize: 14, color: "#f87171" }}>{error}</p>
               ) : null}
 
-              <button
-                type="submit"
-                disabled={submitting}
-                style={{
-                  width: "100%",
-                  padding: "15px 0",
-                  borderRadius: 14,
-                  border: "none",
-                  background: M.acc,
-                  color: M.accInk,
-                  fontFamily: M.disp,
-                  fontWeight: 700,
-                  fontSize: 18,
-                  cursor: submitting ? "wait" : "pointer",
-                  opacity: submitting ? 0.7 : 1,
-                }}
-              >
-                {submitting ? "WIRD GESENDET …" : "ABSENDEN"}
-              </button>
+              <MButton type="submit" disabled={submitting} variant="primary" size="md" fullWidth loading={submitting}>
+                {submitting ? "Wird gesendet …" : "Absenden"}
+              </MButton>
             </form>
           </>
         )}

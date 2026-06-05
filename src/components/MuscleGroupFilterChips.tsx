@@ -8,12 +8,12 @@ export interface MuscleGroupFilterChipsProps {
 }
 
 const chipStyle = (active: boolean): CSSProperties => ({
-  padding: "6px 10px",
-  borderRadius: 8,
+  padding: "5px 9px",
+  borderRadius: 7,
   border: "1px solid " + (active ? M.acc : M.line2),
   background: active ? M.accSoft : "transparent",
-  color: active ? M.acc : M.mut,
-  fontSize: 12,
+  color: active ? M.fg : M.mut,
+  fontSize: 11,
   fontWeight: 600,
   cursor: "pointer",
 });

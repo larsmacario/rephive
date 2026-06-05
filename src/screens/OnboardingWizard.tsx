@@ -5,12 +5,13 @@ import { usePreferences } from "../lib/preferences";
 import { Icon } from "../components/Icon";
 import { BirthDateField } from "../components/BirthDateField";
 import { AppLogo } from "../components/AppLogo";
+import { MButton } from "../components/MButton";
 import { createBodyMeasurement } from "../lib/db";
 import { useBreakpoint } from "../lib/responsive";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  padding: "14px 16px",
+  padding: "12px 14px",
   borderRadius: 12,
   border: "1px solid " + M.line,
   background: M.card,
@@ -42,39 +43,6 @@ const tileStyle = (selected: boolean): React.CSSProperties => ({
   minWidth: 100,
   textAlign: "center",
 });
-
-const btnPrimary: React.CSSProperties = {
-  padding: "15px 32px",
-  borderRadius: 14,
-  border: "none",
-  background: M.acc,
-  color: M.accInk,
-  fontFamily: M.disp,
-  fontWeight: 700,
-  fontSize: 18,
-  letterSpacing: 1,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 8,
-};
-
-const btnSecondary: React.CSSProperties = {
-  padding: "15px 24px",
-  borderRadius: 14,
-  border: "1px solid " + M.line,
-  background: "transparent",
-  color: M.fg,
-  fontFamily: M.disp,
-  fontWeight: 600,
-  fontSize: 18,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 8,
-};
 
 export function OnboardingWizard() {
   const { user, profile, updateDisplayName, updateBirthDate } = useAuth();
@@ -400,10 +368,10 @@ export function OnboardingWizard() {
                     flexDirection: "row",
                     justifyContent: "flex-start",
                     gap: 12,
-                    padding: "14px 16px",
+                    padding: "12px 14px",
                   }}
                 >
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#4caf50" }} />
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#d4d4d4" }} />
                   <div style={{ textAlign: "left" }}>
                     <div style={{ fontWeight: 700 }}>Anfänger</div>
                     <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>0 bis 1 Jahre Erfahrung</div>
@@ -418,10 +386,10 @@ export function OnboardingWizard() {
                     flexDirection: "row",
                     justifyContent: "flex-start",
                     gap: 12,
-                    padding: "14px 16px",
+                    padding: "12px 14px",
                   }}
                 >
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#ffeb3b" }} />
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#9ca3af" }} />
                   <div style={{ textAlign: "left" }}>
                     <div style={{ fontWeight: 700 }}>Fortgeschritten</div>
                     <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>1 bis 3 Jahre Erfahrung</div>
@@ -436,10 +404,10 @@ export function OnboardingWizard() {
                     flexDirection: "row",
                     justifyContent: "flex-start",
                     gap: 12,
-                    padding: "14px 16px",
+                    padding: "12px 14px",
                   }}
                 >
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f44336" }} />
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#6b7280" }} />
                   <div style={{ textAlign: "left" }}>
                     <div style={{ fontWeight: 700 }}>Profi</div>
                     <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>Über 3 Jahre Erfahrung</div>
@@ -573,34 +541,34 @@ export function OnboardingWizard() {
         }}
       >
         {step > 0 && (
-          <button type="button" onClick={prevStep} style={btnSecondary} disabled={busy}>
+          <MButton type="button" onClick={prevStep} variant="secondary" size="md" disabled={busy}>
             <Icon name="chevL" size={16} />
             ZURÜCK
-          </button>
+          </MButton>
         )}
 
         {step < stepsCount - 1 ? (
-          <button
+          <MButton
             type="button"
             onClick={nextStep}
-            style={{
-              ...btnPrimary,
-              width: step === 0 ? "100%" : "auto",
-            }}
+            variant="primary"
+            size="md"
+            fullWidth={step === 0}
           >
             WEITER
             <Icon name="chevR" size={16} />
-          </button>
+          </MButton>
         ) : (
-          <button
+          <MButton
             type="button"
             onClick={handleFinish}
-            style={{ ...btnPrimary, background: M.acc, color: M.accInk }}
+            variant="primary"
+            size="md"
             disabled={busy}
           >
             {busy ? "SPEICHERT..." : "LOSLEGEN"}
             {!busy && <Icon name="check" size={16} />}
-          </button>
+          </MButton>
         )}
       </div>
     </div>

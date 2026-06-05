@@ -1,5 +1,16 @@
-import { useEffect, useState } from "react";
-import { formatKgDisplay, parseKgInput } from "../lib/exerciseSets";
+import { useEffect, useMemo, useState } from "react";
+import {
+  formatDistanceEdit,
+  formatDurationEdit,
+  formatKgDisplay,
+  formatRepsDisplay,
+  parseDistanceInput,
+  parseDurationInput,
+  parseKgInput,
+  parseRepsInput,
+  type SetField,
+} from "../lib/exerciseSets";
+import { formatDistanceM, formatDurationSec } from "../lib/exerciseCatalog";
 import { M, mMini } from "../theme";
 
 export interface SetValueStepperProps {
@@ -9,8 +20,54 @@ export interface SetValueStepperProps {
   min?: number;
   onChange: (value: number) => void;
   editable?: boolean;
+  kind?: SetField;
   fontSize?: number;
   minWidth?: number;
+}
+
+type StepperFormatters = {
+  display: (value: number) => string;
+  edit: (value: number) => string;
+  parse: (raw: string) => number | null;
+  inputMode: "decimal" | "numeric" | "text";
+  roundInc: (value: number, step: number) => number;
+};
+
+function defaultFormatters(kind?: SetField): StepperFormatters {
+  if (kind === "reps") {
+    return {
+      display: formatRepsDisplay,
+      edit: formatRepsDisplay,
+      parse: parseRepsInput,
+      inputMode: "numeric",
+      roundInc: (value, step) => Math.max(1, Math.round(value + step)),
+    };
+  }
+  if (kind === "durationSec") {
+    return {
+      display: formatDurationSec,
+      edit: formatDurationEdit,
+      parse: parseDurationInput,
+      inputMode: "text",
+      roundInc: (value, step) => Math.round(value + step),
+    };
+  }
+  if (kind === "distanceM") {
+    return {
+      display: formatDistanceM,
+      edit: formatDistanceEdit,
+      parse: parseDistanceInput,
+      inputMode: "text",
+      roundInc: (value, step) => Math.round(value + step),
+    };
+  }
+  return {
+    display: formatKgDisplay,
+    edit: formatKgDisplay,
+    parse: parseKgInput,
+    inputMode: "decimal",
+    roundInc: (value, step) => +(value + step).toFixed(2),
+  };
 }
 
 export function SetValueStepper({
@@ -20,42 +77,57 @@ export function SetValueStepper({
   min = 0,
   onChange,
   editable = false,
+  kind,
   fontSize = 18,
   minWidth,
 }: SetValueStepperProps) {
+  const formatters = useMemo(() => defaultFormatters(kind), [kind]);
   const [draft, setDraft] = useState("");
   const [focused, setFocused] = useState(false);
 
   useEffect(() => {
-    if (!focused) setDraft(formatKgDisplay(value));
-  }, [value, focused]);
+    if (!focused) setDraft(formatters.edit(value));
+  }, [value, focused, formatters]);
 
-  const dec = () => onChange(Math.max(min, +(value - step).toFixed(2)));
-  const inc = () => onChange(+(value + step).toFixed(2));
+  const dec = () => {
+    const next = formatters.roundInc(value, -step);
+    onChange(kind === "kg" ? Math.max(min, +next.toFixed(2)) : Math.max(min, next));
+  };
+  const inc = () => onChange(Math.max(min, formatters.roundInc(value, step)));
 
   const commitDraft = () => {
-    const parsed = parseKgInput(draft);
-    if (parsed !== null) onChange(parsed);
-    setDraft(formatKgDisplay(parsed ?? value));
+    const parsed = formatters.parse(draft);
+    if (parsed !== null) onChange(Math.max(min, parsed));
+    setDraft(formatters.edit(parsed ?? value));
     setFocused(false);
   };
 
-  const displayWidth = minWidth ?? (editable ? 48 : fontSize >= 20 ? 34 : 22);
+  const displayWidth =
+    minWidth ??
+    (editable
+      ? kind === "reps"
+        ? 32
+        : kind === "durationSec" || kind === "distanceM"
+          ? 52
+          : 48
+      : fontSize >= 20
+        ? 34
+        : 22);
 
   return (
     <div style={{ textAlign: "center" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <button type="button" onClick={dec} style={mMini}>
           –
         </button>
         {editable ? (
           <input
             type="text"
-            inputMode="decimal"
-            value={focused ? draft : formatKgDisplay(value)}
+            inputMode={formatters.inputMode}
+            value={focused ? draft : formatters.display(value)}
             onFocus={() => {
               setFocused(true);
-              setDraft(formatKgDisplay(value));
+              setDraft(formatters.edit(value));
             }}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commitDraft}
@@ -91,7 +163,7 @@ export function SetValueStepper({
               textAlign: "center",
             }}
           >
-            {value}
+            {formatters.display(value)}
           </span>
         )}
         <button type="button" onClick={inc} style={mMini}>
