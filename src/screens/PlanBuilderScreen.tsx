@@ -8,6 +8,7 @@ import {
   buildUniformTemplateSets,
   countTemplateSets,
   defaultSetValue,
+  serializeTemplateSet,
   type SetMode,
   type TemplateSet,
 } from "../lib/exerciseSets";
@@ -163,7 +164,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
           note: `${x.group} · ${x.equip}`,
           catalogExerciseId: x.catalogExerciseId ?? null,
           metric: x.metric,
-          sets: x.setRows.map((s) => ({ reps: s.reps, kg: s.kg, done: false })),
+          sets: x.setRows.map((s, index) => serializeTemplateSet(s, index, { done: false })),
         })),
       });
       setDays((prev) => [...prev, { id: crypto.randomUUID(), workoutId, workoutName }]);

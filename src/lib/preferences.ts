@@ -23,6 +23,7 @@ export interface AnamnesisData {
   stressLevel?: number | null;
   dietPreference?: "omnivore" | "vegetarian" | "vegan" | "pescetarian" | null;
   dietAllergies?: string[];
+  musclePriorities?: Record<string, number>;
 }
 
 export function normalizeTrainingStructure(raw: unknown): TrainingStructure | null {

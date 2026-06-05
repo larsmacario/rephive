@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { FunctionsHttpError } from "@supabase/supabase-js";
+import { FunctionsFetchError, FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import type { Tables, Json } from "./database.types";
 import { type WorkoutSet } from "./engine";
@@ -47,6 +47,7 @@ interface StoredSet {
   done?: boolean;
   durationSec?: number;
   distanceM?: number;
+  warmUp?: boolean;
 }
 
 interface SetTemplate {
@@ -54,17 +55,25 @@ interface SetTemplate {
   kg: number;
   durationSec?: number;
   distanceM?: number;
+  warmUp?: boolean;
+}
+
+function parseWarmUpFlag(raw: unknown, index: number): boolean | undefined {
+  if (index !== 0) return undefined;
+  if (typeof raw !== "object" || raw === null || !("warmUp" in raw)) return undefined;
+  return Boolean((raw as { warmUp?: unknown }).warmUp) || undefined;
 }
 
 function parseSets(raw: unknown): SetTemplate[] {
   if (!Array.isArray(raw)) return [];
   return raw
     .filter((s): s is SetTemplate => typeof s === "object" && s !== null && "reps" in s && "kg" in s)
-    .map((s) => ({
+    .map((s, index) => ({
       reps: Number(s.reps),
       kg: Number(s.kg),
       ...(s.durationSec != null ? { durationSec: Number(s.durationSec) } : {}),
       ...(s.distanceM != null ? { distanceM: Number(s.distanceM) } : {}),
+      ...(parseWarmUpFlag(s, index) ? { warmUp: true } : {}),
     }));
 }
 
@@ -72,12 +81,13 @@ function parseSessionSets(raw: unknown): WorkoutSet[] {
   if (!Array.isArray(raw)) return [];
   return raw
     .filter((s): s is StoredSet => typeof s === "object" && s !== null && "reps" in s && "kg" in s)
-    .map((s) => ({
+    .map((s, index) => ({
       reps: Math.max(0, Number(s.reps) || 0),
       kg: Math.max(0, Number(s.kg) || 0),
       done: Boolean(s.done),
       ...(s.durationSec != null ? { durationSec: Math.max(0, Number(s.durationSec) || 0) } : {}),
       ...(s.distanceM != null ? { distanceM: Math.max(0, Number(s.distanceM) || 0) } : {}),
+      ...(parseWarmUpFlag(s, index) ? { warmUp: true } : {}),
     }));
 }
 
@@ -1342,6 +1352,8 @@ export async function generateAndSaveAITrainingPlan(
   const { nutrition, birthDate, ...edgeInput } = input;
   const { data, error } = await supabase.functions.invoke("generate-training-plan", {
     body: edgeInput,
+    // KI-Generierung dauert oft 60–90 s; ohne explizites Timeout bricht der Client ggf. zu früh ab.
+    timeout: 150_000,
   });
   if (error) {
     if (error instanceof FunctionsHttpError) {
@@ -1355,6 +1367,20 @@ export async function generateAndSaveAITrainingPlan(
           throw parseErr;
         }
       }
+    }
+    if (error instanceof FunctionsFetchError) {
+      const cause = error.context as Error | undefined;
+      const causeName = cause?.name ?? "";
+      if (causeName === "AbortError" || causeName === "TimeoutError") {
+        throw new Error(
+          "Die KI-Planerstellung hat zu lange gedauert. Bitte erneut versuchen und die App geöffnet lassen.",
+        );
+      }
+      throw new Error(
+        cause?.message
+          ? `Verbindung zur KI-Planerstellung fehlgeschlagen: ${cause.message}`
+          : "Verbindung zur KI-Planerstellung fehlgeschlagen. Bitte Internet prüfen und erneut versuchen.",
+      );
     }
     throw new Error(error.message || "Fehler beim Aufruf der Edge Function");
   }
@@ -1385,10 +1411,16 @@ export async function generateAndSaveAITrainingPlan(
           name: e.name,
           metric: e.metric || "weight_reps",
           note: e.note || "",
-          sets: (e.sets || [{ reps: 10, kg: 0 }]).map((s: { reps?: number; kg?: number }) => ({
-            reps: s.reps ?? 10,
-            kg: 0,
-          })),
+          sets: (() => {
+            const parsed = parseSets(e.sets);
+            const sets = parsed.length > 0 ? parsed : [{ reps: 10, kg: 0 }];
+            return sets.map((s) => ({
+              reps: s.reps ?? 0,
+              kg: 0,
+              ...(s.durationSec != null ? { durationSec: Number(s.durationSec) } : {}),
+              ...(s.distanceM != null ? { distanceM: Number(s.distanceM) } : {}),
+            }));
+          })(),
         })),
       });
       planDays.push({

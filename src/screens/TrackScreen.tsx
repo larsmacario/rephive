@@ -4,6 +4,7 @@ import type { LibraryExercise } from "../data";
 import { fmt, fmtUp, useWorkout, type Workout } from "../lib/engine";
 
 import { setFieldHeaders, SetMetricFields } from "../components/SetMetricFields";
+import { WARMUP_COLUMN_WIDTH, WarmUpSetToggle } from "../components/WarmUpSetToggle";
 import { useExercises } from "../lib/db";
 import { usePreferences } from "../lib/preferences";
 import { useRestTimerSounds } from "../lib/useTimerSounds";
@@ -487,6 +488,7 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
                         {h.label}
                       </span>
                     ))}
+                    <span style={{ width: WARMUP_COLUMN_WIDTH, textAlign: "center" }}>W-UP</span>
                     <span style={{ width: 72 }} />
                   </div>
                   {ex.sets.map((s, si) => (
@@ -505,10 +507,10 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
                           fontFamily: M.disp,
                           fontWeight: 700,
                           fontSize: 17,
-                          color: s.done ? M.acc : M.mut,
+                          color: s.done ? M.acc : si === 0 && s.warmUp ? M.acc : M.mut,
                         }}
                       >
-                        {si + 1}
+                        {si === 0 && s.warmUp ? "W" : si + 1}
                       </span>
                       <SetMetricFields
                         set={s}
@@ -516,12 +518,23 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
                         onBump={(field, delta) => W.editSet(ex.id, si, field, delta)}
                         onSetValue={(field, value) => W.setSetValue(ex.id, si, field, value)}
                       />
+                      {si === 0 ? (
+                        <WarmUpSetToggle
+                          layout="compact"
+                          checked={Boolean(s.warmUp)}
+                          onChange={(enabled) => W.toggleSetWarmUp(ex.id, enabled)}
+                        />
+                      ) : (
+                        <span style={{ width: WARMUP_COLUMN_WIDTH, flexShrink: 0 }} />
+                      )}
                       <div
                         style={{
                           width: 72,
                           display: "flex",
                           justifyContent: "flex-end",
+                          alignItems: "center",
                           gap: 4,
+                          flexShrink: 0,
                         }}
                       >
                         <button

@@ -9,6 +9,7 @@ import { createWorkout, updateWorkout, useExercises, useWorkout } from "../lib/d
 import {
   buildUniformTemplateSets,
   countTemplateSets,
+  serializeTemplateSet,
   setsFromStored,
   type SetMode,
   type TemplateSet,
@@ -158,7 +159,7 @@ export function BuilderScreen({ workoutId, onBack, onSave }: BuilderScreenProps)
           supersetId: x.supersetId,
           catalogExerciseId: x.catalogExerciseId ?? null,
           metric: x.metric,
-          sets: x.setRows.map((s) => ({ reps: s.reps, kg: s.kg, done: false })),
+          sets: x.setRows.map((s, index) => serializeTemplateSet(s, index, { done: false })),
         })),
       };
 

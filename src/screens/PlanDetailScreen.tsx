@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import { deletePlan, setActivePlan, usePlan, useWorkouts } from "../lib/db";
 import { Icon } from "../components/Icon";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
+import { PlanAdviceCollapsible } from "../components/PlanAdviceCollapsible";
 import { PlanDayAccordion } from "../components/PlanDayAccordion";
 import { OneRmPercentInfoCard } from "../components/OneRmPercentInfoCard";
 import { MStat, MTag } from "../components/widgets";
@@ -203,19 +204,8 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
               />
             </div>
 
-            <div
-              style={{
-                marginTop: 14,
-                padding: "14px 16px",
-                borderRadius: 14,
-                background: M.card,
-                border: "1px solid " + M.line,
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-              }}
-            >
-              <div>
+            <PlanAdviceCollapsible>
+              <div style={{ paddingTop: 14 }}>
                 <div style={{ fontSize: 11, color: M.acc, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>TRAININGSFOKUS</div>
                 <p style={{ margin: 0, fontSize: 13, color: M.fg, lineHeight: 1.5 }}>{plan.summary.advice.trainingFocus}</p>
               </div>
@@ -231,11 +221,10 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
                 <div style={{ fontSize: 11, color: M.acc, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>HYDRATION</div>
                 <p style={{ margin: 0, fontSize: 13, color: M.fg, lineHeight: 1.5 }}>{plan.summary.advice.hydrationTips}</p>
               </div>
-            </div>
-
-            <p style={{ margin: "10px 0 0", fontSize: 11, color: M.mut2, lineHeight: 1.4 }}>
-              Richtwerte basierend auf deinen Angaben — kein medizinischer oder ernährungstherapeutischer Rat.
-            </p>
+              <p style={{ margin: 0, fontSize: 11, color: M.mut2, lineHeight: 1.4 }}>
+                Richtwerte basierend auf deinen Angaben — kein medizinischer oder ernährungstherapeutischer Rat.
+              </p>
+            </PlanAdviceCollapsible>
           </div>
         )}
 

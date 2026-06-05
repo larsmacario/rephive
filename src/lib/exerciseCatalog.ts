@@ -47,7 +47,48 @@ export const EQUIPMENT_OPTIONS = [
   "Kabel",
   "Maschine",
   "Körpergewicht",
+  "Cardiogerät",
 ] as const;
+
+export const CARDIO_EQUIPMENT = "Cardiogerät" as const;
+
+const CARDIO_NAME_KEYWORDS = [
+  "rudergerät",
+  "rudern am erg",
+  "ergometer",
+  "laufband",
+  "fahrradergometer",
+  "fahrrad-ergometer",
+  "crosstrainer",
+  "elliptical",
+  "stepper",
+  "air bike",
+  "ski erg",
+  "warm-up",
+  "warmup",
+  "aufwärm",
+] as const;
+
+const TIME_ONLY_NAME_KEYWORDS = ["warm-up", "warmup", "aufwärm", "aufwärmen"] as const;
+
+export function isCardioEquipment(equipment: string): boolean {
+  return equipment.trim().toLowerCase() === CARDIO_EQUIPMENT.toLowerCase();
+}
+
+export function looksLikeCardioExercise(name: string, equipment?: string): boolean {
+  if (equipment && isCardioEquipment(equipment)) return true;
+  const lower = name.trim().toLowerCase();
+  return CARDIO_NAME_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+export function inferCardioMetric(name: string, equipment?: string): "time" | "distance_time" {
+  const lower = name.trim().toLowerCase();
+  if (TIME_ONLY_NAME_KEYWORDS.some((kw) => lower.includes(kw))) return "time";
+  if (isCardioEquipment(equipment ?? "")) {
+    if (lower.includes("warm") || lower.includes("aufwärm")) return "time";
+  }
+  return "distance_time";
+}
 
 export type MuscleGroup = (typeof MUSCLE_GROUPS)[number];
 export type EquipmentOption = (typeof EQUIPMENT_OPTIONS)[number];
@@ -112,6 +153,8 @@ export interface SetLike {
   kg: number;
   durationSec?: number;
   distanceM?: number;
+  /** Visual marker: first set only (S1 warm-up). */
+  warmUp?: boolean;
 }
 
 export function getMetricSpec(metric: ExerciseMetric): MetricSpec {

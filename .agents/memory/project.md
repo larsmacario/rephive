@@ -18,12 +18,13 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 - `src/lib/supabase.ts` — typisierter Browser-Client
 - `src/lib/auth.tsx` — AuthProvider, Session, Profile, Konto-Updates (Name/E-Mail/Passwort)
 - `src/lib/preferences.ts` + `preferences.tsx` — User-Defaults, `PreferencesProvider`, Supabase-Persistenz
-- `src/lib/exerciseCatalog.ts` — Muskelgruppen, Equipment, `ExerciseMetric`, Dauer-Formatierung
+- `src/lib/exerciseCatalog.ts` — Muskelgruppen, Equipment (inkl. `Cardiogerät`), `ExerciseMetric`, Cardio-Heuristiken (`inferCardioMetric`), Dauer-/Distanz-Formatierung
 - `src/lib/youtube.ts` — YouTube-URL parsen/validieren, Embed-URL, `resolveExerciseVideoUrl` (Track-Lookup)
-- `src/lib/exerciseSets.ts` — Sätze-Logik (Gleich/Individuell, KG_STEP 1.25, formatSetSummary; Zeit-Sätze ohne KG)
+- `src/lib/exerciseSets.ts` — Sätze-Logik (Gleich/Individuell, KG_STEP 1.25, `warmUp` auf S1, `setSetWarmUp`, formatSetSummary; Cardio-/Zeit-Sätze)
 - `src/lib/superset.ts` — Supersatz-Blöcke, Verknüpfen/Lösen, `shouldStartRestAfterSet` (flexible Satzanzahl pro Übung)
 - `src/lib/oneRepMax.ts` — 1RM-Formeln, Prozent-Tabelle, `getOneRmPrefillFromExercise` (Track-Sheet-Vorausfüllung)
-- `src/lib/db.ts` — DB-Queries + Hooks (useWorkouts, useSessions, usePlans, useActivePlan, session_exercises, …)
+- `src/lib/db.ts` — DB-Queries + Hooks (useWorkouts, useSessions, usePlans, useActivePlan, session_exercises, …); KI-Invoke mit 150 s Timeout
+- `src/lib/ai-plan-volume.ts` — `exerciseCountBounds` / Hinweistext für Wizard (Logik spiegelt Edge Function)
 - `src/lib/engine.ts` — Timer-Engine (`useTimer`, `elapsedSec`) + Tracking-State (`useWorkout`, verzögerte Pause bei Supersätzen)
 - `src/lib/timerSession.ts` — Timer-Session-Payload + Verlauf/Detail-Formatierung (Tag `Timer`)
 - `src/lib/timerSounds.ts` — Web-Audio-Beep-Engine (`playTimerCue`: tick/go/rest/done)
@@ -31,12 +32,13 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 - `src/lib/activeTimer.tsx` — Context: aktiver Timer-Status für Nav + Tab-Leave-Warnung
 - `src/lib/activeWorkout.ts` — pausierter Trainings-Entwurf in localStorage (`hejcoach:activeWorkout:${userId}`)
 - `src/data.ts` — Typen, `startSession`, `startCustomSession`, `normalizeWorkout` (Legacy-Entwürfe)
-- `src/components/ExerciseSetConfigurator.tsx` + `SetValueStepper.tsx` — gemeinsame Satz-/KG-UI
+- `src/components/ExerciseSetConfigurator.tsx` + `SetValueStepper.tsx` + `WarmUpSetToggle.tsx` — gemeinsame Satz-/KG-UI inkl. optionaler S1-Warm-up-Markierung (Spalte W-UP)
 - `src/components/SupersetBlock.tsx` — visuelle Supersatz-Gruppierung (Akzent + Label)
 - `src/components/BottomSheet.tsx` — gemeinsame Sheet-Hülle (Backdrop-Tap, Wisch-nach-unten am Griff via Framer Motion, max. 90 % Viewport-Höhe)
 - `src/components/OneRmCalculatorBody.tsx` + `OneRmCalculatorSheet.tsx` — 1RM-Rechner-Kern (Stepper, Epley, %-Tabelle); Sheet im Track, Vollbild weiter über `CalculatorScreen`
 - `src/components/MuscleGroupSelect.tsx` + `EquipmentSelect.tsx` + `catalogSelectStyle.ts` — Dropdowns für Muskelgruppe/Gerät (Filter + Formular)
 - `src/components/PlanDayAccordion.tsx` — aufklappbare Plan-Tage mit `WorkoutExercisePreview`
+- `src/components/PlanAdviceCollapsible.tsx` — KI-Tipps im Plan-Detail (default zugeklappt)
 - `src/components/WorkoutFinishSheet.tsx` — Beenden-Dialog (Speichern / Verwerfen / Abbrechen) für Track + Home
 - `src/components/ExerciseHistorySheet.tsx` — Übungsverlauf pro Übung
 - `src/components/MetricCategorySheet.tsx` — Kategorie-Auswahl (`ExerciseMetric`)
@@ -65,7 +67,8 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 - Globale Workouts/Übungen (user_id NULL) für alle sichtbar; eigene Workouts und Übungen pro User (CRUD nur eigene).
 - Übungs-Katalog: Tabelle `exercises` (globale Seeds + eigene); optional `youtube_url` (nur eigene). Workouts-Tab „Workouts | Übungen“; Filter Übungen per `MuscleGroupSelect`. `workout_exercises.catalog_exercise_id` verknüpft Workout-Zeilen mit Katalog (Video auch nach Umbenennung). Video im Track per Play-Button → `ExerciseVideoSheet` (iframe, ohne App-Verlassen).
 - 1RM-Rechner: Home → Route `calculator` / `CalculatorScreen`; aktives Workout → Icon oben rechts → `OneRmCalculatorSheet` mit Prefill aus offener Übung.
-- Übungs-Messung: `metric_type` = `reps` (Wdh. + optional kg) oder `time` (Sekunden im Satz-JSON-Feld `reps`, kg=0); Volumen-Berechnung ignoriert Zeit-Übungen; Standard beim Anlegen aus Bibliothek.
+- Übungs-Messung: `metric_type` u.a. `weight_reps`, `time`, `distance_time` (Cardio: ZEIT / M·km); Volumen nur bei Kraft-Metrics; KI setzt Cardiogeräte auf `time`/`distance_time`, Kraft auf `weight_reps`.
+- Satz-JSON: `{ reps, kg, done?, durationSec?, distanceM?, warmUp? }` — `warmUp` nur S1, optional, rein visuell (zählt ins Volumen).
 - Passwort-Reset per E-Mail-Token (OTP), nicht per Link.
 - Nutzer-Preferences in `profiles.preferences` (JSONB); u.a. `timerSounds`, `restSeconds`, `autoRest`, Timer-Defaults; Profil/Settings/Stats über Avatar-Trigger im Home-Screen als rechtes Sidepanel (Push-Routes, kein extra Tab). Rechtliches im Panel: externe Links zu rephive.app (`/impressum`, `/datenschutz`, `/agb`); Über mich und Support als In-App-Routes.
 - Legal/Support-URLs Web-App: `VITE_LEGAL_BASE_URL` (Default `https://rephive.app`).
@@ -80,5 +83,5 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 - Onboarding-Prozess: Wird bei unvollständigem Onboarding (`preferences.onboarded === false`) über `PhoneAppInner` verpflichtend eingeblendet und blockiert die normale Navigation. Erfasst grundlegende Anamnese-Daten und legt ggf. ein Gewicht in `body_measurements` an.
 - iOS WKWebView: Flex-Kinder in scrollbaren Flex-Columns nicht schrumpfen lassen (`flexShrink: 0` auf Karten); bei expandierten Track-Karten `overflow: visible`, sonst `hidden` für Border-Radius.
 - Vorher/Nachher Bilder: Fotos werden im Supabase Storage-Bucket `body-photos` unter `{userId}/{filename}` mit RLS abgesichert. Es wird ein nativer HTML5 Dateiupload verwendet, um maximale Capacitor/Web-Parität und Stabilität zu garantieren.
-- KI-Trainingspläne: Wizard (`AITrainingPlanWizard.tsx`, 12 Steps) + simulierter Checkout → `generate-training-plan` (JWT); Anamnese inkl. `trainingStructure` / `trainingSplitDays`. `plans.summary` (jsonb): lokale Ernährung via `src/lib/nutrition.ts` (Mifflin-St-Jeor, Makros, Trinkmenge), KI-`advice` in `PlanDetailScreen`. Anthropic wenn `ANTHROPIC_API_KEY`, sonst Mock. Deploy: `scripts/deploy-training-plan.sh` oder `supabase functions deploy generate-training-plan`.
+- KI-Trainingspläne: Wizard (`AITrainingPlanWizard.tsx`, 12 Steps) + simulierter Checkout → `generate-training-plan` (JWT); Übungsanzahl via `exerciseCountBounds` (Minuten + Erfahrung + Ziel, max. 8 Kraftübungen); Cardio-Warm-up zählt nicht mit. Katalog-Sync nach Generierung im Hintergrund (`EdgeRuntime.waitUntil`). Client-Timeout 150 s. Deploy: `scripts/deploy-training-plan.sh`.
 

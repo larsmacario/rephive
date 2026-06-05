@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { SegmentKind } from "../theme";
 import type { ExerciseMetric } from "./exerciseCatalog";
 import { DEFAULT_EXERCISE_METRIC, setVolumeKg } from "./exerciseCatalog";
-import { applySetField, bumpSetField, createEmptySet, type SetField } from "./exerciseSets";
+import { applySetField, bumpSetField, createEmptySet, setSetWarmUp, type SetField } from "./exerciseSets";
 import {
   linkWithPrevious,
   shouldStartRestAfterSet,
@@ -29,6 +29,8 @@ export interface WorkoutSet {
   done: boolean;
   durationSec?: number;
   distanceM?: number;
+  /** Visual marker: first set only (S1 warm-up). */
+  warmUp?: boolean;
 }
 export interface Exercise {
   id: string;
@@ -452,7 +454,27 @@ export function useWorkout(initial: Workout, opts?: WorkoutOptions) {
     setWo((w) => ({
       ...w,
       exercises: w.exercises.map((e) =>
-        e.id !== exId ? e : { ...e, sets: e.sets.filter((_, i) => i !== si) },
+        e.id !== exId
+          ? e
+          : {
+              ...e,
+              sets: e.sets
+                .filter((_, i) => i !== si)
+                .map((s) => {
+                  const copy = { ...s };
+                  delete copy.warmUp;
+                  return copy;
+                }),
+            },
+      ),
+    }));
+  };
+
+  const toggleSetWarmUp = (exId: string, enabled: boolean) => {
+    setWo((w) => ({
+      ...w,
+      exercises: w.exercises.map((e) =>
+        e.id !== exId ? e : { ...e, sets: setSetWarmUp(e.sets, enabled) },
       ),
     }));
   };
@@ -480,6 +502,7 @@ export function useWorkout(initial: Workout, opts?: WorkoutOptions) {
     removeExercise,
     addSet,
     removeSet,
+    toggleSetWarmUp,
     totalSets,
     doneSets,
     volume,

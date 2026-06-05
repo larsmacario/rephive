@@ -5,6 +5,7 @@ import {
   editIndividualSet,
   removeIndividualSet,
   setIndividualSetValue,
+  setSetWarmUp,
   setUniformField,
   switchToIndividual,
   switchToUniform,
@@ -17,11 +18,21 @@ import type { ExerciseMetric } from "../lib/exerciseCatalog";
 import { DEFAULT_EXERCISE_METRIC } from "../lib/exerciseCatalog";
 import { Icon } from "./Icon";
 import { SetMetricFields, setFieldHeaders } from "./SetMetricFields";
+import { WARMUP_COLUMN_WIDTH, WarmUpSetToggle } from "./WarmUpSetToggle";
 
 type ConfigSet = TemplateSet | TrackedSet;
 
 function isTrackedSet(s: ConfigSet): s is TrackedSet {
   return "done" in s;
+}
+
+function setNumberLabel(index: number, warmUp?: boolean): string {
+  if (index === 0 && warmUp) return "W";
+  return String(index + 1);
+}
+
+function individualActionsWidth(variant: "template" | "tracked"): number {
+  return variant === "tracked" ? 72 : 36;
 }
 
 export interface ExerciseSetConfiguratorProps {
@@ -116,6 +127,11 @@ export function ExerciseSetConfigurator({
 
   const count = sets.length || 1;
   const template = sets[0] ?? { reps: 10, kg: 0 };
+  const warmUpChecked = Boolean(sets[0]?.warmUp);
+
+  const toggleWarmUp = (enabled: boolean) => {
+    onChange(setMode, setSetWarmUp(sets, enabled));
+  };
 
   return (
     <div style={{ width: "100%" }}>
@@ -141,6 +157,7 @@ export function ExerciseSetConfigurator({
             onBump={(field, delta) => bumpUniform(field, delta)}
             onSetValue={(field, value) => onChange("uniform", setUniformField(sets, field, value, metric))}
           />
+          <WarmUpSetToggle layout="full" checked={warmUpChecked} onChange={toggleWarmUp} />
         </div>
       ) : (
         <div>
@@ -166,7 +183,15 @@ export function ExerciseSetConfigurator({
                 {h.label}
               </span>
             ))}
-            <span style={{ width: variant === "tracked" ? 72 : 36 }} />
+            <span
+              style={{
+                width: WARMUP_COLUMN_WIDTH,
+                textAlign: "center",
+              }}
+            >
+              W-UP
+            </span>
+            <span style={{ width: individualActionsWidth(variant) }} />
           </div>
           {sets.map((s, si) => (
             <div
@@ -184,10 +209,10 @@ export function ExerciseSetConfigurator({
                   fontFamily: M.disp,
                   fontWeight: 700,
                   fontSize: valueFontSize,
-                  color: isTrackedSet(s) && s.done ? M.acc : M.mut,
+                  color: isTrackedSet(s) && s.done ? M.acc : si === 0 && s.warmUp ? M.acc : M.mut,
                 }}
               >
-                {si + 1}
+                {setNumberLabel(si, s.warmUp)}
               </span>
               <SetMetricFields
                 set={s}
@@ -196,12 +221,19 @@ export function ExerciseSetConfigurator({
                 onBump={(field, delta) => editSet(si, field, delta)}
                 onSetValue={(field, value) => setField(si, field, value)}
               />
+              {si === 0 ? (
+                <WarmUpSetToggle layout="compact" checked={Boolean(s.warmUp)} onChange={toggleWarmUp} />
+              ) : (
+                <span style={{ width: WARMUP_COLUMN_WIDTH, flexShrink: 0 }} />
+              )}
               <div
                 style={{
-                  width: variant === "tracked" ? 72 : 36,
+                  width: individualActionsWidth(variant),
                   display: "flex",
                   justifyContent: "flex-end",
+                  alignItems: "center",
                   gap: 6,
+                  flexShrink: 0,
                 }}
               >
                 {variant === "tracked" && isTrackedSet(s) && (

@@ -143,13 +143,19 @@ export function buildUniformTrackedSets(
 export function switchToUniform<T extends TemplateSet>(sets: T[]): T[] {
   if (sets.length === 0) return sets;
   const first = sets[0];
-  return sets.map((s) => ({
-    ...s,
-    reps: first.reps,
-    kg: first.kg,
-    durationSec: first.durationSec,
-    distanceM: first.distanceM,
-  }));
+  const warmUp = first.warmUp;
+  return sets.map((s, i) => {
+    const next = {
+      ...s,
+      reps: first.reps,
+      kg: first.kg,
+      durationSec: first.durationSec,
+      distanceM: first.distanceM,
+    } as T;
+    if (i === 0 && warmUp) next.warmUp = true;
+    else delete next.warmUp;
+    return next;
+  });
 }
 
 export function switchToIndividual<T extends TemplateSet>(sets: T[]): T[] {
@@ -168,12 +174,18 @@ export function bumpUniformField<T extends TemplateSet>(
     const newCount = Math.max(1, count + delta);
     if (newCount > count) {
       const template = sets[0] ?? createEmptySet(metric);
+      const { warmUp: _warmUp, ...templateWithoutWarmUp } = template;
       return [
         ...sets,
-        ...Array.from({ length: newCount - count }, () => ({ ...template })),
+        ...Array.from({ length: newCount - count }, () => ({ ...templateWithoutWarmUp })),
       ] as T[];
     }
-    return sets.slice(0, newCount) as T[];
+    return sets.slice(0, newCount).map((s, i) => {
+      if (i === 0) return s;
+      const copy = { ...s };
+      delete copy.warmUp;
+      return copy;
+    }) as T[];
   }
 
   return sets.map((s) => bumpSetField(s, field, delta, metric)) as T[];
@@ -223,16 +235,46 @@ export function addIndividualSet<T extends TemplateSet>(sets: T[]): T[] {
 
 export function removeIndividualSet<T extends TemplateSet>(sets: T[], index: number): T[] {
   if (sets.length <= 1) return sets;
-  return sets.filter((_, i) => i !== index);
+  return sets.filter((_, i) => i !== index).map((s) => {
+    const copy = { ...s };
+    delete copy.warmUp;
+    return copy;
+  });
+}
+
+export function setSetWarmUp<T extends TemplateSet>(sets: T[], enabled: boolean): T[] {
+  if (sets.length === 0) return sets;
+  return sets.map((s, i) => {
+    const copy = { ...s } as T;
+    if (i === 0 && enabled) copy.warmUp = true;
+    else delete copy.warmUp;
+    return copy;
+  });
+}
+
+export function serializeTemplateSet(
+  set: TemplateSet,
+  index: number,
+  options?: { done?: boolean },
+): TemplateSet & { done?: boolean } {
+  return {
+    reps: set.reps,
+    kg: set.kg,
+    ...(options?.done != null ? { done: options.done } : {}),
+    ...(set.durationSec != null ? { durationSec: set.durationSec } : {}),
+    ...(set.distanceM != null ? { distanceM: set.distanceM } : {}),
+    ...(index === 0 && set.warmUp ? { warmUp: true } : {}),
+  };
 }
 
 export function formatSetSummary(sets: TemplateSet[], metric: ExerciseMetric = "weight_reps"): string {
   if (sets.length === 0) return "0 Sätze";
   const count = sets.length;
+  const warmPrefix = sets[0]?.warmUp ? "Warm-up · " : "";
   if (isUniform(sets)) {
-    return `${count}×${formatSetLine(sets[0], metric)}`;
+    return `${warmPrefix}${count}×${formatSetLine(sets[0], metric)}`;
   }
-  return `${count} Sätze (individuell)`;
+  return `${warmPrefix}${count} Sätze (individuell)`;
 }
 
 function formatSetLine(set: TemplateSet, metric: ExerciseMetric): string {
@@ -252,15 +294,16 @@ function formatSetLine(set: TemplateSet, metric: ExerciseMetric): string {
 }
 
 export function setsFromStored(
-  stored: { reps: number; kg?: number; durationSec?: number; distanceM?: number; done?: boolean }[],
+  stored: { reps: number; kg?: number; durationSec?: number; distanceM?: number; warmUp?: boolean; done?: boolean }[],
   defaults: { sets: number; reps: number; kg?: number },
   metric: ExerciseMetric = "weight_reps",
 ): { setMode: SetMode; setRows: TemplateSet[] } {
-  const rows: TemplateSet[] = stored.map((s) => ({
+  const rows: TemplateSet[] = stored.map((s, index) => ({
     reps: s.reps,
     kg: s.kg ?? 0,
     durationSec: s.durationSec,
     distanceM: s.distanceM,
+    ...(index === 0 && s.warmUp ? { warmUp: true } : {}),
   }));
   if (rows.length === 0) {
     return {
@@ -277,17 +320,19 @@ export function trackedSetsFromStored(
     kg?: number;
     durationSec?: number;
     distanceM?: number;
+    warmUp?: boolean;
     done?: boolean;
   }[],
   defaults: { sets: number; reps: number; kg?: number },
   metric: ExerciseMetric = "weight_reps",
 ): { setMode: SetMode; setRows: TrackedSet[] } {
-  const rows: TrackedSet[] = stored.map((s) => ({
+  const rows: TrackedSet[] = stored.map((s, index) => ({
     reps: s.reps,
     kg: s.kg ?? 0,
     durationSec: s.durationSec,
     distanceM: s.distanceM,
     done: Boolean(s.done),
+    ...(index === 0 && s.warmUp ? { warmUp: true } : {}),
   }));
   if (rows.length === 0) {
     return {
