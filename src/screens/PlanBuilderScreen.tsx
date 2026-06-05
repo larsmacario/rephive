@@ -16,7 +16,8 @@ import { Icon } from "../components/Icon";
 import { ExerciseSetConfigurator } from "../components/ExerciseSetConfigurator";
 import { BottomSheet } from "../components/BottomSheet";
 import { ExercisePickerSheet } from "../components/ExercisePickerSheet";
-import { PlanDayAccordion } from "../components/PlanDayAccordion";
+import { HorizontalSlidePager } from "../components/HorizontalSlidePager";
+import { PlanDaySlide } from "../components/PlanDaySlide";
 
 interface BuilderDay {
   id: string;
@@ -59,7 +60,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
   const [newWorkoutItems, setNewWorkoutItems] = useState<BuilderItem[]>([]);
   const [creatingWorkout, setCreatingWorkout] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [expandedDayId, setExpandedDayId] = useState<string | null>(null);
+  const [activeDayIndex, setActiveDayIndex] = useState(0);
 
   const workoutList = workouts ?? [];
   const exLibrary = exerciseLibrary ?? [];
@@ -100,15 +101,23 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
   };
 
   const addRestDay = () => {
-    setDays((prev) => [...prev, { id: crypto.randomUUID(), workoutId: null }]);
+    setDays((prev) => {
+      const next = [...prev, { id: crypto.randomUUID(), workoutId: null }];
+      setActiveDayIndex(next.length - 1);
+      return next;
+    });
     closeSheet();
   };
 
   const addWorkoutDay = (workout: LibraryWorkout) => {
-    setDays((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), workoutId: workout.id, workoutName: workout.name },
-    ]);
+    setDays((prev) => {
+      const next = [
+        ...prev,
+        { id: crypto.randomUUID(), workoutId: workout.id, workoutName: workout.name },
+      ];
+      setActiveDayIndex(next.length - 1);
+      return next;
+    });
     closeSheet();
   };
 
@@ -167,7 +176,11 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
           sets: x.setRows.map((s, index) => serializeTemplateSet(s, index, { done: false })),
         })),
       });
-      setDays((prev) => [...prev, { id: crypto.randomUUID(), workoutId, workoutName }]);
+      setDays((prev) => {
+        const next = [...prev, { id: crypto.randomUUID(), workoutId, workoutName }];
+        setActiveDayIndex(next.length - 1);
+        return next;
+      });
       reloadWorkouts();
       closeSheet();
     } catch (e) {
@@ -178,20 +191,16 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
   };
 
   const removeDay = (id: string) => {
-    setDays((prev) => prev.filter((d) => d.id !== id));
-    setExpandedDayId((prev) => (prev === id ? null : prev));
-  };
-
-  const handleToggleDay = (dayId: string) => {
-    setExpandedDayId((prev) => (prev === dayId ? null : dayId));
-  };
-
-  const moveDay = (index: number, direction: -1 | 1) => {
     setDays((prev) => {
-      const next = [...prev];
-      const target = index + direction;
-      if (target < 0 || target >= next.length) return prev;
-      [next[index], next[target]] = [next[target], next[index]];
+      const removeIndex = prev.findIndex((d) => d.id === id);
+      const next = prev.filter((d) => d.id !== id);
+      setActiveDayIndex((current) => {
+        if (next.length === 0) return 0;
+        if (removeIndex < 0) return Math.min(current, next.length - 1);
+        if (current > removeIndex) return current - 1;
+        if (current >= next.length) return next.length - 1;
+        return current;
+      });
       return next;
     });
   };
@@ -323,112 +332,118 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
         style={{
           flex: 1,
           minHeight: 0,
-          overflowY: "auto",
-          padding: "0 22px",
+          padding: "0 22px 8px",
           display: "flex",
           flexDirection: "column",
-          gap: 10,
         }}
       >
-        {days.map((day, index) => {
-          const workout = day.workoutId ? workoutList.find((w) => w.id === day.workoutId) ?? null : null;
-          return (
-            <PlanDayAccordion
-              key={day.id}
-              dayId={day.id}
-              dayNumber={index + 1}
-              label={day.workoutId ? day.workoutName ?? "Workout" : "Ruhetag"}
-              isRestDay={!day.workoutId}
-              workout={workout}
-              expanded={expandedDayId === day.id}
-              onToggle={handleToggleDay}
-              variant="builder"
-              leading={
-                <div style={{ color: M.mut2, display: "flex", flexDirection: "column", gap: 4 }}>
-                  <button
-                    type="button"
-                    disabled={index === 0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      moveDay(index, -1);
-                    }}
+        {days.length === 0 ? (
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <button
+              onClick={openSheet}
+              style={{
+                padding: "15px 24px",
+                borderRadius: 16,
+                border: "1.5px dashed " + M.line,
+                background: "transparent",
+                color: M.acc,
+                fontFamily: M.disp,
+                fontWeight: 700,
+                fontSize: 17,
+                letterSpacing: 0.8,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              <Icon name="plus" size={20} stroke={2.6} /> TAG HINZUFÜGEN
+            </button>
+          </div>
+        ) : (
+          <>
+            <HorizontalSlidePager
+              count={days.length}
+              activeIndex={activeDayIndex}
+              onIndexChange={setActiveDayIndex}
+              ariaLabel="Plan-Tage bearbeiten"
+            >
+              {days.map((day, index) => {
+                const workout = day.workoutId ? workoutList.find((w) => w.id === day.workoutId) ?? null : null;
+                return (
+                  <div
+                    key={day.id}
                     style={{
-                      background: "none",
-                      border: "none",
-                      cursor: index === 0 ? "default" : "pointer",
-                      color: index === 0 ? M.line : M.mut,
-                      padding: 0,
+                      height: "100%",
                       display: "flex",
+                      flexDirection: "column",
+                      minHeight: 0,
+                      padding: "0 0 4px",
+                      boxSizing: "border-box",
                     }}
                   >
-                    <Icon name="arrowUp" size={16} stroke={2.2} />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={index === days.length - 1}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      moveDay(index, 1);
-                    }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: index === days.length - 1 ? "default" : "pointer",
-                      color: index === days.length - 1 ? M.line : M.mut,
-                      padding: 0,
-                      display: "flex",
-                      transform: "rotate(180deg)",
-                    }}
-                  >
-                    <Icon name="arrowUp" size={16} stroke={2.2} />
-                  </button>
-                </div>
-              }
-              actions={
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeDay(day.id);
-                  }}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: M.mut2,
-                    display: "flex",
-                    padding: 4,
-                  }}
-                >
-                  <Icon name="trash" size={18} stroke={2} />
-                </button>
-              }
-            />
-          );
-        })}
+                    <PlanDaySlide
+                      dayNumber={index + 1}
+                      label={day.workoutId ? day.workoutName ?? "Workout" : "Ruhetag"}
+                      isRestDay={!day.workoutId}
+                      workout={workout}
+                      variant="builder"
+                      actions={
+                        <button
+                          type="button"
+                          onClick={() => removeDay(day.id)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            color: M.mut2,
+                            display: "flex",
+                            padding: 4,
+                          }}
+                        >
+                          <Icon name="trash" size={18} stroke={2} />
+                        </button>
+                      }
+                    />
+                  </div>
+                );
+              })}
+            </HorizontalSlidePager>
 
-        <button
-          onClick={openSheet}
-          style={{
-            padding: "15px 0",
-            borderRadius: 16,
-            border: "1.5px dashed " + M.line,
-            background: "transparent",
-            color: M.acc,
-            fontFamily: M.disp,
-            fontWeight: 700,
-            fontSize: 17,
-            letterSpacing: 0.8,
-            cursor: "pointer",
-            marginBottom: 8,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-          }}
-        >
-          <Icon name="plus" size={20} stroke={2.6} /> TAG HINZUFÜGEN
-        </button>
+            <button
+              onClick={openSheet}
+              style={{
+                flexShrink: 0,
+                padding: "15px 0",
+                borderRadius: 16,
+                border: "1.5px dashed " + M.line,
+                background: "transparent",
+                color: M.acc,
+                fontFamily: M.disp,
+                fontWeight: 700,
+                fontSize: 17,
+                letterSpacing: 0.8,
+                cursor: "pointer",
+                marginTop: 8,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              <Icon name="plus" size={20} stroke={2.6} /> TAG HINZUFÜGEN
+            </button>
+          </>
+        )}
       </div>
 
       <BottomSheet

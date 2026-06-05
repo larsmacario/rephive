@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { M } from "../theme";
 import { useAuth } from "../lib/auth";
 import { deletePlan, setActivePlan, usePlan, useWorkouts } from "../lib/db";
 import { Icon } from "../components/Icon";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { PlanAdviceCollapsible } from "../components/PlanAdviceCollapsible";
-import { PlanDayAccordion } from "../components/PlanDayAccordion";
+import { HorizontalSlidePager } from "../components/HorizontalSlidePager";
+import { PlanDaySlide } from "../components/PlanDaySlide";
 import { OneRmPercentInfoCard } from "../components/OneRmPercentInfoCard";
 import { MStat, MTag } from "../components/widgets";
 
@@ -23,13 +24,14 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [expandedDayId, setExpandedDayId] = useState<string | null>(null);
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
 
   const workoutList = workouts ?? [];
 
-  const handleToggleDay = (dayId: string) => {
-    setExpandedDayId((prev) => (prev === dayId ? null : dayId));
-  };
+  useEffect(() => {
+    if (!plan) return;
+    setActiveSlideIndex(0);
+  }, [plan?.id]);
 
   const handleActivate = async () => {
     if (!user || !plan) return;
@@ -97,26 +99,33 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
     plan.name.toLowerCase().startsWith("ki ") ||
     plan.days.some((d) => d.workout?.tags?.some((t) => t.toLowerCase() === "ki"));
 
-  return (
-    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+  const slideCount = 1 + plan.days.length;
+  const slideLabel = (index: number, _count: number) => {
+    if (index === 0) return "Übersicht";
+    return `Tag ${index} von ${plan.days.length}`;
+  };
+
+  const summarySlide = (
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        padding: "0 22px",
+        boxSizing: "border-box",
+      }}
+    >
       <div
         style={{
-          padding: "2px 22px 12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+          touchAction: "pan-y",
+          paddingBottom: 8,
         }}
       >
-        <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex" }}>
-          <Icon name="chevL" size={24} stroke={2.2} />
-        </button>
-        <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>PLAN</span>
-        <div style={{ width: 24 }} />
-      </div>
-
-      {actionError && <div style={{ padding: "0 22px 8px", color: "#ff8a8a", fontSize: 13 }}>{actionError}</div>}
-
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 22px 16px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 30, lineHeight: 1.1 }}>{plan.name}</div>
           {plan.isActive && <MTag>Aktiv</MTag>}
@@ -227,28 +236,66 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
             </PlanAdviceCollapsible>
           </div>
         )}
+      </div>
+    </div>
+  );
 
-        <div style={{ marginTop: 18, fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>TAGE</div>
-        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-          {plan.days.map((day) => {
-            const isCurrent = plan.isActive && day.position === plan.currentDay;
-            const workout = day.workout ? workoutList.find((w) => w.id === day.workout?.id) ?? null : null;
-            return (
-              <PlanDayAccordion
-                key={day.id}
-                dayId={day.id}
-                dayNumber={day.position + 1}
-                label={day.isRestDay ? "Ruhetag" : day.workout?.name ?? "Workout"}
-                isRestDay={day.isRestDay}
-                isCurrent={isCurrent}
-                workout={workout}
-                expanded={expandedDayId === day.id}
-                onToggle={handleToggleDay}
-                variant="detail"
-              />
-            );
-          })}
-        </div>
+  const daySlides = plan.days.map((day) => {
+    const isCurrent = plan.isActive && day.position === plan.currentDay;
+    const workout = day.workout ? workoutList.find((w) => w.id === day.workout?.id) ?? null : null;
+    return (
+      <div
+        key={day.id}
+        style={{
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+          padding: "0 22px",
+          boxSizing: "border-box",
+        }}
+      >
+        <PlanDaySlide
+          dayNumber={day.position + 1}
+          label={day.isRestDay ? "Ruhetag" : day.workout?.name ?? "Workout"}
+          isRestDay={day.isRestDay}
+          isCurrent={isCurrent}
+          workout={workout}
+          variant="detail"
+        />
+      </div>
+    );
+  });
+
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <div
+        style={{
+          padding: "2px 22px 12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex" }}>
+          <Icon name="chevL" size={24} stroke={2.2} />
+        </button>
+        <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>PLAN</span>
+        <div style={{ width: 24 }} />
+      </div>
+
+      {actionError && <div style={{ padding: "0 22px 8px", color: "#ff8a8a", fontSize: 13 }}>{actionError}</div>}
+
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 0 8px" }}>
+        <HorizontalSlidePager
+          count={slideCount}
+          activeIndex={activeSlideIndex}
+          onIndexChange={setActiveSlideIndex}
+          ariaLabel="Plan-Übersicht und Tage"
+          slideLabel={slideLabel}
+        >
+          {[summarySlide, ...daySlides]}
+        </HorizontalSlidePager>
       </div>
 
       <div style={{ padding: "12px 22px 18px", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid " + M.line2 }}>

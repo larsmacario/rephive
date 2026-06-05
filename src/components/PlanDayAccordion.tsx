@@ -8,12 +8,15 @@ import { SupersetBlock } from "./SupersetBlock";
 
 export interface WorkoutExercisePreviewProps {
   workout: LibraryWorkout;
+  flat?: boolean;
 }
 
-export function WorkoutExercisePreview({ workout }: WorkoutExercisePreviewProps) {
+export function WorkoutExercisePreview({ workout, flat = false }: WorkoutExercisePreviewProps) {
+  const segments = segmentExercises(workout.exercises);
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      {segmentExercises(workout.exercises).map((seg) => {
+    <div style={{ display: "flex", flexDirection: "column", gap: flat ? 8 : 6 }}>
+      {segments.map((seg) => {
         const renderEx = (ex: (typeof workout.exercises)[number]) => {
           const summary = formatSetSummary(ex.sets, ex.metric);
           const uniform = isUniform(ex.sets);
@@ -21,49 +24,55 @@ export function WorkoutExercisePreview({ workout }: WorkoutExercisePreviewProps)
             <div
               key={ex.id}
               style={{
-                padding: "10px 12px",
-                borderRadius: 12,
-                background: M.panel,
+                padding: flat ? "11px 12px" : "10px 12px",
+                borderRadius: flat ? 10 : 12,
+                background: flat ? "rgba(255,255,255,.02)" : M.panel,
                 border: "1px solid " + M.line2,
                 fontSize: 13,
                 fontWeight: 600,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 8,
-                    background: M.accSoft,
-                    color: M.acc,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flex: "0 0 auto",
-                  }}
-                >
-                  <Icon name="dumbbell" size={16} stroke={2} />
-                </div>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: flat ? 0 : 10 }}>
+                {!flat && (
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      background: M.accSoft,
+                      color: M.acc,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flex: "0 0 auto",
+                    }}
+                  >
+                    <Icon name="dumbbell" size={16} stroke={2} />
+                  </div>
+                )}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: M.fg }}>{ex.name}</div>
-                  {ex.note && (
-                    <div style={{ color: M.mut, fontSize: 12, marginTop: 2, fontWeight: 500 }}>{ex.note}</div>
-                  )}
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: M.fg }}>{ex.name}</div>
+                      {ex.note && (
+                        <div style={{ color: M.mut, fontSize: 12, marginTop: 2, fontWeight: 500 }}>{ex.note}</div>
+                      )}
+                    </div>
+                    <span style={{ color: M.mut2, flex: "0 0 auto", fontSize: 12.5, paddingTop: 1 }}>{summary}</span>
+                  </div>
                 </div>
-                <span style={{ color: M.mut2, flex: "0 0 auto", fontSize: 12.5 }}>{summary}</span>
               </div>
               {!uniform && (
-                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4, paddingLeft: flat ? 0 : 42 }}>
                   {ex.sets.map((s, si) => (
                     <div
                       key={si}
                       style={{
                         display: "flex",
                         justifyContent: "space-between",
-                        padding: "4px 8px",
-                        borderRadius: 8,
-                        background: M.accSoft,
+                        padding: flat ? "2px 0" : "4px 8px",
+                        borderRadius: flat ? 0 : 8,
+                        background: flat ? "transparent" : M.accSoft,
                         fontSize: 12,
                         color: M.mut,
                       }}
@@ -79,6 +88,7 @@ export function WorkoutExercisePreview({ workout }: WorkoutExercisePreviewProps)
             </div>
           );
         };
+
         if (seg.kind === "single") return renderEx(seg.exercise);
         return (
           <SupersetBlock key={seg.exercises.map((e) => e.id).join("-")}>
