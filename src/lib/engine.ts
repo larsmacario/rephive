@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SegmentKind } from "../theme";
 import type { ExerciseMetric } from "./exerciseCatalog";
+import type { TrainingBlockType } from "./planBlocks";
 import { DEFAULT_EXERCISE_METRIC, setVolumeKg } from "./exerciseCatalog";
 import { applySetField, bumpSetField, createEmptySet, setSetWarmUp, type SetField } from "./exerciseSets";
 import {
@@ -36,6 +37,7 @@ export interface Exercise {
   id: string;
   name: string;
   note?: string;
+  blockType?: TrainingBlockType;
   supersetId?: string;
   catalogExerciseId?: string;
   metric: ExerciseMetric;
@@ -44,6 +46,8 @@ export interface Exercise {
 export interface Workout {
   name: string;
   sub: string;
+  enabledBlocks?: TrainingBlockType[];
+  skippedBlocks?: TrainingBlockType[];
   exercises: Exercise[];
 }
 
@@ -406,18 +410,28 @@ export function useWorkout(initial: Workout, opts?: WorkoutOptions) {
     setWo((w) => ({ ...w, name: name.trim() || w.name }));
   };
 
+  const setExerciseNote = (exId: string, note: string) => {
+    setWo((w) => ({
+      ...w,
+      exercises: w.exercises.map((e) =>
+        e.id !== exId ? e : { ...e, note: note.trim() || undefined },
+      ),
+    }));
+  };
+
   const addExercise = (
     name: string,
     note?: string,
     metric: ExerciseMetric = DEFAULT_EXERCISE_METRIC,
     catalogExerciseId?: string,
+    blockType?: TrainingBlockType,
   ) => {
     const id = crypto.randomUUID();
     setWo((w) => ({
       ...w,
       exercises: [
         ...w.exercises,
-        { id, name: name.trim(), note, metric, catalogExerciseId, sets: [] },
+        { id, name: name.trim(), note, metric, catalogExerciseId, blockType, sets: [] },
       ],
     }));
     return id;
@@ -501,6 +515,7 @@ export function useWorkout(initial: Workout, opts?: WorkoutOptions) {
     editSet,
     setSetValue,
     setName,
+    setExerciseNote,
     addExercise,
     removeExercise,
     addSet,

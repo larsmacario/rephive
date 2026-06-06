@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { prefersReducedMotion, triggerTapHaptic } from "../lib/haptics";
 import { M } from "../theme";
+import { DotIndicators } from "./track/DotIndicators";
 
 const SWIPE_THRESHOLD_PX = 50;
 const AXIS_LOCK_PX = 10;
 const WHEEL_COOLDOWN_MS = 420;
 
 const TRACK_SPRING = { type: "spring" as const, stiffness: 320, damping: 32 };
-const DOT_SPRING = { type: "spring" as const, stiffness: 400, damping: 28 };
 
 export interface HorizontalSlidePagerProps {
   count: number;
@@ -16,8 +16,10 @@ export interface HorizontalSlidePagerProps {
   onIndexChange: (index: number) => void;
   children: ReactNode[];
   ariaLabel?: string;
-  slideLabel?: (index: number, count: number) => string;
+  /** Text für Tab-Links und aria-label (Standard: „Tag 1“, „Tag 2“, …) */
+  tabLabel?: (index: number, count: number) => string;
   showIndicators?: boolean;
+  indicatorVariant?: "tabs" | "dots";
 }
 
 export function HorizontalSlidePager({
@@ -26,8 +28,9 @@ export function HorizontalSlidePager({
   onIndexChange,
   children,
   ariaLabel = "Tages-Karussell",
-  slideLabel = (i, total) => `Tag ${i + 1} von ${total}`,
+  tabLabel = (i) => `Tag ${i + 1}`,
   showIndicators = true,
+  indicatorVariant = "tabs",
 }: HorizontalSlidePagerProps) {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const axisLockRef = useRef<"x" | "y" | null>(null);
@@ -118,8 +121,6 @@ export function HorizontalSlidePager({
 
   const safeIndex = Math.max(0, Math.min(count - 1, activeIndex));
   const trackTransition = reducedMotion ? { duration: 0 } : TRACK_SPRING;
-  const dotTransition = reducedMotion ? { duration: 0 } : DOT_SPRING;
-  const labelTransition = reducedMotion ? { duration: 0 } : { duration: 0.15 };
 
   return (
     <div
@@ -179,152 +180,62 @@ export function HorizontalSlidePager({
         </motion.div>
       </div>
 
-      {showIndicators && count > 1 && (
+      {showIndicators && count > 1 && indicatorVariant === "dots" ? (
+        <DotIndicators
+          count={count}
+          activeIndex={safeIndex}
+          onSelect={goTo}
+          ariaLabel={ariaLabel}
+        />
+      ) : null}
+      {showIndicators && count > 1 && indicatorVariant === "tabs" ? (
         <div
+          role="tablist"
+          aria-label="Plan-Navigation"
           style={{
             flexShrink: 0,
-            padding: "10px 0 4px",
+            padding: "10px 12px 4px",
             display: "flex",
-            flexDirection: "column",
+            flexWrap: "wrap",
+            gap: "6px 14px",
             alignItems: "center",
-            gap: 8,
+            justifyContent: "center",
+            maxWidth: "100%",
           }}
         >
-          <div
-            style={{
-              width: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
-          >
-            <button
-              type="button"
-              aria-label="Vorherige Folie"
-              disabled={safeIndex === 0}
-              onClick={() => step(-1)}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                border: "1px solid " + M.line2,
-                background: M.card,
-                color: safeIndex === 0 ? M.line : M.fg,
-                cursor: safeIndex === 0 ? "default" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                opacity: safeIndex === 0 ? 0.4 : 1,
-              }}
-            >
-              ‹
-            </button>
-            <div
-              style={{
-                flex: 1,
-                minWidth: 0,
-                display: "flex",
-                justifyContent: "center",
-                overflow: "hidden",
-              }}
-            >
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={safeIndex}
-                  initial={reducedMotion ? false : { opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={reducedMotion ? undefined : { opacity: 0, y: -4 }}
-                  transition={labelTransition}
-                  style={{
-                    fontSize: 11,
-                    letterSpacing: 1.2,
-                    color: M.mut2,
-                    fontWeight: 700,
-                    textAlign: "center",
-                  }}
-                >
-                  {slideLabel(safeIndex, count).toUpperCase()}
-                </motion.span>
-              </AnimatePresence>
-            </div>
-            <button
-              type="button"
-              aria-label="Nächste Folie"
-              disabled={safeIndex === count - 1}
-              onClick={() => step(1)}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                border: "1px solid " + M.line2,
-                background: M.card,
-                color: safeIndex === count - 1 ? M.line : M.fg,
-                cursor: safeIndex === count - 1 ? "default" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                opacity: safeIndex === count - 1 ? 0.4 : 1,
-              }}
-            >
-              ›
-            </button>
-          </div>
-          <div
-            role="tablist"
-            aria-label="Tages-Folien"
-            style={{
-              display: "flex",
-              gap: 6,
-              alignItems: "center",
-              flexWrap: "wrap",
-              justifyContent: "center",
-              maxWidth: "100%",
-              padding: "0 8px",
-            }}
-          >
-            {Array.from({ length: count }, (_, i) => (
+          {Array.from({ length: count }, (_, i) => {
+            const isActive = safeIndex === i;
+            const label = tabLabel(i, count);
+            return (
               <button
                 key={i}
                 type="button"
                 role="tab"
-                aria-selected={safeIndex === i}
-                aria-current={safeIndex === i ? "true" : undefined}
-                aria-label={slideLabel(i, count)}
+                aria-selected={isActive}
+                aria-current={isActive ? "true" : undefined}
+                aria-label={label}
                 onClick={() => goTo(i)}
                 style={{
-                  width: 32,
-                  height: 32,
                   border: "none",
-                  padding: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  padding: "4px 2px",
                   background: "transparent",
                   cursor: "pointer",
                   flexShrink: 0,
+                  fontFamily: M.disp,
+                  fontSize: 13,
+                  fontWeight: isActive ? 700 : 600,
+                  color: isActive ? M.brand : M.mut2,
+                  textDecoration: isActive ? "underline" : "none",
+                  textUnderlineOffset: 4,
+                  letterSpacing: 0.2,
                 }}
               >
-                <motion.span
-                  animate={{
-                    width: safeIndex === i ? 22 : 8,
-                    borderRadius: safeIndex === i ? 5 : 4,
-                    backgroundColor: safeIndex === i ? M.brand : M.line,
-                  }}
-                  transition={dotTransition}
-                  style={{
-                    height: 8,
-                    display: "block",
-                    boxShadow: safeIndex === i ? M.brandGlow : undefined,
-                  }}
-                />
+                {label}
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

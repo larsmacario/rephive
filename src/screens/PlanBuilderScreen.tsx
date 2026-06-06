@@ -2,37 +2,54 @@ import { useEffect, useState } from "react";
 import { M } from "../theme";
 import { useAuth } from "../lib/auth";
 import { usePreferences } from "../lib/preferences";
-import { createPlan, createWorkout, updatePlan, useExercises, usePlan, useWorkouts } from "../lib/db";
-import type { LibraryExercise, LibraryWorkout } from "../data";
+import { createPlan, updatePlan, useExercises, usePlan } from "../lib/db";
+import type { LibraryExercise } from "../data";
+import { planDayDisplayName } from "../data";
 import {
   buildUniformTemplateSets,
-  countTemplateSets,
   defaultSetValue,
+  formatSetSummary,
   serializeTemplateSet,
   type SetMode,
   type TemplateSet,
 } from "../lib/exerciseSets";
+import {
+  BLOCK_LABELS,
+  DEFAULT_ENABLED_BLOCKS,
+  disabledBlocks,
+  type TrainingBlockType,
+} from "../lib/planBlocks";
 import { Icon } from "../components/Icon";
 import { ExerciseSetConfigurator } from "../components/ExerciseSetConfigurator";
-import { BottomSheet } from "../components/BottomSheet";
 import { ExercisePickerSheet } from "../components/ExercisePickerSheet";
-import { HorizontalSlidePager } from "../components/HorizontalSlidePager";
+import { ConfirmSheet } from "../components/ConfirmSheet";
+import { BottomSheet } from "../components/BottomSheet";
 import { PlanDaySlide } from "../components/PlanDaySlide";
 import { MButton } from "../components/MButton";
+import { HorizontalSlidePager } from "../components/HorizontalSlidePager";
 
-interface BuilderDay {
-  id: string;
-  workoutId: string | null;
-  workoutName?: string;
-}
-
-interface BuilderItem extends LibraryExercise {
+interface BuilderExercise extends LibraryExercise {
+  blockType: TrainingBlockType;
   setMode: SetMode;
   setRows: TemplateSet[];
   catalogExerciseId?: string;
 }
 
-type SheetMode = "pick" | "create";
+interface BuilderDay {
+  id: string;
+  name: string;
+  enabledBlocks: TrainingBlockType[];
+  exercises: BuilderExercise[];
+}
+
+function createEmptyDay(index: number): BuilderDay {
+  return {
+    id: crypto.randomUUID(),
+    name: `Tag ${index + 1}`,
+    enabledBlocks: [...DEFAULT_ENABLED_BLOCKS],
+    exercises: [],
+  };
+}
 
 export interface PlanBuilderScreenProps {
   planId?: string;
@@ -45,26 +62,22 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
   const { user } = useAuth();
   const { preferences } = usePreferences();
   const { data: existingPlan, loading: planLoading } = usePlan(planId ?? null);
-  const { data: workouts, loading, reload: reloadWorkouts } = useWorkouts();
   const { data: exerciseLibrary, loading: exercisesLoading, reload: reloadExercises } = useExercises();
 
   const [name, setName] = useState("Neuer Trainingsplan");
   const [days, setDays] = useState<BuilderDay[]>([]);
   const [initialized, setInitialized] = useState(!isEditing);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [sheetMode, setSheetMode] = useState<SheetMode>("pick");
   const [exercisePickerOpen, setExercisePickerOpen] = useState(false);
+  const [pickerTargetBlock, setPickerTargetBlock] = useState<TrainingBlockType | null>(null);
+  const [removeBlockConfirm, setRemoveBlockConfirm] = useState<TrainingBlockType | null>(null);
+  const [configExerciseId, setConfigExerciseId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [newWorkoutName, setNewWorkoutName] = useState("Neues Workout");
-  const [newWorkoutItems, setNewWorkoutItems] = useState<BuilderItem[]>([]);
-  const [creatingWorkout, setCreatingWorkout] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
   const [activeDayIndex, setActiveDayIndex] = useState(0);
 
-  const workoutList = workouts ?? [];
   const exLibrary = exerciseLibrary ?? [];
+  const activeDay = days[activeDayIndex] ?? null;
+  const configExercise = activeDay?.exercises.find((e) => e.id === configExerciseId) ?? null;
 
   useEffect(() => {
     if (!isEditing || !existingPlan || initialized) return;
@@ -72,124 +85,118 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
     setDays(
       existingPlan.days.map((d) => ({
         id: d.id,
-        workoutId: d.isRestDay ? null : d.workout?.id ?? null,
-        workoutName: d.isRestDay ? undefined : d.workout?.name,
+        name: d.name,
+        enabledBlocks: d.enabledBlocks,
+        exercises: d.exercises.map((e) => ({
+          id: e.id,
+          blockType: e.blockType,
+          catalogExerciseId: e.catalogExerciseId ?? undefined,
+          name: e.name,
+          category: "strength" as const,
+          group: e.note?.split(" · ")[0] ?? "",
+          equip: e.note?.split(" · ")[1] ?? "",
+          userId: null,
+          metric: e.metric,
+          setMode: "uniform" as const,
+          setRows: e.sets.map((s) => ({
+            reps: s.reps,
+            kg: s.kg,
+            ...(s.durationSec != null ? { durationSec: s.durationSec } : {}),
+            ...(s.distanceM != null ? { distanceM: s.distanceM } : {}),
+            ...(s.warmUp ? { warmUp: true } : {}),
+          })),
+        })),
       })),
     );
     setInitialized(true);
   }, [isEditing, existingPlan, initialized]);
 
-  const openSheet = () => {
-    setSheetMode("pick");
-    setCreateError(null);
-    setSheetOpen(true);
+  useEffect(() => {
+    if (isEditing || days.length > 0 || !initialized) return;
+    setDays([createEmptyDay(0)]);
+  }, [isEditing, days.length, initialized]);
+
+  const updateActiveDay = (updater: (day: BuilderDay) => BuilderDay) => {
+    setDays((prev) =>
+      prev.map((day, index) => (index === activeDayIndex ? updater(day) : day)),
+    );
   };
 
-  const closeSheet = () => {
-    setSheetOpen(false);
-    setSheetMode("pick");
-    setExercisePickerOpen(false);
-    setNewWorkoutName("Neues Workout");
-    setNewWorkoutItems([]);
-    setCreateError(null);
-  };
-
-  const startCreateMode = () => {
-    setSheetMode("create");
-    setCreateError(null);
-    setNewWorkoutName("Neues Workout");
-    setNewWorkoutItems([]);
-  };
-
-  const addRestDay = () => {
+  const addDay = () => {
     setDays((prev) => {
-      const next = [...prev, { id: crypto.randomUUID(), workoutId: null }];
+      const next = [...prev, createEmptyDay(prev.length)];
       setActiveDayIndex(next.length - 1);
       return next;
     });
-    closeSheet();
   };
 
-  const addWorkoutDay = (workout: LibraryWorkout) => {
-    setDays((prev) => {
-      const next = [
-        ...prev,
-        { id: crypto.randomUUID(), workoutId: workout.id, workoutName: workout.name },
-      ];
-      setActiveDayIndex(next.length - 1);
-      return next;
-    });
-    closeSheet();
+  const openExercisePicker = (block: TrainingBlockType) => {
+    setPickerTargetBlock(block);
+    setExercisePickerOpen(true);
   };
 
   const addExercise = (ex: LibraryExercise) => {
-    setNewWorkoutItems((items) => [
-      ...items,
-      {
-        id: crypto.randomUUID(),
-        catalogExerciseId: ex.id,
-        name: ex.name,
-        category: ex.category,
-        group: ex.group,
-        equip: ex.equip,
-        userId: ex.userId,
-        metric: ex.metric,
-        youtubeUrl: ex.youtubeUrl,
-        setMode: "uniform" as const,
-        setRows: buildUniformTemplateSets(
-          preferences.defaultSets,
-          defaultSetValue(ex.metric, preferences.defaultReps),
-          0,
-          ex.metric,
-        ),
-      },
-    ]);
+    const block = pickerTargetBlock ?? "strength";
+    updateActiveDay((day) => ({
+      ...day,
+      exercises: [
+        ...day.exercises,
+        {
+          id: crypto.randomUUID(),
+          blockType: block,
+          catalogExerciseId: ex.id,
+          name: ex.name,
+          category: ex.category,
+          group: ex.group,
+          equip: ex.equip,
+          userId: ex.userId,
+          metric: ex.metric,
+          youtubeUrl: ex.youtubeUrl,
+          setMode: "uniform" as const,
+          setRows: buildUniformTemplateSets(
+            preferences.defaultSets,
+            defaultSetValue(ex.metric, preferences.defaultReps),
+            0,
+            ex.metric,
+          ),
+        },
+      ],
+    }));
     setExercisePickerOpen(false);
+    setPickerTargetBlock(null);
   };
 
   const updateExerciseSets = (id: string, setMode: SetMode, setRows: TemplateSet[]) => {
-    setNewWorkoutItems((items) => items.map((x) => (x.id === id ? { ...x, setMode, setRows } : x)));
+    updateActiveDay((day) => ({
+      ...day,
+      exercises: day.exercises.map((x) => (x.id === id ? { ...x, setMode, setRows } : x)),
+    }));
   };
 
   const removeExercise = (id: string) => {
-    setNewWorkoutItems((items) => items.filter((x) => x.id !== id));
+    updateActiveDay((day) => ({
+      ...day,
+      exercises: day.exercises.filter((x) => x.id !== id),
+    }));
+    if (configExerciseId === id) setConfigExerciseId(null);
   };
 
-  const totalNewSets = countTemplateSets(newWorkoutItems);
-  const canCreateWorkout = newWorkoutName.trim().length > 0 && newWorkoutItems.length > 0;
+  const removeBlock = (block: TrainingBlockType) => {
+    updateActiveDay((day) => ({
+      ...day,
+      enabledBlocks: day.enabledBlocks.filter((b) => b !== block),
+      exercises: day.exercises.filter((e) => e.blockType !== block),
+    }));
+    setRemoveBlockConfirm(null);
+  };
 
-  const handleCreateWorkout = async () => {
-    if (!user || !canCreateWorkout) return;
-    setCreatingWorkout(true);
-    setCreateError(null);
-    try {
-      const workoutName = newWorkoutName.trim() || "Neues Workout";
-      const durationMin = Math.max(20, Math.round(totalNewSets * 3));
-      const workoutId = await createWorkout(user.id, {
-        name: workoutName,
-        sub: "Custom",
-        tags: ["Custom"],
-        durationMin,
-        exercises: newWorkoutItems.map((x) => ({
-          name: x.name,
-          note: `${x.group} · ${x.equip}`,
-          catalogExerciseId: x.catalogExerciseId ?? null,
-          metric: x.metric,
-          sets: x.setRows.map((s, index) => serializeTemplateSet(s, index, { done: false })),
-        })),
-      });
-      setDays((prev) => {
-        const next = [...prev, { id: crypto.randomUUID(), workoutId, workoutName }];
-        setActiveDayIndex(next.length - 1);
-        return next;
-      });
-      reloadWorkouts();
-      closeSheet();
-    } catch (e) {
-      setCreateError(e instanceof Error ? e.message : "Workout erstellen fehlgeschlagen");
-    } finally {
-      setCreatingWorkout(false);
-    }
+  const restoreBlock = (block: TrainingBlockType) => {
+    updateActiveDay((day) => ({
+      ...day,
+      enabledBlocks: [...day.enabledBlocks, block].sort(
+        (a, b) => DEFAULT_ENABLED_BLOCKS.indexOf(a) - DEFAULT_ENABLED_BLOCKS.indexOf(b),
+      ),
+    }));
   };
 
   const removeDay = (id: string) => {
@@ -212,16 +219,24 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
     setSaving(true);
     setError(null);
     try {
-      const workoutDays = days.filter((d) => d.workoutId).length;
-      const sub =
-        workoutDays > 0
-          ? `${workoutDays} Workout${workoutDays === 1 ? "" : "s"} · ${days.length} Tage`
-          : `${days.length} Tage`;
+      const totalExercises = days.reduce((sum, d) => sum + d.exercises.length, 0);
+      const sub = `${days.length} Tag${days.length === 1 ? "" : "e"} · ${totalExercises} Übung${totalExercises === 1 ? "" : "en"}`;
 
       const payload = {
         name: name.trim() || "Neuer Trainingsplan",
         sub,
-        days: days.map((d) => ({ workoutId: d.workoutId })),
+        days: days.map((d, i) => ({
+          name: d.name.trim() || `Tag ${i + 1}`,
+          enabledBlocks: d.enabledBlocks,
+          exercises: d.exercises.map((x) => ({
+            name: x.name,
+            note: `${x.group} · ${x.equip}`,
+            blockType: x.blockType,
+            catalogExerciseId: x.catalogExerciseId ?? null,
+            metric: x.metric,
+            sets: x.setRows.map((s, index) => serializeTemplateSet(s, index, { done: false })),
+          })),
+        })),
       };
 
       if (isEditing && planId) {
@@ -332,7 +347,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
             }}
           >
             <MButton
-              onClick={openSheet}
+              onClick={addDay}
               variant="ghost"
               size="md"
               style={{
@@ -354,47 +369,65 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
               onIndexChange={setActiveDayIndex}
               ariaLabel="Plan-Tage bearbeiten"
             >
-              {days.map((day, index) => {
-                const workout = day.workoutId ? workoutList.find((w) => w.id === day.workoutId) ?? null : null;
-                return (
-                  <div
-                    key={day.id}
-                    style={{
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                      minHeight: 0,
-                      padding: "0 0 4px",
-                      boxSizing: "border-box",
-                    }}
-                  >
-                    <PlanDaySlide
-                      dayNumber={index + 1}
-                      label={day.workoutId ? day.workoutName ?? "Workout" : "Ruhetag"}
-                      isRestDay={!day.workoutId}
-                      isActive={activeDayIndex === index}
-                      workout={workout}
-                      variant="builder"
-                      actions={
-                        <MButton
-                          type="button"
-                          onClick={() => removeDay(day.id)}
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Tag entfernen"
-                          style={{ color: M.mut2 }}
-                        >
-                          <Icon name="trash" size={16} stroke={2} />
-                        </MButton>
-                      }
-                    />
-                  </div>
-                );
-              })}
+              {days.map((day, index) => (
+                <div
+                  key={day.id}
+                  style={{
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    minHeight: 0,
+                    padding: "0 0 4px",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <PlanDaySlide
+                    dayNumber={index + 1}
+                    label={planDayDisplayName({ name: day.name, position: index })}
+                    isCurrent={false}
+                    isActive={activeDayIndex === index}
+                    enabledBlocks={day.enabledBlocks}
+                    exercises={day.exercises.map((e) => ({
+                      id: e.id,
+                      name: e.name,
+                      note: `${e.group} · ${e.equip}`,
+                      blockType: e.blockType,
+                      metric: e.metric,
+                      sets: e.setRows.map((s) => ({ ...s, done: false })),
+                    }))}
+                    variant="builder"
+                    builderMode
+                    editableName
+                    nameValue={day.name}
+                    onNameChange={(value) =>
+                      setDays((prev) =>
+                        prev.map((d, i) => (i === index ? { ...d, name: value } : d)),
+                      )
+                    }
+                    onExerciseClick={(exerciseId) => setConfigExerciseId(exerciseId)}
+                    onAddExerciseToBlock={(block) => openExercisePicker(block)}
+                    onRemoveBlock={(block) => setRemoveBlockConfirm(block)}
+                    disabledBlocks={disabledBlocks(DEFAULT_ENABLED_BLOCKS, day.enabledBlocks)}
+                    onRestoreBlock={(block) => restoreBlock(block)}
+                    actions={
+                      <MButton
+                        type="button"
+                        onClick={() => removeDay(day.id)}
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Tag entfernen"
+                        style={{ color: M.mut2 }}
+                      >
+                        <Icon name="trash" size={16} stroke={2} />
+                      </MButton>
+                    }
+                  />
+                </div>
+              ))}
             </HorizontalSlidePager>
 
             <MButton
-              onClick={openSheet}
+              onClick={addDay}
               variant="ghost"
               size="md"
               fullWidth
@@ -413,276 +446,64 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
         )}
       </div>
 
+      <ExercisePickerSheet
+        open={exercisePickerOpen}
+        onClose={() => {
+          setExercisePickerOpen(false);
+          setPickerTargetBlock(null);
+        }}
+        onSelect={addExercise}
+        library={exLibrary}
+        loading={exercisesLoading}
+        allowCreate
+        onLibraryChange={() => reloadExercises()}
+      />
+
+      <ConfirmSheet
+        open={removeBlockConfirm != null}
+        title="Baustein entfernen?"
+        message={
+          removeBlockConfirm
+            ? `„${BLOCK_LABELS[removeBlockConfirm]}“ wird dauerhaft aus diesem Tag entfernt — inklusive aller Übungen darin.`
+            : ""
+        }
+        confirmLabel="Entfernen"
+        onConfirm={() => removeBlockConfirm && removeBlock(removeBlockConfirm)}
+        onCancel={() => setRemoveBlockConfirm(null)}
+      />
+
       <BottomSheet
-        open={sheetOpen}
-        onClose={closeSheet}
+        open={Boolean(configExercise)}
+        onClose={() => setConfigExerciseId(null)}
         position="absolute"
-        zIndex={20}
-        aria-label={sheetMode === "pick" ? "Tag hinzufügen" : "Neues Workout erstellen"}
+        zIndex={21}
+        aria-label="Übung konfigurieren"
       >
-        {sheetMode === "pick" ? (
-              <>
-                <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 22, marginBottom: 12 }}>Tag hinzufügen</div>
-
-                <button
-                  onClick={startCreateMode}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "12px 12px",
-                    borderRadius: 12,
-                    border: "1.5px dashed " + M.line,
-                    background: "transparent",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    marginBottom: 12,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: 9,
-                      background: M.brandSoft,
-                      color: M.brand,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flex: "0 0 auto",
-                    }}
-                  >
-                    <Icon name="plus" size={18} stroke={2.6} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: M.brand, fontWeight: 700, fontSize: 15 }}>Neues Workout erstellen</div>
-                    <div style={{ color: M.mut, fontSize: 12 }}>Name + Übungen direkt anlegen</div>
-                  </div>
-                  <Icon name="chevR" size={20} color={M.brand} stroke={2.4} />
-                </button>
-
-                <button
-                  onClick={addRestDay}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "12px 12px",
-                    borderRadius: 12,
-                    border: "none",
-                    background: M.card,
-                    cursor: "pointer",
-                    textAlign: "left",
-                    marginBottom: 12,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: 9,
-                      background: M.panel,
-                      color: M.mut,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flex: "0 0 auto",
-                    }}
-                  >
-                    <Icon name="pause" size={18} stroke={2} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: M.fg, fontWeight: 600, fontSize: 15 }}>Ruhetag</div>
-                    <div style={{ color: M.mut, fontSize: 12 }}>Kein Workout an diesem Tag</div>
-                  </div>
-                  <Icon name="plus" size={20} color={M.brand} stroke={2.4} />
-                </button>
-
-                {loading && <div style={{ color: M.mut, fontSize: 14, marginBottom: 12 }}>Workouts laden…</div>}
-                <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-                  {workoutList.map((workout) => (
-                    <button
-                      key={workout.id}
-                      onClick={() => addWorkoutDay(workout)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        padding: "12px 12px",
-                        borderRadius: 12,
-                        border: "none",
-                        background: M.card,
-                        cursor: "pointer",
-                        textAlign: "left",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 34,
-                          height: 34,
-                          borderRadius: 9,
-                          background: M.brandSoft,
-                          color: M.brand,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flex: "0 0 auto",
-                        }}
-                      >
-                        <Icon name="dumbbell" size={18} stroke={2} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: M.fg, fontWeight: 600, fontSize: 15 }}>{workout.name}</div>
-                        <div style={{ color: M.mut, fontSize: 12 }}>
-                          {workout.exercises.length} Übungen · ~{workout.dur} Min
-                        </div>
-                      </div>
-                      <Icon name="plus" size={20} color={M.brand} stroke={2.4} />
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 12,
-                  }}
-                >
-                  <MButton
-                    onClick={() => {
-                      setSheetMode("pick");
-                      setCreateError(null);
-                      setExercisePickerOpen(false);
-                    }}
-                    variant="ghost"
-                    size="sm"
-                    style={{ padding: 0, color: M.mut }}
-                  >
-                    <Icon name="chevL" size={16} stroke={2.2} />
-                    Zurück
-                  </MButton>
-                  <MButton
-                    disabled={creatingWorkout || !canCreateWorkout}
-                    onClick={handleCreateWorkout}
-                    variant="ghost"
-                    size="sm"
-                    loading={creatingWorkout}
-                    style={{ fontFamily: M.disp, color: M.fg, letterSpacing: 0.4 }}
-                  >
-                    Speichern
-                  </MButton>
-                </div>
-
-                {createError && (
-                  <div style={{ color: "#ff8a8a", fontSize: 13, marginBottom: 10 }}>{createError}</div>
-                )}
-
-                <input
-                  value={newWorkoutName}
-                  onChange={(e) => setNewWorkoutName(e.target.value)}
-                  placeholder="Workout-Name"
-                  style={{
-                    width: "100%",
-                    fontFamily: M.disp,
-                    fontWeight: 700,
-                    fontSize: 24,
-                    lineHeight: 1,
-                    background: "transparent",
-                    border: "none",
-                    color: M.fg,
-                    outline: "none",
-                    padding: 0,
-                    marginBottom: 12,
-                  }}
-                />
-
-                <div style={{ fontSize: 11, letterSpacing: 1.4, color: M.mut, fontWeight: 700, marginBottom: 10 }}>
-                  {newWorkoutItems.length} ÜBUNGEN · {totalNewSets} SÄTZE
-                </div>
-
-                <div style={{ overflowY: "auto", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-                  {newWorkoutItems.map((x) => (
-                    <div
-                      key={x.id + x.name}
-                      style={{
-                        background: M.card,
-                        border: "1px solid " + M.line2,
-                        borderRadius: 14,
-                        padding: "11px 12px",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontWeight: 600,
-                              fontSize: 14.5,
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {x.name}
-                          </div>
-                          <div style={{ fontSize: 11.5, color: M.mut, marginTop: 1 }}>
-                            {x.group} · {x.equip}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => removeExercise(x.id)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            color: M.mut2,
-                            display: "flex",
-                            padding: 2,
-                          }}
-                        >
-                          <Icon name="trash" size={16} stroke={2} />
-                        </button>
-                      </div>
-                      <ExerciseSetConfigurator
-                        variant="template"
-                        setMode={x.setMode}
-                        sets={x.setRows}
-                        metric={x.metric}
-                        onChange={(setMode, setRows) => updateExerciseSets(x.id, setMode, setRows as TemplateSet[])}
-                        compact
-                      />
-                    </div>
-                  ))}
-
-                  <MButton
-                    onClick={() => setExercisePickerOpen(true)}
-                    variant="ghost"
-                    size="sm"
-                    fullWidth
-                    style={{
-                      border: "1.5px dashed " + M.line,
-                      color: M.fg,
-                      fontFamily: M.disp,
-                      letterSpacing: 0.4,
-                    }}
-                  >
-                    <Icon name="plus" size={14} stroke={2.6} /> Übung hinzufügen
-                  </MButton>
-                </div>
-
-                <ExercisePickerSheet
-                  open={exercisePickerOpen}
-                  onClose={() => setExercisePickerOpen(false)}
-                  onSelect={addExercise}
-                  library={exLibrary}
-                  loading={exercisesLoading}
-                  allowCreate
-                  onLibraryChange={() => reloadExercises()}
-                />
-              </>
+        {configExercise && (
+          <>
+            <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 22, marginBottom: 4 }}>{configExercise.name}</div>
+            <div style={{ color: M.mut, fontSize: 12, marginBottom: 12 }}>
+              {configExercise.group} · {configExercise.equip} · {formatSetSummary(configExercise.setRows, configExercise.metric)}
+            </div>
+            <ExerciseSetConfigurator
+              variant="template"
+              setMode={configExercise.setMode}
+              sets={configExercise.setRows}
+              metric={configExercise.metric}
+              onChange={(setMode, setRows) =>
+                updateExerciseSets(configExercise.id, setMode, setRows as TemplateSet[])
+              }
+            />
+            <MButton
+              onClick={() => removeExercise(configExercise.id)}
+              variant="ghost"
+              size="sm"
+              fullWidth
+              style={{ marginTop: 16, color: "#ff8a8a" }}
+            >
+              Übung entfernen
+            </MButton>
+          </>
         )}
       </BottomSheet>
     </div>

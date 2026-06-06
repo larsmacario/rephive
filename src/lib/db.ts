@@ -5,15 +5,17 @@ import type { Tables, Json } from "./database.types";
 import { type WorkoutSet } from "./engine";
 import type {
   LibraryExercise,
-  LibraryWorkout,
   HistoryEntry,
   LibraryPlan,
   PlanDay,
+  PlanDayExercise,
+  PlanDayForTracking,
   PlanSummary,
   PlanSummaryAdvice,
   PlanSummaryNutrition,
   SessionExercise,
 } from "../data";
+import { planDayDisplayName } from "../data";
 import type { AnamnesisData } from "./preferences";
 import { hasAiConsent, mergePreferences, normalizeStressLevel } from "./preferences";
 import { activityFactor, ageFromBirthDate } from "./nutrition";
@@ -30,16 +32,21 @@ export function sanitizeAiWorkoutName(name: string): string {
 }
 import { parseExerciseMetric } from "./exerciseCatalog";
 import type { ExerciseMetric } from "./exerciseCatalog";
+import {
+  assignBlockPositions,
+  isTrainingBlockType,
+  normalizeEnabledBlocks,
+  sortPlanDayExerciseRows,
+  type TrainingBlockType,
+} from "./planBlocks";
 import { useAuth } from "./auth";
 
-type DbWorkout = Tables<"workouts">;
-type DbWorkoutExercise = Tables<"workout_exercises">;
 type DbSession = Tables<"sessions">;
 type DbPlan = Tables<"plans">;
 type DbSessionExercise = Tables<"session_exercises">;
 type DbBodyMeasurement = Tables<"body_measurements">;
-
 type DbPlanDay = Tables<"plan_days">;
+type DbPlanDayExercise = Tables<"plan_day_exercises">;
 
 interface StoredSet {
   reps: number;
@@ -96,6 +103,7 @@ function mapSessionExerciseRow(e: DbSessionExercise): SessionExercise {
     id: e.id,
     name: e.name,
     note: e.note ?? undefined,
+    blockType: e.block_type && isTrainingBlockType(e.block_type) ? e.block_type : undefined,
     supersetId: e.superset_id ?? undefined,
     metric: parseExerciseMetric(e.metric_type),
     sets: parseSessionSets(e.sets),
@@ -105,33 +113,43 @@ function mapSessionExerciseRow(e: DbSessionExercise): SessionExercise {
 export interface SessionExerciseInput {
   name: string;
   note?: string;
+  blockType?: TrainingBlockType;
   supersetId?: string;
   metric?: ExerciseMetric;
   sets: WorkoutSet[];
 }
 
-function mapWorkoutRow(w: DbWorkout, exercises: DbWorkoutExercise[]): LibraryWorkout {
+function mapPlanDayExerciseRow(e: DbPlanDayExercise): PlanDayExercise {
   return {
-    id: w.id,
-    name: w.name,
-    sub: w.sub,
-    tags: w.tags,
-    dur: w.duration_min,
-    userId: w.user_id,
-    exercises: exercises
-      .sort((a, b) => a.position - b.position)
-      .map((e) => ({
-        id: e.id,
-        name: e.name,
-        note: e.note ?? undefined,
-        supersetId: e.superset_id ?? undefined,
-        catalogExerciseId: e.catalog_exercise_id ?? undefined,
-        metric: parseExerciseMetric(e.metric_type),
-        sets: parseSets(e.sets).map((s) => ({ ...s, done: false } satisfies WorkoutSet)),
-      })),
+    id: e.id,
+    name: e.name,
+    note: e.note ?? undefined,
+    blockType: isTrainingBlockType(e.block_type) ? e.block_type : "strength",
+    supersetId: e.superset_id ?? undefined,
+    catalogExerciseId: e.catalog_exercise_id ?? undefined,
+    metric: parseExerciseMetric(e.metric_type),
+    sets: parseSets(e.sets).map((s) => ({ ...s, done: false } satisfies WorkoutSet)),
   };
 }
 
+function mapSessionRow(s: DbSession, exercises: SessionExercise[] = []): HistoryEntry {
+  const { day, date } = formatSessionDate(s.performed_at);
+  return {
+    id: s.id,
+    day,
+    date,
+    performedAt: s.performed_at,
+    name: s.name,
+    tags: s.tags,
+    dur: s.duration_min,
+    vol: Number(s.volume_kg) / 1000,
+    sets: s.set_count,
+    pr: s.is_pr,
+    planDayId: s.plan_day_id,
+    skippedBlocks: (s.skipped_blocks ?? []).filter(isTrainingBlockType),
+    exercises,
+  };
+}
 function formatSessionDate(iso: string): { day: string; date: string } {
   const d = new Date(iso);
   const now = new Date();
@@ -150,39 +168,40 @@ function formatSessionDate(iso: string): { day: string; date: string } {
   return { day, date };
 }
 
-function mapSessionRow(s: DbSession, exercises: SessionExercise[] = []): HistoryEntry {
-  const { day, date } = formatSessionDate(s.performed_at);
-  return {
-    id: s.id,
-    day,
-    date,
-    performedAt: s.performed_at,
-    name: s.name,
-    tags: s.tags,
-    dur: s.duration_min,
-    vol: Number(s.volume_kg) / 1000,
-    sets: s.set_count,
-    pr: s.is_pr,
-    workoutId: s.workout_id,
-    exercises,
-  };
-}
-
-async function fetchWorkoutExercises(workoutIds: string[]): Promise<Map<string, DbWorkoutExercise[]>> {
-  if (workoutIds.length === 0) return new Map();
+async function fetchPlanDayExercises(planDayIds: string[]): Promise<Map<string, DbPlanDayExercise[]>> {
+  if (planDayIds.length === 0) return new Map();
   const { data, error } = await supabase
-    .from("workout_exercises")
+    .from("plan_day_exercises")
     .select("*")
-    .in("workout_id", workoutIds)
+    .in("plan_day_id", planDayIds)
     .order("position");
   if (error) throw error;
-  const map = new Map<string, DbWorkoutExercise[]>();
+  const map = new Map<string, DbPlanDayExercise[]>();
   for (const row of data ?? []) {
-    const list = map.get(row.workout_id) ?? [];
+    const list = map.get(row.plan_day_id) ?? [];
     list.push(row);
-    map.set(row.workout_id, list);
+    map.set(row.plan_day_id, list);
   }
   return map;
+}
+
+export async function fetchPlanDayForTracking(planDayId: string): Promise<PlanDayForTracking | null> {
+  const { data: day, error: dayError } = await supabase
+    .from("plan_days")
+    .select("id, name, position, plan_id, enabled_blocks")
+    .eq("id", planDayId)
+    .maybeSingle();
+  if (dayError) throw dayError;
+  if (!day) return null;
+  const exMap = await fetchPlanDayExercises([planDayId]);
+  const rows = exMap.get(planDayId) ?? [];
+  return {
+    id: day.id,
+    name: planDayDisplayName({ name: day.name ?? "", position: day.position }),
+    planId: day.plan_id,
+    enabledBlocks: normalizeEnabledBlocks(day.enabled_blocks),
+    exercises: sortPlanDayExerciseRows(rows).map(mapPlanDayExerciseRow),
+  };
 }
 
 export async function fetchSessionExercises(sessionIds: string[]): Promise<Map<string, DbSessionExercise[]>> {
@@ -216,23 +235,10 @@ export async function fetchSessionExercisesBatch(
   return out;
 }
 
-async function loadSessionExercises(sessionId: string, workoutId: string | null): Promise<SessionExercise[]> {
+async function loadSessionExercises(sessionId: string): Promise<SessionExercise[]> {
   const exMap = await fetchSessionExercises([sessionId]);
   const rows = exMap.get(sessionId) ?? [];
-  if (rows.length > 0) {
-    return rows.sort((a, b) => a.position - b.position).map(mapSessionExerciseRow);
-  }
-  if (!workoutId) return [];
-  const workout = await fetchWorkout(workoutId);
-  if (!workout) return [];
-  return workout.exercises.map((e) => ({
-    id: e.id,
-    name: e.name,
-    note: e.note,
-    supersetId: e.supersetId,
-    metric: e.metric,
-    sets: e.sets.map((s) => ({ ...s, done: true })),
-  }));
+  return rows.sort((a, b) => a.position - b.position).map(mapSessionExerciseRow);
 }
 
 async function replaceSessionExercises(sessionId: string, exercises: SessionExerciseInput[]): Promise<void> {
@@ -244,6 +250,7 @@ async function replaceSessionExercises(sessionId: string, exercises: SessionExer
     position: i,
     name: e.name,
     note: e.note ?? null,
+    block_type: e.blockType ?? null,
     superset_id: e.supersetId ?? null,
     metric_type: e.metric ?? "weight_reps",
     sets: e.sets as unknown as Json,
@@ -252,21 +259,6 @@ async function replaceSessionExercises(sessionId: string, exercises: SessionExer
   if (error) throw error;
 }
 
-export async function fetchWorkouts(): Promise<LibraryWorkout[]> {
-  const { data: workouts, error } = await supabase.from("workouts").select("*").order("created_at");
-  if (error) throw error;
-  const ids = (workouts ?? []).map((w) => w.id);
-  const exMap = await fetchWorkoutExercises(ids);
-  return (workouts ?? []).map((w) => mapWorkoutRow(w, exMap.get(w.id) ?? []));
-}
-
-export async function fetchWorkout(id: string): Promise<LibraryWorkout | null> {
-  const { data: workout, error } = await supabase.from("workouts").select("*").eq("id", id).maybeSingle();
-  if (error) throw error;
-  if (!workout) return null;
-  const exMap = await fetchWorkoutExercises([workout.id]);
-  return mapWorkoutRow(workout, exMap.get(workout.id) ?? []);
-}
 
 function mapExerciseRow(e: Tables<"exercises">): LibraryExercise {
   return {
@@ -366,7 +358,7 @@ export async function fetchSession(id: string): Promise<HistoryEntry | null> {
   const { data, error } = await supabase.from("sessions").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  const exercises = await loadSessionExercises(data.id, data.workout_id);
+  const exercises = await loadSessionExercises(data.id);
   return mapSessionRow(data, exercises);
 }
 
@@ -493,95 +485,15 @@ function getWeekKey(d: Date): string {
   return `${copy.getFullYear()}-W${week}`;
 }
 
-export interface CreateWorkoutInput {
-  name: string;
-  sub: string;
-  tags: string[];
-  durationMin: number;
-  exercises: {
-    name: string;
-    note?: string;
-    supersetId?: string;
-    catalogExerciseId?: string | null;
-    metric: ExerciseMetric;
-    sets: SetTemplate[];
-  }[];
-}
-
-export async function createWorkout(userId: string, input: CreateWorkoutInput): Promise<string> {
-  const { data: workout, error } = await supabase
-    .from("workouts")
-    .insert({
-      user_id: userId,
-      name: input.name,
-      sub: input.sub,
-      tags: input.tags,
-      duration_min: input.durationMin,
-    })
-    .select("id")
-    .single();
-  if (error) throw error;
-
-  const rows = input.exercises.map((e, i) => ({
-    workout_id: workout.id,
-    position: i,
-    name: e.name,
-    note: e.note ?? null,
-    superset_id: e.supersetId ?? null,
-    catalog_exercise_id: e.catalogExerciseId ?? null,
-    metric_type: e.metric,
-    sets: e.sets as unknown as Json,
-  }));
-
-  const { error: exError } = await supabase.from("workout_exercises").insert(rows);
-  if (exError) throw exError;
-
-  return workout.id;
-}
-
-export async function updateWorkout(workoutId: string, input: CreateWorkoutInput): Promise<void> {
-  const { error } = await supabase
-    .from("workouts")
-    .update({
-      name: input.name,
-      sub: input.sub,
-      tags: input.tags,
-      duration_min: input.durationMin,
-    })
-    .eq("id", workoutId);
-  if (error) throw error;
-
-  const { error: deleteError } = await supabase.from("workout_exercises").delete().eq("workout_id", workoutId);
-  if (deleteError) throw deleteError;
-
-  const rows = input.exercises.map((e, i) => ({
-    workout_id: workoutId,
-    position: i,
-    name: e.name,
-    note: e.note ?? null,
-    superset_id: e.supersetId ?? null,
-    catalog_exercise_id: e.catalogExerciseId ?? null,
-    metric_type: e.metric,
-    sets: e.sets as unknown as Json,
-  }));
-
-  const { error: exError } = await supabase.from("workout_exercises").insert(rows);
-  if (exError) throw exError;
-}
-
-export async function deleteWorkout(workoutId: string): Promise<void> {
-  const { error } = await supabase.from("workouts").delete().eq("id", workoutId);
-  if (error) throw error;
-}
-
 export interface SaveSessionInput {
-  workoutId?: string;
+  planDayId?: string;
   name: string;
   tags: string[];
   durationMin: number;
   volumeKg: number;
   setCount: number;
   isPr?: boolean;
+  skippedBlocks?: TrainingBlockType[];
   exercises?: SessionExerciseInput[];
 }
 
@@ -590,13 +502,14 @@ export async function saveSession(userId: string, input: SaveSessionInput): Prom
     .from("sessions")
     .insert({
       user_id: userId,
-      workout_id: input.workoutId ?? null,
+      plan_day_id: input.planDayId ?? null,
       name: input.name,
       tags: input.tags,
       duration_min: input.durationMin,
       volume_kg: input.volumeKg,
       set_count: input.setCount,
       is_pr: input.isPr ?? false,
+      skipped_blocks: input.skippedBlocks ?? [],
     })
     .select("id")
     .single();
@@ -604,6 +517,26 @@ export async function saveSession(userId: string, input: SaveSessionInput): Prom
   if (input.exercises?.length) {
     await replaceSessionExercises(data.id, input.exercises);
   }
+}
+
+async function insertPlanDayExercises(planDayId: string, exercises: PlanDayExerciseInput[]): Promise<void> {
+  if (exercises.length === 0) return;
+  const positioned = assignBlockPositions(
+    exercises.map((e) => ({ ...e, blockType: e.blockType ?? "strength" })),
+  );
+  const rows = positioned.map((e) => ({
+    plan_day_id: planDayId,
+    block_type: e.blockType,
+    position: e.position,
+    name: e.name,
+    note: e.note ?? null,
+    superset_id: e.supersetId ?? null,
+    catalog_exercise_id: e.catalogExerciseId ?? null,
+    metric_type: e.metric,
+    sets: e.sets as unknown as Json,
+  }));
+  const { error } = await supabase.from("plan_day_exercises").insert(rows);
+  if (error) throw error;
 }
 
 async function fetchPlanDays(planIds: string[]): Promise<Map<string, DbPlanDay[]>> {
@@ -619,24 +552,6 @@ async function fetchPlanDays(planIds: string[]): Promise<Map<string, DbPlanDay[]
     const list = map.get(row.plan_id) ?? [];
     list.push(row);
     map.set(row.plan_id, list);
-  }
-  return map;
-}
-
-async function fetchWorkoutSummaries(workoutIds: string[]): Promise<Map<string, { name: string; tags: string[]; dur: number; exerciseCount: number }>> {
-  if (workoutIds.length === 0) return new Map();
-  const uniqueIds = [...new Set(workoutIds)];
-  const { data: workouts, error } = await supabase.from("workouts").select("id, name, tags, duration_min").in("id", uniqueIds);
-  if (error) throw error;
-  const exMap = await fetchWorkoutExercises(uniqueIds);
-  const map = new Map<string, { name: string; tags: string[]; dur: number; exerciseCount: number }>();
-  for (const w of workouts ?? []) {
-    map.set(w.id, {
-      name: w.name,
-      tags: w.tags,
-      dur: w.duration_min,
-      exerciseCount: (exMap.get(w.id) ?? []).length,
-    });
   }
   return map;
 }
@@ -774,7 +689,11 @@ function parsePlanSummary(raw: Json | null | undefined): PlanSummary | null {
   };
 }
 
-function mapPlanRow(plan: DbPlan, days: DbPlanDay[], workoutSummaries: Map<string, { name: string; tags: string[]; dur: number; exerciseCount: number }>): LibraryPlan {
+function mapPlanRow(
+  plan: DbPlan,
+  days: DbPlanDay[],
+  exercisesMap: Map<string, DbPlanDayExercise[]>,
+): LibraryPlan {
   return {
     id: plan.id,
     name: plan.name,
@@ -784,35 +703,31 @@ function mapPlanRow(plan: DbPlan, days: DbPlanDay[], workoutSummaries: Map<strin
     summary: parsePlanSummary(plan.summary),
     days: days
       .sort((a, b) => a.position - b.position)
-      .map((d): PlanDay => {
-        const summary = d.workout_id ? workoutSummaries.get(d.workout_id) : undefined;
-        return {
-          id: d.id,
-          position: d.position,
-          isRestDay: !d.workout_id,
-          note: d.note ?? undefined,
-          workout: summary && d.workout_id
-            ? {
-                id: d.workout_id,
-                name: summary.name,
-                tags: summary.tags,
-                dur: summary.dur,
-                exerciseCount: summary.exerciseCount,
-              }
-            : undefined,
-        };
-      }),
+      .map((d): PlanDay => ({
+        id: d.id,
+        position: d.position,
+        name: d.name ?? "",
+        note: d.note ?? undefined,
+        enabledBlocks: normalizeEnabledBlocks(d.enabled_blocks),
+        exercises: sortPlanDayExerciseRows(exercisesMap.get(d.id) ?? []).map(mapPlanDayExerciseRow),
+      })),
   };
+}
+
+async function loadPlansWithDays(planRows: DbPlan[]): Promise<LibraryPlan[]> {
+  const ids = planRows.map((p) => p.id);
+  const daysMap = await fetchPlanDays(ids);
+  const dayIds = Array.from(daysMap.values())
+    .flat()
+    .map((d) => d.id);
+  const exercisesMap = await fetchPlanDayExercises(dayIds);
+  return planRows.map((p) => mapPlanRow(p, daysMap.get(p.id) ?? [], exercisesMap));
 }
 
 export async function fetchPlans(): Promise<LibraryPlan[]> {
   const { data: plans, error } = await supabase.from("plans").select("*").order("created_at", { ascending: false });
   if (error) throw error;
-  const ids = (plans ?? []).map((p) => p.id);
-  const daysMap = await fetchPlanDays(ids);
-  const workoutIds = [...new Set((Array.from(daysMap.values()).flat().map((d) => d.workout_id).filter(Boolean) as string[]))];
-  const summaries = await fetchWorkoutSummaries(workoutIds);
-  return (plans ?? []).map((p) => mapPlanRow(p, daysMap.get(p.id) ?? [], summaries));
+  return loadPlansWithDays(plans ?? []);
 }
 
 export async function fetchActivePlan(userId: string): Promise<LibraryPlan | null> {
@@ -824,16 +739,25 @@ export async function fetchActivePlan(userId: string): Promise<LibraryPlan | nul
     .maybeSingle();
   if (error) throw error;
   if (!plan) return null;
-  const daysMap = await fetchPlanDays([plan.id]);
-  const days = daysMap.get(plan.id) ?? [];
-  const workoutIds = days.map((d) => d.workout_id).filter(Boolean) as string[];
-  const summaries = await fetchWorkoutSummaries(workoutIds);
-  return mapPlanRow(plan, days, summaries);
+  const loaded = await loadPlansWithDays([plan]);
+  return loaded[0] ?? null;
+}
+
+export interface PlanDayExerciseInput {
+  name: string;
+  note?: string;
+  blockType?: TrainingBlockType;
+  supersetId?: string;
+  catalogExerciseId?: string | null;
+  metric: ExerciseMetric;
+  sets: SetTemplate[];
 }
 
 export interface CreatePlanDayInput {
-  workoutId?: string | null;
+  name?: string;
   note?: string;
+  enabledBlocks?: TrainingBlockType[];
+  exercises: PlanDayExerciseInput[];
 }
 
 export interface CreatePlanInput {
@@ -849,8 +773,17 @@ async function deactivateAllPlans(userId: string): Promise<void> {
   if (error) throw error;
 }
 
+function validatePlanDays(days: CreatePlanDayInput[]): void {
+  if (days.length === 0) throw new Error("Ein Plan braucht mindestens einen Tag.");
+  for (let i = 0; i < days.length; i++) {
+    if (days[i].exercises.length === 0) {
+      throw new Error(`Tag ${i + 1} braucht mindestens eine Übung.`);
+    }
+  }
+}
+
 export async function createPlan(userId: string, input: CreatePlanInput): Promise<string> {
-  if (input.days.length === 0) throw new Error("Ein Plan braucht mindestens einen Tag.");
+  validatePlanDays(input.days);
 
   if (input.activate) {
     await deactivateAllPlans(userId);
@@ -870,15 +803,25 @@ export async function createPlan(userId: string, input: CreatePlanInput): Promis
     .single();
   if (error) throw error;
 
-  const rows = input.days.map((d, i) => ({
+  const dayRows = input.days.map((d, i) => ({
     plan_id: plan.id,
     position: i,
-    workout_id: d.workoutId ?? null,
+    name: d.name?.trim() || `Tag ${i + 1}`,
     note: d.note ?? null,
+    enabled_blocks: d.enabledBlocks ?? normalizeEnabledBlocks(undefined),
   }));
 
-  const { error: daysError } = await supabase.from("plan_days").insert(rows);
+  const { data: insertedDays, error: daysError } = await supabase
+    .from("plan_days")
+    .insert(dayRows)
+    .select("id, position");
   if (daysError) throw daysError;
+
+  for (const inserted of insertedDays ?? []) {
+    const dayInput = input.days[inserted.position];
+    if (!dayInput) continue;
+    await insertPlanDayExercises(inserted.id, dayInput.exercises);
+  }
 
   return plan.id;
 }
@@ -893,15 +836,12 @@ export async function fetchPlan(planId: string): Promise<LibraryPlan | null> {
   const { data: plan, error } = await supabase.from("plans").select("*").eq("id", planId).maybeSingle();
   if (error) throw error;
   if (!plan) return null;
-  const daysMap = await fetchPlanDays([plan.id]);
-  const days = daysMap.get(plan.id) ?? [];
-  const workoutIds = days.map((d) => d.workout_id).filter(Boolean) as string[];
-  const summaries = await fetchWorkoutSummaries(workoutIds);
-  return mapPlanRow(plan, days, summaries);
+  const loaded = await loadPlansWithDays([plan]);
+  return loaded[0] ?? null;
 }
 
 export async function updatePlan(planId: string, input: UpdatePlanInput): Promise<void> {
-  if (input.days.length === 0) throw new Error("Ein Plan braucht mindestens einen Tag.");
+  validatePlanDays(input.days);
 
   const { data: plan, error: fetchError } = await supabase.from("plans").select("current_day").eq("id", planId).single();
   if (fetchError) throw fetchError;
@@ -921,15 +861,25 @@ export async function updatePlan(planId: string, input: UpdatePlanInput): Promis
   const { error: deleteError } = await supabase.from("plan_days").delete().eq("plan_id", planId);
   if (deleteError) throw deleteError;
 
-  const rows = input.days.map((d, i) => ({
+  const dayRows = input.days.map((d, i) => ({
     plan_id: planId,
     position: i,
-    workout_id: d.workoutId ?? null,
+    name: d.name?.trim() || `Tag ${i + 1}`,
     note: d.note ?? null,
+    enabled_blocks: d.enabledBlocks ?? normalizeEnabledBlocks(undefined),
   }));
 
-  const { error: daysError } = await supabase.from("plan_days").insert(rows);
+  const { data: insertedDays, error: daysError } = await supabase
+    .from("plan_days")
+    .insert(dayRows)
+    .select("id, position");
   if (daysError) throw daysError;
+
+  for (const inserted of insertedDays ?? []) {
+    const dayInput = input.days[inserted.position];
+    if (!dayInput) continue;
+    await insertPlanDayExercises(inserted.id, dayInput.exercises);
+  }
 }
 
 export async function deletePlan(planId: string): Promise<void> {
@@ -991,15 +941,6 @@ function useAsync<T>(loader: () => Promise<T>, deps: unknown[]): { data: T | nul
   return { data, loading, error, reload };
 }
 
-export function useWorkouts() {
-  const { user } = useAuth();
-  return useAsync(fetchWorkouts, [user?.id]);
-}
-
-export function useWorkout(id: string | null) {
-  const { user } = useAuth();
-  return useAsync(async () => (id ? fetchWorkout(id) : null), [user?.id, id]);
-}
 
 export function useExercises() {
   const { user } = useAuth();
@@ -1297,26 +1238,7 @@ export function useBodyPhotos(refreshKey = 0) {
   }, [user?.id, refreshKey]);
 }
 
-const bodyPhotoUrlCache = new Map<string, { url: string; expiresAt: number }>();
-
-export async function getBodyPhotoUrl(photoPath: string): Promise<string> {
-  const cached = bodyPhotoUrlCache.get(photoPath);
-  if (cached && cached.expiresAt > Date.now()) return cached.url;
-
-  const { data, error } = await supabase.storage.from("body-photos").createSignedUrl(photoPath, 3600);
-  if (!error && data?.signedUrl) {
-    bodyPhotoUrlCache.set(photoPath, { url: data.signedUrl, expiresAt: Date.now() + 3_500_000 });
-    return data.signedUrl;
-  }
-
-  const { data: pub } = supabase.storage.from("body-photos").getPublicUrl(photoPath);
-  return pub.publicUrl;
-}
-
-/** @deprecated Use getBodyPhotoUrl — bucket may be private */
 export function getBodyPhotoPublicUrl(photoPath: string): string {
-  const cached = bodyPhotoUrlCache.get(photoPath);
-  if (cached && cached.expiresAt > Date.now()) return cached.url;
   const { data } = supabase.storage.from("body-photos").getPublicUrl(photoPath);
   return data.publicUrl;
 }
@@ -1407,7 +1329,7 @@ export async function generateAndSaveAITrainingPlan(
 ): Promise<string> {
   await assertAiTrainingPlanConsent(userId);
 
-  const { nutrition, birthDate, ...edgeInput } = input;
+  const { nutrition, ...edgeInput } = input;
   const { data, error } = await supabase.functions.invoke("generate-training-plan", {
     body: edgeInput,
     // KI-Generierung dauert oft 60–90 s; ohne explizites Timeout bricht der Client ggf. zu früh ab.
@@ -1461,43 +1383,72 @@ export async function generateAndSaveAITrainingPlan(
     throw new Error("Keine Daten von der Edge Function zurückgegeben");
   }
 
-  // Nun erstellen wir die Workouts aus den Tagen
   const planDays: CreatePlanDayInput[] = [];
 
-  for (const day of data.days) {
-    if (day.isRestDay) {
-      planDays.push({
-        workoutId: null,
-        note: day.note || "Ruhetag",
-      });
+  const mapAiExercise = (e: {
+    name: string;
+    metric?: ExerciseMetric;
+    note?: string;
+    sets?: unknown;
+  }) => ({
+    name: e.name,
+    metric: parseExerciseMetric(e.metric ?? "weight_reps"),
+    note: e.note || "",
+    sets: (() => {
+      const parsed = parseSets(e.sets);
+      const sets = parsed.length > 0 ? parsed : [{ reps: 10, kg: 0 }];
+      return sets.map((s) => ({
+        reps: s.reps ?? 0,
+        kg: s.kg ?? 0,
+        ...(s.durationSec != null ? { durationSec: Number(s.durationSec) } : {}),
+        ...(s.distanceM != null ? { distanceM: Number(s.distanceM) } : {}),
+      }));
+    })(),
+  });
+
+  for (let i = 0; i < data.days.length; i++) {
+    const day = data.days[i];
+    if (day.isRestDay) continue;
+
+    const exercises: PlanDayExerciseInput[] = [];
+    let enabledBlocks = normalizeEnabledBlocks(day.enabledBlocks);
+
+    if (Array.isArray(day.blocks) && day.blocks.length > 0) {
+      const blockTypesWithExercises: TrainingBlockType[] = [];
+      for (const block of day.blocks) {
+        if (!isTrainingBlockType(block.type) || !Array.isArray(block.exercises)) continue;
+        if (block.exercises.length > 0) blockTypesWithExercises.push(block.type);
+        for (const e of block.exercises) {
+          exercises.push({ ...mapAiExercise(e), blockType: block.type });
+        }
+      }
+      if (enabledBlocks.length === 0 && blockTypesWithExercises.length > 0) {
+        enabledBlocks = normalizeEnabledBlocks(blockTypesWithExercises);
+      }
     } else {
-      // Workout erstellen
-      const workoutId = await createWorkout(userId, {
-        name: sanitizeAiWorkoutName(day.workout.name),
-        sub: day.workout.sub || "",
-        tags: day.workout.tags || [],
-        durationMin: day.workout.durationMin || 45,
-        exercises: day.workout.exercises.map((e: any) => ({
-          name: e.name,
-          metric: e.metric || "weight_reps",
-          note: e.note || "",
-          sets: (() => {
-            const parsed = parseSets(e.sets);
-            const sets = parsed.length > 0 ? parsed : [{ reps: 10, kg: 0 }];
-            return sets.map((s) => ({
-              reps: s.reps ?? 0,
-              kg: 0,
-              ...(s.durationSec != null ? { durationSec: Number(s.durationSec) } : {}),
-              ...(s.distanceM != null ? { distanceM: Number(s.distanceM) } : {}),
-            }));
-          })(),
-        })),
-      });
-      planDays.push({
-        workoutId,
-        note: day.note || "",
-      });
+      const flat = day.exercises ?? day.workout?.exercises ?? [];
+      for (const e of flat) {
+        exercises.push({ ...mapAiExercise(e), blockType: "strength" });
+      }
     }
+
+    if (exercises.length === 0) continue;
+    const dayName =
+      typeof day.name === "string" && day.name.trim()
+        ? day.name.trim()
+        : day.workout?.name
+          ? sanitizeAiWorkoutName(day.workout.name)
+          : `Tag ${planDays.length + 1}`;
+    planDays.push({
+      name: dayName,
+      note: day.note || "",
+      enabledBlocks,
+      exercises: assignBlockPositions(exercises),
+    });
+  }
+
+  if (planDays.length === 0) {
+    throw new Error("Der KI-Plan enthält keine Trainingstage mit Übungen.");
   }
 
   const actLevel = activityFactor({
@@ -1511,7 +1462,7 @@ export async function generateAndSaveAITrainingPlan(
     nutrition,
     inputs: {
       gender: input.gender,
-      age: ageFromBirthDate(birthDate),
+      age: ageFromBirthDate(input.birthDate),
       heightCm: input.heightCm,
       weightKg: input.weightKg,
       fitnessGoal: input.fitnessGoal,

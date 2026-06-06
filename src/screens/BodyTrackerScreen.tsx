@@ -17,12 +17,10 @@ import {
   useBodyPhotos,
   uploadBodyPhoto,
   deleteBodyPhoto,
-  getBodyPhotoUrl,
+  getBodyPhotoPublicUrl,
   type BodyPhoto,
 } from "../lib/db";
 import { SplitImageSlider } from "../components/SplitImageSlider";
-import { BodyPhotoImage } from "../components/BodyPhotoImage";
-
 export interface BodyTrackerScreenProps {
   onBack: () => void;
 }
@@ -84,25 +82,6 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
   const [compareOrientation, setCompareOrientation] = useState<"front" | "back" | "side">("front");
   const [deletePhotoTarget, setDeletePhotoTarget] = useState<BodyPhoto | null>(null);
   const [deletePhotoBusy, setDeletePhotoBusy] = useState(false);
-  const [compareUrls, setCompareUrls] = useState<{ before: string; after: string } | null>(null);
-
-  useEffect(() => {
-    if (!selectedBeforePhoto || !selectedAfterPhoto) {
-      setCompareUrls(null);
-      return;
-    }
-    let cancelled = false;
-    void Promise.all([
-      getBodyPhotoUrl(selectedBeforePhoto.photoPath),
-      getBodyPhotoUrl(selectedAfterPhoto.photoPath),
-    ]).then(([before, after]) => {
-      if (!cancelled) setCompareUrls({ before, after });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedBeforePhoto, selectedAfterPhoto]);
-
   // Dynamic visible fields for advanced metrics
   const [visibleFields, setVisibleFields] = useState<string[]>([]);
 
@@ -1458,8 +1437,8 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                 </button>
               </div>
               <SplitImageSlider
-                beforeUrl={compareUrls?.before ?? ""}
-                afterUrl={compareUrls?.after ?? ""}
+                beforeUrl={getBodyPhotoPublicUrl(selectedBeforePhoto.photoPath)}
+                afterUrl={getBodyPhotoPublicUrl(selectedAfterPhoto.photoPath)}
                 beforeDate={formatDateDe(selectedBeforePhoto.performedAt)}
                 afterDate={formatDateDe(selectedAfterPhoto.performedAt)}
                 beforeWeight={selectedBeforePhoto.weightKg?.toFixed(1)}
@@ -1547,6 +1526,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                 return (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                     {filteredPhotos.map((p) => {
+                      const url = getBodyPhotoPublicUrl(p.photoPath);
                       const isBefore = selectedBeforePhoto?.id === p.id;
                       const isAfter = selectedAfterPhoto?.id === p.id;
 
@@ -1565,8 +1545,8 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                         >
                           {/* Image Container with Delete Button */}
                           <div style={{ position: "relative", width: "100%", paddingBottom: "133.33%" }}>
-                            <BodyPhotoImage
-                              photoPath={p.photoPath}
+                            <img
+                              src={url}
                               alt="Galerie Eintrag"
                               style={{
                                 position: "absolute",

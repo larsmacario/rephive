@@ -15,9 +15,10 @@ import { MButton } from "../components/MButton";
 
 export interface ExercisesScreenProps {
   refreshKey?: number;
+  onBack?: () => void;
 }
 
-export function ExercisesScreen({ refreshKey = 0 }: ExercisesScreenProps) {
+export function ExercisesScreen({ refreshKey = 0, onBack }: ExercisesScreenProps) {
   const { data: exercises, loading, error, reload } = useExercises();
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
@@ -81,9 +82,15 @@ export function ExercisesScreen({ refreshKey = 0 }: ExercisesScreenProps) {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          gap: 12,
         }}
       >
-        <div>
+        {onBack ? (
+          <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
+            <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
+          </MButton>
+        ) : null}
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 30, lineHeight: 1 }}>Übungen</div>
           <div style={{ fontSize: 12.5, color: M.mut, marginTop: 3, fontWeight: 600 }}>
             {loading ? "…" : `${list.length} Übungen · ${ownedCount} eigene`}

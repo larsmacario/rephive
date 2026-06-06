@@ -26,7 +26,7 @@ interface AuthContextValue {
   signUp: (
     email: string,
     password: string,
-    options?: { displayName?: string; asCoach?: boolean },
+    options?: { displayName?: string },
   ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<{ error: string | null }>;
@@ -110,33 +110,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null };
   }, []);
 
-  const signUp = useCallback(
-    async (email: string, password: string, options?: { displayName?: string; asCoach?: boolean }) => {
-      const meta: Record<string, string> = {};
-      if (options?.displayName) meta.display_name = options.displayName;
-      if (options?.asCoach) meta.app_role = "coach";
+  const signUp = useCallback(async (email: string, password: string, options?: { displayName?: string }) => {
+    const meta: Record<string, string> = {};
+    if (options?.displayName) meta.display_name = options.displayName;
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: Object.keys(meta).length > 0 ? { data: meta } : undefined,
-      });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: Object.keys(meta).length > 0 ? { data: meta } : undefined,
+    });
 
-      if (!error && data.user && options?.asCoach) {
-        await supabase
-          .from("profiles")
-          .update({
-            role: "coach",
-            coach_enabled: true,
-            preferences: { onboarded: true },
-          })
-          .eq("id", data.user.id);
-      }
-
-      return { error: error?.message ?? null };
-    },
-    [],
-  );
+    return { error: error?.message ?? null };
+  }, []);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();

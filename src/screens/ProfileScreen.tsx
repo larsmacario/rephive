@@ -5,9 +5,6 @@ import { Icon } from "../components/Icon";
 import { usePreferences } from "../lib/preferences";
 import { MButton } from "../components/MButton";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
-import { useCoachMode } from "../lib/coachMode";
-import { displayRoleLabel } from "../lib/roles";
-
 export interface ProfileScreenProps {
   onBack: () => void;
 }
@@ -71,10 +68,14 @@ function formatBirthDate(value: string | null | undefined): string {
   return `${day}.${month}.${year}`;
 }
 
+function capitalizeFirst(value: string): string {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 export function ProfileScreen({ onBack }: ProfileScreenProps) {
   const { user, profile, signOut, deleteAccount, updateDisplayName, updateBirthDate, updateEmail, changePassword } = useAuth();
   const { preferences, updatePreferences } = usePreferences();
-  const { setMode, canAccessCoach, isCoachView } = useCoachMode();
 
   const [displayName, setDisplayName] = useState(profile?.display_name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
@@ -208,7 +209,7 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
       {
         key: "role",
         label: "Rolle",
-        value: displayRoleLabel(profile?.role),
+        value: typeof profile?.role === "string" ? capitalizeFirst(profile.role) : "User",
         editable: false,
       },
     ],
@@ -541,18 +542,6 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
             AKTIONEN
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {canAccessCoach && (
-              <MButton
-                onClick={() => setMode(isCoachView ? "athlete" : "coach")}
-                variant="secondary"
-                size="sm"
-                fullWidth
-                style={{ justifyContent: "space-between", textAlign: "left" }}
-              >
-                {isCoachView ? "Zum Athleten-Modus" : "Zum Coach-Modus"}
-                <Icon name="chevR" size={14} stroke={2.1} color={M.mut} />
-              </MButton>
-            )}
             <MButton
               onClick={() => setInfo("Kauf-Wiederherstellung folgt im nächsten Schritt.")}
               variant="secondary"

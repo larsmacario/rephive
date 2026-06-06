@@ -1,19 +1,11 @@
-import { useId, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { M } from "../theme";
-import { Icon } from "./Icon";
 
 export interface PlanAdviceCollapsibleProps {
   children: ReactNode;
-  defaultExpanded?: boolean;
 }
 
-export function PlanAdviceCollapsible({
-  children,
-  defaultExpanded = false,
-}: PlanAdviceCollapsibleProps) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
-  const contentId = useId();
-
+export function PlanAdviceCollapsible({ children }: PlanAdviceCollapsibleProps) {
   return (
     <div
       style={{
@@ -24,43 +16,26 @@ export function PlanAdviceCollapsible({
         overflow: "hidden",
       }}
     >
-      <button
-        type="button"
-        onClick={() => setExpanded((prev) => !prev)}
-        aria-expanded={expanded}
-        aria-controls={contentId}
+      <div
         style={{
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "12px 14px",
-          textAlign: "left",
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          font: "inherit",
-          color: "inherit",
+          padding: "12px 14px 0",
+          fontSize: 13,
+          fontWeight: 700,
+          color: M.fg,
         }}
       >
-        <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: M.fg }}>Tipps & Hinweise</span>
-        <Icon name={expanded ? "chevD" : "chevR"} size={18} stroke={2.2} color={M.mut2} />
-      </button>
-
-      {expanded && (
-        <div
-          id={contentId}
-          style={{
-            padding: "0 16px 14px",
-            borderTop: "1px solid " + M.line2,
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-          }}
-        >
-          {children}
-        </div>
-      )}
+        Tipps & Hinweise
+      </div>
+      <div
+        style={{
+          padding: "12px 16px 14px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }

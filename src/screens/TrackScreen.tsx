@@ -1,15 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { brandButtonStyle, M } from "../theme";
 import type { LibraryExercise } from "../data";
-import { fmt, fmtUp, useWorkout, type Workout } from "../lib/engine";
+import { fmt, useWorkout, type Workout } from "../lib/engine";
 
-import { setFieldHeaders, SetMetricFields } from "../components/SetMetricFields";
-import { WARMUP_COLUMN_WIDTH, WarmUpSetToggle } from "../components/WarmUpSetToggle";
 import { useExercises } from "../lib/db";
 import { usePreferences } from "../lib/preferences";
 import { useRestTimerSounds } from "../lib/useTimerSounds";
 import { contentMaxWidth, useBreakpoint } from "../lib/responsive";
 import type { ActiveWorkoutSnapshot } from "../lib/activeWorkout";
+import {
+  BLOCK_LABELS,
+  DEFAULT_ENABLED_BLOCKS,
+  filterExercisesForSession,
+  groupExercisesByBlock,
+  BLOCK_ORDER,
+  type TrainingBlockType,
+} from "../lib/planBlocks";
+import { setVolumeKg } from "../lib/exerciseCatalog";
+import { PlanBlockSection } from "../components/PlanBlockSection";
 import { Icon } from "../components/Icon";
 import { MStat } from "../components/widgets";
 import { WorkoutFinishSheet } from "../components/WorkoutFinishSheet";
@@ -19,43 +27,53 @@ import { ExerciseVideoSheet } from "../components/ExerciseVideoSheet";
 import { resolveExerciseVideoUrl } from "../lib/youtube";
 import { OneRmCalculatorSheet } from "../components/OneRmCalculatorSheet";
 import { getOneRmPrefillFromExercise } from "../lib/oneRepMax";
-import { SupersetBlock, supersetLinkButtonStyle } from "../components/SupersetBlock";
-import {
-  isLinkedWithPrevious,
-  nextInSupersetBlock,
-  segmentExercises,
-} from "../lib/superset";
+import { SupersetBlock } from "../components/SupersetBlock";
+import { isLinkedWithPrevious, nextInSupersetBlock, segmentExercises } from "../lib/superset";
 import type { Exercise } from "../lib/engine";
 import { MButton } from "../components/MButton";
 import { ConfirmSheet } from "../components/ConfirmSheet";
+import { TrackOverviewHeader } from "../components/track/TrackOverviewHeader";
+import { TrackExerciseRow } from "../components/track/TrackExerciseRow";
+import { TrackExerciseMenuSheet } from "../components/track/TrackExerciseMenuSheet";
+import { TrackExerciseDetail } from "../components/track/TrackExerciseDetail";
+import { TrackExerciseSlide } from "../components/track/TrackExerciseSlide";
+import { TrackExerciseNoteSheet } from "../components/track/TrackExerciseNoteSheet";
+import { IntervalTimerSheet } from "../components/IntervalTimerSheet";
+import type { SaveSessionInput } from "../lib/db";
 
 export interface TrackScreenProps {
   session: Workout;
   startedAt: number;
-  workoutId?: string;
+  planDayId?: string;
   tags: string[];
   planId?: string;
   onPause: (snapshot: ActiveWorkoutSnapshot) => void;
   onDiscard: () => void;
+  onSaveTimerSession: (input: SaveSessionInput) => Promise<void>;
   onFinish: (payload: {
     name: string;
     tags: string[];
     durationMin: number;
     volumeKg: number;
     setCount: number;
-    workoutId?: string;
+    planDayId?: string;
     planId?: string;
+    skippedBlocks?: TrainingBlockType[];
     exercises: {
       name: string;
       note?: string;
+      blockType?: TrainingBlockType;
       supersetId?: string;
+      metric?: import("../lib/exerciseCatalog").ExerciseMetric;
       sets: { reps: number; kg: number; done: boolean }[];
     }[];
   }) => void | Promise<void>;
 }
 
-export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPause, onDiscard, onFinish }: TrackScreenProps) {
-  const isCustom = !workoutId;
+type TrackView = "overview" | "exercise";
+
+export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPause, onDiscard, onSaveTimerSession, onFinish }: TrackScreenProps) {
+  const isCustom = !planDayId;
   const breakpoint = useBreakpoint();
   const maxW = contentMaxWidth(breakpoint);
   const { preferences, updatePreferences } = usePreferences();
@@ -65,22 +83,43 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
     autoRest: preferences.autoRest,
   });
   useRestTimerSounds(W.rest, W.restActive, preferences.timerSounds);
-  const [open, setOpen] = useState<string>(session.exercises[0]?.id || "");
+
+  const [view, setView] = useState<TrackView>("overview");
+  const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [finishing, setFinishing] = useState(false);
   const [finishSheet, setFinishSheet] = useState(false);
   const [picker, setPicker] = useState(false);
+  const [pickerTargetBlock, setPickerTargetBlock] = useState<TrainingBlockType | null>(null);
   const [historyExercise, setHistoryExercise] = useState<string | null>(null);
   const [videoExercise, setVideoExercise] = useState<{ name: string; youtubeUrl: string } | null>(null);
   const [oneRmOpen, setOneRmOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
-  const pct = W.totalSets ? Math.round((W.doneSets / W.totalSets) * 100) : 0;
+  const [menuTarget, setMenuTarget] = useState<Exercise | null>(null);
+  const [noteTarget, setNoteTarget] = useState<Exercise | null>(null);
+  const [timerSheetOpen, setTimerSheetOpen] = useState(false);
+  const [timerMounted, setTimerMounted] = useState(false);
+  const [skippedBlocks, setSkippedBlocks] = useState<TrainingBlockType[]>(session.skippedBlocks ?? []);
+
+  const enabledBlocks = session.enabledBlocks ?? DEFAULT_ENABLED_BLOCKS;
+  const useBlockLayout = Boolean(planDayId);
+  const visibleExercises = useMemo(
+    () => filterExercisesForSession(W.wo.exercises, enabledBlocks, skippedBlocks),
+    [W.wo.exercises, enabledBlocks, skippedBlocks],
+  );
+  const pagerExercises = visibleExercises;
+
+  const visibleDoneSets = visibleExercises.reduce((a, e) => a + e.sets.filter((s) => s.done).length, 0);
+  const visibleTotalSets = visibleExercises.reduce((a, e) => a + e.sets.length, 0);
+  const pct = visibleTotalSets ? Math.round((visibleDoneSets / visibleTotalSets) * 100) : 0;
   const exLibrary = library ?? [];
 
-  const oneRmPrefill = useMemo(() => {
-    const ex = W.wo.exercises.find((e) => e.id === open);
-    return getOneRmPrefillFromExercise(ex);
-  }, [W.wo.exercises, open]);
+  const activeExercise = pagerExercises[activeExerciseIndex] ?? null;
+
+  const oneRmPrefill = useMemo(
+    () => getOneRmPrefillFromExercise(activeExercise),
+    [activeExercise],
+  );
 
   useEffect(() => {
     const tick = () => setElapsedSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
@@ -89,54 +128,119 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
     return () => clearInterval(id);
   }, [startedAt]);
 
+  useEffect(() => {
+    if (activeExerciseIndex >= pagerExercises.length) {
+      setActiveExerciseIndex(Math.max(0, pagerExercises.length - 1));
+    }
+    if (view === "exercise" && pagerExercises.length === 0) {
+      setView("overview");
+    }
+  }, [pagerExercises.length, activeExerciseIndex, view]);
+
+  const openExerciseAt = (exId: string) => {
+    const idx = pagerExercises.findIndex((e) => e.id === exId);
+    if (idx < 0) return;
+    setActiveExerciseIndex(idx);
+    setView("exercise");
+  };
+
   const addExerciseFromPicker = (name: string, note?: string) => {
-    const id = W.addExercise(name, note);
+    const id = W.addExercise(name, note, undefined, undefined, pickerTargetBlock ?? undefined);
     W.addSet(id);
-    setOpen(id);
     setPicker(false);
+    setPickerTargetBlock(null);
   };
 
   const addFromLibrary = (ex: LibraryExercise) => {
-    const id = W.addExercise(ex.name, `${ex.group} · ${ex.equip}`, ex.metric, ex.id);
+    const id = W.addExercise(
+      ex.name,
+      `${ex.group} · ${ex.equip}`,
+      ex.metric,
+      ex.id,
+      pickerTargetBlock ?? undefined,
+    );
     W.addSet(id);
-    setOpen(id);
     setPicker(false);
+    setPickerTargetBlock(null);
   };
 
-  const buildFinishPayload = () => ({
-    name: W.wo.name,
-    tags: isCustom ? ["Individuell"] : tags,
-    durationMin: Math.max(1, Math.round(elapsedSec / 60)),
-    volumeKg: W.volume,
-    setCount: W.doneSets,
-    workoutId,
-    planId,
-    exercises: W.wo.exercises.map((e) => ({
-      name: e.name,
-      note: e.note,
-      supersetId: e.supersetId,
-      metric: e.metric,
-      sets: e.sets,
-    })),
-  });
+  const openExercisePicker = (block?: TrainingBlockType) => {
+    setPickerTargetBlock(block ?? null);
+    setPicker(true);
+  };
+
+  const closeExercisePicker = () => {
+    setPicker(false);
+    setPickerTargetBlock(null);
+  };
+
+  const openTimerSheet = () => {
+    setTimerMounted(true);
+    setTimerSheetOpen(true);
+  };
+
+  const toggleSkipBlock = (block: TrainingBlockType) => {
+    setSkippedBlocks((prev) =>
+      prev.includes(block) ? prev.filter((b) => b !== block) : [...prev, block],
+    );
+  };
+
+  const isBlockComplete = (exercises: Exercise[]) =>
+    exercises.length > 0 &&
+    exercises.every((ex) => ex.sets.length > 0 && ex.sets.every((s) => s.done));
+
+  const buildFinishPayload = () => {
+    const volumeInVisible = visibleExercises.reduce(
+      (a, e) =>
+        a + e.sets.filter((s) => s.done).reduce((b, s) => b + setVolumeKg(s, e.metric ?? "weight_reps"), 0),
+      0,
+    );
+    return {
+      name: W.wo.name,
+      tags: isCustom ? ["Individuell"] : tags,
+      durationMin: Math.max(1, Math.round(elapsedSec / 60)),
+      volumeKg: volumeInVisible,
+      setCount: visibleDoneSets,
+      planDayId,
+      planId,
+      skippedBlocks,
+      exercises: W.wo.exercises.map((e) => ({
+        name: e.name,
+        note: e.note,
+        blockType: e.blockType,
+        supersetId: e.supersetId,
+        metric: e.metric,
+        sets: e.sets,
+      })),
+    };
+  };
 
   const handleToggleSet = (exId: string, si: number) => {
     const ex = W.wo.exercises.find((e) => e.id === exId);
     const markingDone = ex && !ex.sets[si]?.done;
     W.toggleSet(exId, si);
     if (markingDone) {
-      const nextId = nextInSupersetBlock(W.wo.exercises, exId);
-      if (nextId) setOpen(nextId);
+      const nextId = nextInSupersetBlock(visibleExercises, exId);
+      if (nextId) {
+        const idx = pagerExercises.findIndex((e) => e.id === nextId);
+        if (idx >= 0) setActiveExerciseIndex(idx);
+      }
     }
   };
 
   const handlePause = () => {
     onPause({
-      session: JSON.parse(JSON.stringify(W.wo)) as Workout,
+      session: {
+        ...(JSON.parse(JSON.stringify(W.wo)) as Workout),
+        enabledBlocks,
+        skippedBlocks,
+      },
       startedAt,
-      workoutId,
+      planDayId,
       tags,
       planId,
+      enabledBlocks,
+      skippedBlocks,
     });
   };
 
@@ -164,11 +268,74 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
 
   const handleConfirmRemoveExercise = () => {
     if (!removeTarget) return;
-    const remaining = W.wo.exercises.filter((e) => e.id !== removeTarget.id);
+    const removedIndex = pagerExercises.findIndex((e) => e.id === removeTarget.id);
     W.removeExercise(removeTarget.id);
-    if (open === removeTarget.id) setOpen(remaining[0]?.id ?? "");
+    if (view === "exercise") {
+      const nextLength = pagerExercises.length - 1;
+      if (nextLength <= 0) {
+        setView("overview");
+      } else if (removedIndex >= 0 && removedIndex <= activeExerciseIndex) {
+        setActiveExerciseIndex(Math.max(0, activeExerciseIndex - 1));
+      }
+    }
     setRemoveTarget(null);
   };
+
+  const renderOverviewSegmentList = (exerciseList: Exercise[], indexOffset = 0) => {
+    let runningIndex = indexOffset;
+    return segmentExercises(exerciseList).map((seg) => {
+      const renderRow = (ex: Exercise) => {
+        const idx = runningIndex;
+        runningIndex += 1;
+        const done = ex.sets.filter((s) => s.done).length;
+        return (
+          <TrackExerciseRow
+            key={ex.id}
+            index={idx}
+            name={ex.name}
+            doneSets={done}
+            totalSets={ex.sets.length}
+            onOpen={() => openExerciseAt(ex.id)}
+            onOpenMenu={() => setMenuTarget(ex)}
+          />
+        );
+      };
+
+      if (seg.kind === "single") {
+        return renderRow(seg.exercise as Exercise);
+      }
+
+      return (
+        <SupersetBlock key={seg.exercises.map((e) => e.id).join("-")} showLabel={false}>
+          <div style={{ padding: "8px 0 4px", fontSize: 13, fontWeight: 600, color: M.fg }}>
+            Supersatz
+            <span style={{ color: M.mut, fontWeight: 500, marginLeft: 6 }}>
+              · {seg.exercises.length} Übungen
+            </span>
+          </div>
+          {(seg.exercises as Exercise[]).map((ex) => renderRow(ex))}
+        </SupersetBlock>
+      );
+    });
+  };
+
+  const exerciseSlides = pagerExercises.map((ex) => (
+    <TrackExerciseSlide
+      key={ex.id}
+      exercise={ex}
+      restSeconds={preferences.restSeconds}
+      onBumpSet={(si, field, delta) => W.editSet(ex.id, si, field, delta)}
+      onSetValue={(si, field, value) => W.setSetValue(ex.id, si, field, value)}
+      onToggleSet={(si) => handleToggleSet(ex.id, si)}
+      onRemoveSet={(si) => W.removeSet(ex.id, si)}
+      onAddSet={() => W.addSet(ex.id)}
+      onWarmUpChange={(enabled) => W.toggleSetWarmUp(ex.id, enabled)}
+      onOpenHistory={() => setHistoryExercise(ex.name)}
+      onOpenNotes={() => setNoteTarget(ex)}
+    />
+  ));
+
+  const menuVideoUrl = menuTarget ? resolveExerciseVideoUrl(menuTarget, exLibrary) : null;
 
   return (
     <div
@@ -183,398 +350,200 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
         position: "relative",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "2px 18px 10px" }}>
-        <MButton onClick={handlePause} variant="secondary" size="icon" aria-label="Workout pausieren">
-          <Icon name="chevL" size={18} stroke={2.2} />
-        </MButton>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 10.5, letterSpacing: 2, color: M.brand, fontWeight: 700 }}>
-            ● LÄUFT · {fmtUp(elapsedSec)}
-          </div>
-          {isCustom ? (
-            <input
-              value={W.wo.name}
-              onChange={(e) => W.setName(e.target.value)}
-              style={{
-                width: "100%",
-                fontFamily: M.disp,
-                fontWeight: 700,
-                fontSize: 22,
-                lineHeight: 1,
-                marginTop: 1,
-                background: "transparent",
-                border: "none",
-                color: M.fg,
-                outline: "none",
-                padding: 0,
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                fontFamily: M.disp,
-                fontWeight: 700,
-                fontSize: 22,
-                lineHeight: 1,
-                marginTop: 1,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {W.wo.name}
-            </div>
-          )}
-        </div>
-        <MButton
-          type="button"
-          aria-label="1RM-Rechner"
-          onClick={() => setOneRmOpen(true)}
-          variant="secondary"
-          size="icon"
-          style={{ flexShrink: 0, color: M.fg }}
-        >
-          <Icon name="calculator" size={17} stroke={2} />
-        </MButton>
-      </div>
-      <div style={{ padding: "0 18px 12px" }}>
-        <div style={{ display: "flex", gap: 10 }}>
-          <MStat label="SÄTZE" value={`${W.doneSets}/${W.totalSets}`} />
-          <MStat label="VOLUMEN" value={`${(W.volume / 1000).toFixed(1)}t`} />
-          <MStat label="FORTSCHRITT" value={`${pct}%`} />
-        </div>
-        <div
-          style={{
-            height: 5,
-            borderRadius: 3,
-            background: "rgba(255,255,255,.08)",
-            marginTop: 12,
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{ width: pct + "%", height: "100%", background: M.brand, borderRadius: 3, transition: "width .3s" }}
+      {view === "overview" ? (
+        <>
+          <TrackOverviewHeader
+            elapsedSec={elapsedSec}
+            sessionName={W.wo.name}
+            isCustom={isCustom}
+            onSessionNameChange={W.setName}
+            onPause={handlePause}
           />
-        </div>
-      </div>
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: "auto",
-          padding: "0 18px 16px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-        }}
-      >
-        {W.wo.exercises.length === 0 && (
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              textAlign: "center",
-              padding: "32px 12px",
-              color: M.mut,
-            }}
-          >
+          <div style={{ padding: "0 18px 12px" }}>
+            <div style={{ display: "flex", gap: 10 }}>
+              <MStat label="SÄTZE" value={`${visibleDoneSets}/${visibleTotalSets}`} />
+              <MStat label="VOLUMEN" value={`${(W.volume / 1000).toFixed(1)}t`} />
+              <MStat label="FORTSCHRITT" value={`${pct}%`} />
+            </div>
             <div
               style={{
-                width: 52,
-                height: 52,
-                borderRadius: 16,
-                background: M.brandSoft,
-                color: M.brand,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 14,
-              }}
-            >
-              <Icon name="dumbbell" size={26} stroke={2} />
-            </div>
-            <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 20, color: M.fg }}>Noch keine Übungen</div>
-            <div style={{ fontSize: 14, marginTop: 8, lineHeight: 1.45, maxWidth: 260 }}>
-              {isCustom
-                ? "Füge Übungen aus der Bibliothek hinzu oder tippe einen eigenen Namen ein."
-                : "Füge Übungen über das Plus-Symbol unten hinzu."}
-            </div>
-          </div>
-        )}
-        {segmentExercises(W.wo.exercises).map((seg) => {
-          const renderExerciseCard = (ex: Exercise, ei: number) => {
-          const isOpen = open === ex.id;
-          const done = ex.sets.filter((s) => s.done).length;
-          const complete = ex.sets.length > 0 && done === ex.sets.length;
-          const linked = isLinkedWithPrevious(W.wo.exercises, ex.id);
-          const videoUrl = resolveExerciseVideoUrl(ex, exLibrary);
-          return (
-            <div
-              key={ex.id}
-              style={{
-                background: M.card,
-                border: "1px solid " + (isOpen ? M.line : M.line2),
-                borderRadius: 16,
-                flexShrink: 0,
-                overflow: isOpen ? "visible" : "hidden",
+                height: 5,
+                borderRadius: 3,
+                background: "rgba(255,255,255,.08)",
+                marginTop: 12,
+                overflow: "hidden",
               }}
             >
               <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setOpen(isOpen ? "" : ex.id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setOpen(isOpen ? "" : ex.id);
-                  }
-                }}
                 style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "14px 15px",
-                  cursor: "pointer",
-                  textAlign: "left",
+                  width: pct + "%",
+                  height: "100%",
+                  background: M.brand,
+                  borderRadius: 3,
+                  transition: "width .3s",
                 }}
-              >
+              />
+            </div>
+          </div>
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: "auto",
+              WebkitOverflowScrolling: "touch",
+              overscrollBehavior: "contain",
+            }}
+          >
+            <div style={{ padding: "0 18px 16px" }}>
+              {W.wo.exercises.length === 0 && (
                 <div
                   style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 10,
-                    flex: "0 0 auto",
                     display: "flex",
+                    flexDirection: "column",
                     alignItems: "center",
-                    justifyContent: "center",
-                    background: complete ? M.brand : M.brandSoft,
-                    color: complete ? M.brandInk : M.brand,
-                    fontFamily: M.disp,
-                    fontWeight: 700,
-                    fontSize: 16,
+                    textAlign: "center",
+                    padding: "32px 12px",
+                    color: M.mut,
                   }}
                 >
-                  {complete ? <Icon name="check" size={18} stroke={2.6} /> : ei + 1}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{
-                      color: M.fg,
-                      fontWeight: 600,
-                      fontSize: 16,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                      width: 52,
+                      height: 52,
+                      borderRadius: 16,
+                      background: M.brandSoft,
+                      color: M.brand,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 14,
                     }}
                   >
-                    {ex.name}
+                    <Icon name="dumbbell" size={26} stroke={2} />
                   </div>
-                  <div style={{ color: M.mut, fontSize: 12, marginTop: 1 }}>
-                    {ex.note ? `${ex.note} · ` : ""}
-                    {done}/{ex.sets.length} Sätze
+                  <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 20, color: M.fg }}>
+                    Noch keine Übungen
+                  </div>
+                  <div style={{ fontSize: 14, marginTop: 8, lineHeight: 1.45, maxWidth: 260 }}>
+                    {isCustom
+                      ? "Tippe unten auf „Übungen hinzufügen“, um zu starten."
+                      : "Füge Übungen pro Baustein hinzu."}
                   </div>
                 </div>
-                {videoUrl && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setVideoExercise({ name: ex.name, youtubeUrl: videoUrl });
-                    }}
-                    aria-label="Video ansehen"
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      color: M.mut2,
-                      display: "flex",
-                      padding: 4,
-                      opacity: 0.85,
-                    }}
-                  >
-                    <Icon name="play" size={16} color={M.mut2} />
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setHistoryExercise(ex.name);
-                  }}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: M.mut2,
-                    display: "flex",
-                    padding: 4,
-                  }}
-                >
-                  <Icon name="history" size={16} stroke={2} />
-                </button>
-                <MButton
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setRemoveTarget({ id: ex.id, name: ex.name });
-                  }}
-                  variant="danger"
-                  size="icon"
-                  aria-label="Übung aus Session entfernen"
-                  style={{ flexShrink: 0, padding: 4, width: 32, height: 32 }}
-                >
-                  <Icon name="trash" size={16} stroke={2} color={M.mut2} />
-                </MButton>
-                <Icon name={isOpen ? "chevD" : "chevR"} size={18} color={M.mut2} stroke={2.2} />
-              </div>
-              {isOpen && (
-                <div style={{ padding: "0 15px 14px" }}>
-                  {isCustom && ei > 0 && (
-                    <div style={{ paddingBottom: 10 }}>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          linked
-                            ? W.unlinkExerciseFromSuperset(ex.id)
-                            : W.linkExerciseWithPrevious(ex.id);
-                        }}
-                        style={supersetLinkButtonStyle(linked)}
+              )}
+              {useBlockLayout ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                  {groupExercisesByBlock(
+                    visibleExercises,
+                    enabledBlocks.filter((b) => !skippedBlocks.includes(b)),
+                  ).map(({ block, exercises: blockExercises }, blockIdx, arr) => {
+                    const indexOffset = arr
+                      .slice(0, blockIdx)
+                      .reduce((sum, item) => sum + item.exercises.length, 0);
+                    return (
+                      <PlanBlockSection
+                        key={block}
+                        block={block}
+                        complete={isBlockComplete(blockExercises)}
+                        blockIndex={BLOCK_ORDER.indexOf(block) + 1}
+                        headerAction={
+                          <MButton
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleSkipBlock(block);
+                            }}
+                            style={{ color: M.mut2, fontSize: 11, padding: "4px 8px", flexShrink: 0 }}
+                          >
+                            Heute überspringen
+                          </MButton>
+                        }
                       >
-                        {linked ? "Supersatz lösen" : "Mit vorheriger verknüpfen"}
-                      </button>
-                    </div>
-                  )}
-                  <div
-                    style={{
-                      display: "flex",
-                      fontSize: 10,
-                      letterSpacing: 1.2,
-                      color: M.mut2,
-                      fontWeight: 700,
-                      padding: "4px 4px 8px",
-                    }}
-                  >
-                    {setFieldHeaders(ex.metric).map((h) => (
-                      <span
-                        key={h.key}
-                        style={{
-                          width: h.key === "set" ? 34 : undefined,
-                          flex: h.key === "set" ? undefined : 1,
-                          textAlign: h.key === "set" ? "left" : "center",
-                        }}
-                      >
-                        {h.label}
-                      </span>
-                    ))}
-                    <span style={{ width: WARMUP_COLUMN_WIDTH, textAlign: "center" }}>W-UP</span>
-                    <span style={{ width: 72 }} />
-                  </div>
-                  {ex.sets.map((s, si) => (
-                    <div
-                      key={si}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        padding: "7px 4px",
-                        borderTop: "1px solid " + M.line2,
-                      }}
+                        <div>
+                          {blockExercises.length > 0 ? (
+                            renderOverviewSegmentList(blockExercises, indexOffset)
+                          ) : (
+                            <div style={{ fontSize: 12, color: M.mut, fontWeight: 500, padding: "4px 2px 12px" }}>
+                              Noch keine Übungen
+                            </div>
+                          )}
+                          <MButton
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            fullWidth
+                            onClick={() => openExercisePicker(block)}
+                            style={{
+                              marginTop: 8,
+                              border: "1.5px dashed " + M.line,
+                              color: M.fg,
+                              fontFamily: M.disp,
+                              letterSpacing: 0.3,
+                              fontSize: 12,
+                            }}
+                          >
+                            <Icon name="plus" size={14} stroke={2.6} /> Übung hinzufügen
+                          </MButton>
+                        </div>
+                      </PlanBlockSection>
+                    );
+                  })}
+                  {skippedBlocks.map((block) => (
+                    <PlanBlockSection
+                      key={`skipped-${block}`}
+                      block={block}
+                      skipped
+                      blockIndex={BLOCK_ORDER.indexOf(block) + 1}
+                      headerAction={
+                        <MButton
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSkipBlock(block);
+                          }}
+                          style={{ color: M.mut2, fontSize: 11, padding: "4px 8px", flexShrink: 0 }}
+                        >
+                          Wieder aktivieren
+                        </MButton>
+                      }
                     >
-                      <span
-                        style={{
-                          width: 34,
-                          fontFamily: M.disp,
-                          fontWeight: 700,
-                          fontSize: 17,
-                          color: s.done ? M.brand : si === 0 && s.warmUp ? M.brand : M.mut,
-                        }}
-                      >
-                        {si === 0 && s.warmUp ? "W" : si + 1}
-                      </span>
-                      <SetMetricFields
-                        set={s}
-                        metric={ex.metric}
-                        onBump={(field, delta) => W.editSet(ex.id, si, field, delta)}
-                        onSetValue={(field, value) => W.setSetValue(ex.id, si, field, value)}
-                      />
-                      {si === 0 ? (
-                        <WarmUpSetToggle
-                          layout="compact"
-                          checked={Boolean(s.warmUp)}
-                          onChange={(enabled) => W.toggleSetWarmUp(ex.id, enabled)}
-                        />
-                      ) : (
-                        <span style={{ width: WARMUP_COLUMN_WIDTH, flexShrink: 0 }} />
-                      )}
-                      <div
-                        style={{
-                          width: 72,
-                          display: "flex",
-                          justifyContent: "flex-end",
-                          alignItems: "center",
-                          gap: 4,
-                          flexShrink: 0,
-                        }}
-                      >
-                        <MButton
-                          onClick={() => W.removeSet(ex.id, si)}
-                          variant="secondary"
-                          size="icon"
-                          aria-label="Satz entfernen"
-                          style={{ color: M.mut2 }}
-                        >
-                          <Icon name="minus" size={16} stroke={2.4} />
-                        </MButton>
-                        <MButton
-                          onClick={() => handleToggleSet(ex.id, si)}
-                          variant={s.done ? "primary" : "secondary"}
-                          size="icon"
-                          aria-label={s.done ? "Satz als offen markieren" : "Satz abschließen"}
-                          style={s.done ? undefined : { background: "transparent", color: M.mut }}
-                        >
-                          <Icon name="check" size={17} stroke={2.6} />
-                        </MButton>
+                      <div style={{ fontSize: 12, color: M.mut, fontWeight: 500 }}>
+                        Baustein für heute übersprungen
                       </div>
-                    </div>
+                    </PlanBlockSection>
                   ))}
-                  <MButton
-                    onClick={() => W.addSet(ex.id)}
-                    variant="ghost"
-                    size="sm"
-                    fullWidth
-                    style={{
-                      marginTop: 10,
-                      border: "1px dashed " + M.line,
-                      color: M.fg,
-                      fontFamily: M.disp,
-                      letterSpacing: 0.4,
-                    }}
-                  >
-                    <Icon name="plus" size={14} stroke={2.4} /> Satz hinzufügen
-                  </MButton>
                 </div>
+              ) : (
+                renderOverviewSegmentList(visibleExercises)
               )}
             </div>
-          );
-          };
+          </div>
+        </>
+      ) : (
+        <TrackExerciseDetail
+          elapsedSec={elapsedSec}
+          activeIndex={activeExerciseIndex}
+          onIndexChange={setActiveExerciseIndex}
+          onBack={() => setView("overview")}
+          onOpenOneRm={() => setOneRmOpen(true)}
+          onOpenTimer={openTimerSheet}
+          slides={exerciseSlides}
+        />
+      )}
 
-          if (seg.kind === "single") {
-            return renderExerciseCard(seg.exercise as Exercise, seg.index);
-          }
-          return (
-            <SupersetBlock key={seg.exercises.map((e) => e.id).join("-")}>
-              {(seg.exercises as Exercise[]).map((ex, i) =>
-                renderExerciseCard(ex, seg.startIndex + i),
-              )}
-            </SupersetBlock>
-          );
-        })}
-      </div>
-      <div style={{ margin: "0 18px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div
+        style={{
+          margin: "0 18px 12px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          flexShrink: 0,
+        }}
+      >
         {W.restActive ? (
           <div
             style={{
@@ -588,7 +557,14 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
             }}
           >
             <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>PAUSE</span>
-            <span style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 30, fontVariantNumeric: "tabular-nums" }}>
+            <span
+              style={{
+                fontFamily: M.disp,
+                fontWeight: 700,
+                fontSize: 30,
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
               {fmt(W.rest)}
             </span>
             <MButton
@@ -600,31 +576,40 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
               Skip
             </MButton>
           </div>
-        ) : (
-          <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
-            <MButton
-              disabled={finishing}
-              onClick={() => setFinishSheet(true)}
-              variant="secondary"
-              size="md"
-              loading={finishing}
-              style={{ flex: 1, minWidth: 0, background: M.cardHi, fontFamily: M.disp, letterSpacing: 0.6 }}
-            >
-              Workout beenden
-            </MButton>
-            <MButton
-              type="button"
-              aria-label="Übung hinzufügen"
-              onClick={() => setPicker(true)}
-              variant="secondary"
-              size="icon"
-              style={{ flexShrink: 0 }}
-            >
-              <Icon name="plus" size={18} stroke={2.4} color={M.fg} />
-            </MButton>
-          </div>
-        )}
+        ) : null}
+        {view === "overview" && isCustom ? (
+          <MButton
+            type="button"
+            variant="ghost"
+            size="md"
+            fullWidth
+            onClick={() => openExercisePicker()}
+            style={{
+              fontFamily: M.disp,
+              letterSpacing: 0.4,
+              border: "1.5px dashed " + M.line,
+              color: M.fg,
+            }}
+          >
+            <Icon name="plus" size={14} stroke={2.4} /> Übungen hinzufügen
+          </MButton>
+        ) : null}
+        {view === "overview" ? (
+          <MButton
+            type="button"
+            variant="primary"
+            size="md"
+            fullWidth
+            disabled={finishing}
+            loading={finishing}
+            onClick={() => setFinishSheet(true)}
+            style={{ fontFamily: M.disp, letterSpacing: 0.5, fontWeight: 700 }}
+          >
+            Workout beenden
+          </MButton>
+        ) : null}
       </div>
+
       <WorkoutFinishSheet
         open={finishSheet}
         name={W.wo.name}
@@ -640,11 +625,15 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
       />
       <ExercisePickerSheet
         open={picker}
-        onClose={() => setPicker(false)}
+        onClose={closeExercisePicker}
         onSelect={addFromLibrary}
         library={exLibrary}
         loading={libraryLoading}
-        title="Übung hinzufügen"
+        title={
+          pickerTargetBlock
+            ? `Übung · ${BLOCK_LABELS[pickerTargetBlock]}`
+            : "Übung hinzufügen"
+        }
         showFreeText={isCustom}
         onFreeText={(name) => addExerciseFromPicker(name)}
         allowCreate
@@ -666,7 +655,40 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
         onClose={() => setOneRmOpen(false)}
         initialWeight={oneRmPrefill.weight}
         initialReps={oneRmPrefill.reps}
-        resetKey={open}
+        resetKey={activeExercise?.id ?? ""}
+      />
+      <TrackExerciseMenuSheet
+        open={!!menuTarget}
+        exerciseName={menuTarget?.name ?? ""}
+        hasVideo={Boolean(menuVideoUrl)}
+        showSupersetAction={isCustom && Boolean(menuTarget && pagerExercises.findIndex((e) => e.id === menuTarget.id) > 0)}
+        linkedToPrevious={menuTarget ? isLinkedWithPrevious(W.wo.exercises, menuTarget.id) : false}
+        onClose={() => setMenuTarget(null)}
+        onVideo={
+          menuTarget && menuVideoUrl
+            ? () => setVideoExercise({ name: menuTarget.name, youtubeUrl: menuVideoUrl })
+            : undefined
+        }
+        onHistory={() => menuTarget && setHistoryExercise(menuTarget.name)}
+        onRemove={() => menuTarget && setRemoveTarget({ id: menuTarget.id, name: menuTarget.name })}
+        onToggleSuperset={
+          menuTarget
+            ? () => {
+                if (isLinkedWithPrevious(W.wo.exercises, menuTarget.id)) {
+                  W.unlinkExerciseFromSuperset(menuTarget.id);
+                } else {
+                  W.linkExerciseWithPrevious(menuTarget.id);
+                }
+              }
+            : undefined
+        }
+      />
+      <TrackExerciseNoteSheet
+        open={!!noteTarget}
+        exerciseName={noteTarget?.name ?? ""}
+        note={noteTarget?.note ?? ""}
+        onClose={() => setNoteTarget(null)}
+        onSave={(note) => noteTarget && W.setExerciseNote(noteTarget.id, note)}
       />
       <ConfirmSheet
         open={!!removeTarget}
@@ -681,6 +703,13 @@ export function TrackScreen({ session, startedAt, workoutId, tags, planId, onPau
         onConfirm={handleConfirmRemoveExercise}
         onCancel={() => setRemoveTarget(null)}
       />
+      {timerMounted ? (
+        <IntervalTimerSheet
+          open={timerSheetOpen}
+          onClose={() => setTimerSheetOpen(false)}
+          onSaveSession={onSaveTimerSession}
+        />
+      ) : null}
     </div>
   );
 }

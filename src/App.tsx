@@ -1,8 +1,6 @@
 import { useCallback, useState } from "react";
 import { M } from "./theme";
 import { PhoneApp } from "./PhoneApp";
-import { CoachPhoneApp } from "./CoachPhoneApp";
-import { useCoachMode } from "./lib/coachMode";
 import { useAuth } from "./lib/auth";
 import { ResponsiveProvider } from "./lib/responsive";
 import { hasSeenWelcome, markWelcomeSeen } from "./lib/welcome";
@@ -25,15 +23,6 @@ function Splash() {
       }}
     >
       <AppLogo size={96} alt="rephive" />
-    </div>
-  );
-}
-
-function MainApp() {
-  const { isCoachView } = useCoachMode();
-  return (
-    <div style={{ width: "100%", height: "100%" }}>
-      {isCoachView ? <CoachPhoneApp /> : <PhoneApp />}
     </div>
   );
 }
@@ -61,7 +50,7 @@ export function App() {
 
   return (
     <ResponsiveProvider>
-      {booting ? <Splash /> : !user ? <UnauthenticatedGate /> : <MainApp />}
+      {booting ? <Splash /> : !user ? <UnauthenticatedGate /> : <PhoneApp />}
     </ResponsiveProvider>
   );
 }

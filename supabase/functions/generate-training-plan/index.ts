@@ -77,9 +77,56 @@ async function requireAiConsent(req: Request): Promise<Response | null> {
   return null;
 }
 
+const BLOCK_TYPES = ["warmup", "skill", "strength", "metcon"] as const;
+
+const EXERCISE_ITEM_SCHEMA = {
+  type: "object",
+  properties: {
+    name: { type: "string" },
+    metric: {
+      type: "string",
+      description:
+        'Tracking-Typ: "weight_reps" für Kraftübungen; "time" für zeitbasiertes Cardio (Warm-up); "distance_time" für Distanz+Zeit (Rudergerät, Laufband)',
+    },
+    muscleGroup: { type: "string" },
+    equipment: {
+      type: "string",
+      description: 'Gerätetyp, z.B. "Langhantel", "Kabel" oder "Cardiogerät" für Ergometer/Warm-up',
+    },
+    note: {
+      type: "string",
+      description:
+        "Kraft: Sätze, Wdh. und % 1RM (z.B. 3x8 @ 75% 1RM). Cardio: Dauer/Distanz ohne % 1RM (z.B. 5 min leichtes Tempo)",
+    },
+    sets: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          reps: { type: "number", description: "Wiederholungen (Kraft) oder 0 bei Cardio" },
+          kg: {
+            type: "number",
+            description: "Immer 0 — Nutzer ermittelt kg selbst via 1RM-Rechner",
+          },
+          durationSec: {
+            type: "number",
+            description: "Dauer in Sekunden (Cardio: metric time oder distance_time)",
+          },
+          distanceM: {
+            type: "number",
+            description: "Distanz in Metern (nur metric distance_time, z.B. 500 für 500 m)",
+          },
+        },
+        required: ["reps", "kg"],
+      },
+    },
+  },
+  required: ["name", "metric", "muscleGroup", "equipment", "note", "sets"],
+};
+
 const TRAINING_PLAN_TOOL = {
   name: "create_training_plan",
-  description: "Strukturierter Trainingsplan mit Workouts, Übungen und Sätzen.",
+  description: "Strukturierter Trainingsplan mit 4 Bausteinen pro Tag (Warm-up, Skill, Kraft, MetCon).",
   input_schema: {
     type: "object",
     properties: {
@@ -90,70 +137,34 @@ const TRAINING_PLAN_TOOL = {
         items: {
           type: "object",
           properties: {
-            isRestDay: { type: "boolean" },
+            name: {
+              type: "string",
+              description: "Tag-Name (z.B. Push, Oberkörper) — ohne Ruhetage",
+            },
             note: { type: "string" },
-            workout: {
-              type: "object",
-              properties: {
-                name: {
-                  type: "string",
-                  description: "Nur beschreibender Einheitsname (z.B. Push, Oberkörper) — ohne Tag-Nummer oder Tag-Präfix",
-                },
-                sub: { type: "string" },
-                tags: { type: "array", items: { type: "string" } },
-                durationMin: { type: "number" },
-                exercises: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      name: { type: "string" },
-                      metric: {
-                        type: "string",
-                        description:
-                          'Tracking-Typ: "weight_reps" für Kraftübungen; "time" für zeitbasiertes Cardio (Warm-up); "distance_time" für Distanz+Zeit (Rudergerät, Laufband)',
-                      },
-                      muscleGroup: { type: "string" },
-                      equipment: {
-                        type: "string",
-                        description: 'Gerätetyp, z.B. "Langhantel", "Kabel" oder "Cardiogerät" für Ergometer/Warm-up',
-                      },
-                      note: {
-                        type: "string",
-                        description:
-                          "Kraft: Sätze, Wdh. und % 1RM (z.B. 3x8 @ 75% 1RM). Cardio: Dauer/Distanz ohne % 1RM (z.B. 5 min leichtes Tempo)",
-                      },
-                      sets: {
-                        type: "array",
-                        items: {
-                          type: "object",
-                          properties: {
-                            reps: { type: "number", description: "Wiederholungen (Kraft) oder 0 bei Cardio" },
-                            kg: {
-                              type: "number",
-                              description: "Immer 0 — Nutzer ermittelt kg selbst via 1RM-Rechner",
-                            },
-                            durationSec: {
-                              type: "number",
-                              description: "Dauer in Sekunden (Cardio: metric time oder distance_time)",
-                            },
-                            distanceM: {
-                              type: "number",
-                              description: "Distanz in Metern (nur metric distance_time, z.B. 500 für 500 m)",
-                            },
-                          },
-                          required: ["reps", "kg"],
-                        },
-                      },
-                    },
-                    required: ["name", "metric", "muscleGroup", "equipment", "note", "sets"],
+            enabledBlocks: {
+              type: "array",
+              items: { type: "string", enum: [...BLOCK_TYPES] },
+              description: "Aktive Bausteine an diesem Tag (Standard: alle vier)",
+            },
+            blocks: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  type: { type: "string", enum: [...BLOCK_TYPES] },
+                  exercises: {
+                    type: "array",
+                    items: EXERCISE_ITEM_SCHEMA,
                   },
                 },
+                required: ["type", "exercises"],
               },
-              required: ["name", "sub", "tags", "durationMin", "exercises"],
+              description:
+                "Pro Baustein passende Übungen: warmup (5–8 Min Cardio/Mobilität), skill (Technik, niedrige Last), strength (Hauptlift + Assistance), metcon (8–12 Min AMRAP/EMOM/Circuit)",
             },
           },
-          required: ["isRestDay"],
+          required: ["name", "blocks"],
         },
       },
       advice: {
@@ -195,6 +206,7 @@ serve(async (req) => {
       gender,
       heightCm,
       weightKg,
+      birthDate,
       fitnessGoal,
       experienceLevel,
       weeklyDays,
@@ -204,6 +216,9 @@ serve(async (req) => {
       activePlan,
       mode = "new",
     } = await req.json();
+
+    const ageYears = ageFromBirthDate(birthDate);
+    const ageBand = getAgeBand(ageYears);
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     let planData: any = null;
@@ -215,6 +230,7 @@ serve(async (req) => {
         gender,
         heightCm,
         weightKg,
+        birthDate,
         fitnessGoal,
         experienceLevel,
         weeklyDays,
@@ -249,9 +265,10 @@ serve(async (req) => {
       let activePlanText = "";
       if (mode === "adapt" && activePlan) {
         const daysText = activePlan.days ? activePlan.days.map((day: any, idx: number) => {
-          if (day.isRestDay) return `Tag ${idx + 1}: Ruhetag`;
-          const exercisesList = day.workout && day.workout.exercises ? day.workout.exercises.map((e: any) => `- ${e.name}`).join(", ") : "";
-          return `Tag ${idx + 1}: ${day.workout?.name || "Workout"} (${exercisesList})`;
+          const exercises = day.exercises ?? day.workout?.exercises ?? [];
+          const exercisesList = exercises.map((e: any) => e.name).join(", ");
+          const dayName = day.name ?? day.workout?.name ?? `Tag ${idx + 1}`;
+          return `Tag ${idx + 1}: ${dayName} (${exercisesList})`;
         }).join("\n") : "";
         activePlanText = `Aktueller Plan:\n${daysText}`;
       }
@@ -261,7 +278,11 @@ serve(async (req) => {
         experienceLevel,
         fitnessGoal,
         anamnesis,
+        ageYears,
       );
+
+      const ageBandRules = formatAgeBandRules(ageBand);
+      const blockStructureRules = formatBlockStructureRules(fitnessGoal, ageBand, anamnesis);
 
       // Prompt für KI vorbereiten
       const prompt = `Du bist ein hochqualifizierter Personal Trainer und Sportwissenschaftler. 
@@ -273,6 +294,7 @@ ${
 
 Hier sind die Anamnesedaten des Nutzers:
 - Geschlecht: ${gender || "Keine Angabe"}
+- Alter: ${ageYears} Jahre (${formatAgeBandLabel(ageBand)})
 - Größe: ${heightCm ? `${heightCm} cm` : "Keine Angabe"}
 - Gewicht: ${weightKg ? `${weightKg} kg` : "Keine Angabe"}
 - Fitness-Ziel: ${translateGoal(fitnessGoal)}
@@ -303,22 +325,28 @@ ${feedbackText ? `PRÄFERENZEN & FEEDBACK ZU ÜBUNGEN:\n${feedbackText}\n` : ""}
 ${historyText ? `TRAININGS-HISTORIE (nur für Übungsauswahl und Feedback, KEINE kg-Werte übernehmen!):\n${historyText}\n` : ""}
 ${activePlanText ? `${activePlanText}\n` : ""}
 
-Erstelle einen logischen Trainingsplan mit genau ${weeklyDays || 3} aktiven Trainingstagen plus passenden Ruhetagen (insgesamt 5–7 Tage im Zyklus).
+Erstelle einen logischen Trainingsplan mit genau ${weeklyDays || 3} Trainingstagen (keine Ruhetage).
+
+4-BAUSTEINE-SYSTEM (Pflicht pro Trainingstag):
+Jeder Tag besteht aus blocks[] in fester Reihenfolge: warmup → skill → strength → metcon.
+${blockStructureRules}
+
+${ageBandRules}
 
 Wichtige Regeln:
-1. Nutze das Tool create_training_plan — kein Freitext.
-2. ${exerciseCountRule}
+1. Nutze das Tool create_training_plan — kein Freitext. Pro Tag blocks[] mit type und exercises[].
+2. ${exerciseCountRule} (gilt nur für den strength-Block; Warm-up/Skill/MetCon separat.)
 3. sets[].kg IMMER 0 — schätze NIEMals absolute kg-Werte aus Körpergewicht oder Historie.
 4. note PFLICHT pro Übung: Bei Kraft metric "weight_reps": Satzanzahl, Wdh.-Ziel und Intensität als % des 1RM (z.B. 3x8 @ 75% 1RM). Bei Cardio (metric "time" oder "distance_time"): KEIN % 1RM — stattdessen Dauer/Distanz (z.B. "5 min leichtes Tempo, Puls aufbauen" oder "500 m leichtes Rudern").
 5. Richtwerte Ziel → typische % 1RM (nur Kraft): Kraft 85–95%, Hypertrophie 70–80%, Ausdauer/Technik 60–70%, Anfänger eher 65–75%.
-6. Schmerzzonen und Feedback (Dislike/Schmerzen) strikt beachten.
-7. metric und equipment nach Übungstyp: Kraftübungen → metric "weight_reps", passendes Gerät (Langhantel, Kabel, …). Cardio/Warm-up am Ergometer (Rudergerät, Laufband, Fahrradergometer, Crosstrainer) → equipment "Cardiogerät", muscleGroup "Ganzkörper", metric "time" (Warm-up, 1 Satz, durationSec 300–600) oder "distance_time" (Distanz-basiert, 1 Satz, distanceM z.B. 500, durationSec passend). Übungsnamen auf Deutsch.
-8. Wenig Schlaf (<7h) oder Stress ≥ 8/10 → konservativeres Volumen, mehr Ruhetage in den notes.
+6. Schmerzzonen und Feedback (Dislike/Schmerzen) strikt beachten. Bei Reha/Einschränkung MetCon optional weglassen → enabledBlocks ohne metcon setzen.
+7. metric und equipment nach Übungstyp: Kraftübungen → metric "weight_reps", passendes Gerät. Warm-up: Cardio/Mobilität → equipment "Cardiogerät" oder "Keines", metric "time". Skill: leichte Technikübungen, niedrige Last, KEIN Ausbelasten. MetCon: AMRAP/EMOM/Circuit 8–12 Min in der note. Übungsnamen auf Deutsch.
+8. Wenig Schlaf (<7h) oder Stress ≥ 8/10 → konservativeres Volumen in den notes.
 9. advice-Objekt PFLICHT: trainingFocus, nutritionTips (diätpräferenz-konform, keine Kalorienzahlen), recoveryTips, hydrationTips.
 10. advice.planDuration: weeksMin/weeksMax empfehlen — Anfänger oder Stress ≥ 8/wenig Schlaf: 10–14 Wochen; Fortgeschritten: 8–12; Advanced: 4–8. note: 1–2 Sätze wann Plan wechseln (Plateau, Deload), kein medizinischer Rat.
-11. Trainingsstruktur strikt umsetzen: full_body → jeder aktive Tag ein Ganzkörper-Workout (deutsche Namen z. B. „Ganzkörper A/B“); split + N → genau N verschiedene Split-Einheiten pro Woche rotieren (2er: Ober-/Unterkörper; 3er: Push/Pull/Beine; 4er–6er: passende Muskelgruppen-Namen). workout.name beschreibt nur die Einheit, nicht den Wochentag.
-12. workout.name NIEMALS mit „Tag 1“, „Tag 2“, „Tag A“ o. Ä. beginnen — keine Tag-Nummern im Namen (Reihenfolge ergibt sich aus dem Plan). Beispiele erlaubt: „Unterkörper“, „Push“, „Rücken & Bizeps“. Verboten: „Tag 3 – Brust, Trizeps“.
-13. Muskelgruppen-Prioritäten (1–5) beeinflussen Volumen und Übungsauswahl: Priorität ≥4 → mehr Übungen/Sätze für diese Gruppe; Priorität ≤2 → reduziertes Volumen; Priorität 3 → ausgewogen. Schmerzzonen und Feedback haben Vorrang vor Prioritäten.`;
+11. Trainingsstruktur strikt umsetzen: full_body → jeder Tag ein Ganzkörper-Tag (deutsche Namen z. B. „Ganzkörper A/B“); split + N → genau N verschiedene Split-Einheiten pro Woche rotieren (2er: Ober-/Unterkörper; 3er: Push/Pull/Beine; 4er–6er: passende Muskelgruppen-Namen). days[].name beschreibt die Einheit, nicht den Wochentag.
+12. days[].name NIEMALS mit „Tag 1“, „Tag 2“, „Tag A“ o. Ä. beginnen — keine Tag-Nummern im Namen (Reihenfolge ergibt sich aus dem Plan). Beispiele erlaubt: „Unterkörper“, „Push“, „Rücken & Bizeps“. Verboten: „Tag 3 – Brust, Trizeps“.
+13. Muskelgruppen-Prioritäten (1–5) beeinflussen Volumen und Übungsauswahl im strength-Block: Priorität ≥4 → mehr Übungen/Sätze für diese Gruppe; Priorität ≤2 → reduziertes Volumen; Priorität 3 → ausgewogen. Schmerzzonen und Feedback haben Vorrang vor Prioritäten.`;
 
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -360,8 +388,10 @@ Wichtige Regeln:
       }
     }
 
-    normalizePlanSets(planData, fitnessGoal, experienceLevel, anamnesis?.minutesPerSession, anamnesis);
-    sanitizePlanWorkoutNames(planData);
+    normalizePlanDaysStructure(planData);
+    normalizePlanBlocks(planData, fitnessGoal, ageBand, anamnesis);
+    normalizePlanSets(planData, fitnessGoal, experienceLevel, anamnesis?.minutesPerSession, anamnesis, ageYears);
+    sanitizePlanDayNames(planData);
     if (!planData.advice) {
       planData.advice = buildDefaultAdvice(experienceLevel, fitnessGoal, anamnesis);
     }
@@ -393,9 +423,20 @@ async function syncGeneratedExercisesToCatalog(planData: { days?: any[] } | null
   if (!planData?.days) return;
 
   for (const day of planData.days) {
-    if (day.isRestDay || !day.workout?.exercises) continue;
+    const exerciseLists: any[][] = [];
+    if (Array.isArray(day.blocks)) {
+      for (const block of day.blocks) {
+        if (Array.isArray(block.exercises)) exerciseLists.push(block.exercises);
+      }
+    }
+    if (Array.isArray(day.exercises)) exerciseLists.push(day.exercises);
 
-    for (const e of day.workout.exercises) {
+    const seen = new Set<string>();
+    for (const list of exerciseLists) {
+      for (const e of list) {
+        const key = (e.name ?? "").trim().toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
       try {
         const { data: existing, error: getErr } = await supabase
           .from("exercises")
@@ -424,6 +465,7 @@ async function syncGeneratedExercisesToCatalog(planData: { days?: any[] } | null
         }
       } catch (dbErr) {
         console.error(`Unerwarteter Fehler bei der DB-Prüfung/Eintragung für ${e.name}:`, dbErr);
+      }
       }
     }
   }
@@ -639,8 +681,8 @@ function buildDefaultAdvice(experienceLevel?: string, fitnessGoal?: string, anam
   };
 }
 
-/** Entfernt KI-typische Präfixe wie „Tag 1 – …“ aus Workout-Namen. */
-function sanitizeWorkoutName(name: string): string {
+/** Entfernt KI-typische Präfixe wie „Tag 1 – …“ aus Tag-Namen. */
+function sanitizeDayName(name: string): string {
   const trimmed = (name ?? "").trim();
   if (!trimmed) return trimmed;
   const cleaned = trimmed
@@ -650,11 +692,214 @@ function sanitizeWorkoutName(name: string): string {
   return cleaned || trimmed;
 }
 
-function sanitizePlanWorkoutNames(planData: { days?: { isRestDay?: boolean; workout?: { name?: string } }[] }): void {
+/** Legacy-Format (isRestDay/workout) in days[] normalisieren; blocks[] bleibt erhalten. */
+function normalizePlanDaysStructure(planData: { days?: any[] }): void {
+  if (!planData?.days) return;
+  const normalized: any[] = [];
+  for (const day of planData.days) {
+    if (day.isRestDay) continue;
+    const hasBlocks = Array.isArray(day.blocks) && day.blocks.length > 0;
+    const exercises = day.exercises ?? day.workout?.exercises;
+    const hasExercises = Array.isArray(exercises) && exercises.length > 0;
+    if (!hasBlocks && !hasExercises) continue;
+    const rawName =
+      typeof day.name === "string" && day.name.trim()
+        ? day.name
+        : typeof day.workout?.name === "string"
+          ? day.workout.name
+          : `Tag ${normalized.length + 1}`;
+    normalized.push({
+      name: rawName,
+      note: day.note,
+      enabledBlocks: day.enabledBlocks,
+      blocks: hasBlocks ? day.blocks : undefined,
+      exercises: hasBlocks ? undefined : exercises,
+    });
+  }
+  planData.days = normalized;
+}
+
+type AgeBand = "under30" | "30_39" | "40_49" | "50_69" | "70_plus";
+
+function ageFromBirthDate(birthDate?: string | null): number {
+  if (!birthDate?.trim()) return 35;
+  const parsed = new Date(birthDate.trim());
+  if (Number.isNaN(parsed.getTime())) return 35;
+  const today = new Date();
+  let age = today.getFullYear() - parsed.getFullYear();
+  const monthDiff = today.getMonth() - parsed.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < parsed.getDate())) {
+    age -= 1;
+  }
+  return Math.max(16, Math.min(99, age));
+}
+
+function getAgeBand(ageYears: number): AgeBand {
+  if (ageYears < 30) return "under30";
+  if (ageYears < 40) return "30_39";
+  if (ageYears < 50) return "40_49";
+  if (ageYears < 70) return "50_69";
+  return "70_plus";
+}
+
+function formatAgeBandLabel(band: AgeBand): string {
+  switch (band) {
+    case "under30":
+      return "Unter 30";
+    case "30_39":
+      return "30–39";
+    case "40_49":
+      return "40–49";
+    case "50_69":
+      return "50–69";
+    case "70_plus":
+      return "70+";
+  }
+}
+
+function formatAgeBandRules(band: AgeBand): string {
+  switch (band) {
+    case "under30":
+      return "Altersband Unter 30: Standard-Warm-up (5–8 Min), volle Progression möglich, MetCon kräftiger bei Fettabbau.";
+    case "30_39":
+      return "Altersband 30–39: Wie Standard, bei hohem Stress oder wenig Schlaf etwas mehr Recovery einplanen.";
+    case "40_49":
+      return "Altersband 40–49: Mobilität ernst nehmen, nachhaltige Progression, keine ständigen Max-Versuche.";
+    case "50_69":
+      return "Altersband 50–69: Warm-up 10–12 Min, gelenkschonende Übungsauswahl, Recovery einplanen.";
+    case "70_plus":
+      return "Altersband 70+: Kurze klare Einheiten, Stabilität und Sicherheit vor Intensität, MetCon moderat (RPE 5–6).";
+  }
+}
+
+function formatBlockStructureRules(fitnessGoal?: string, ageBand?: AgeBand, anamnesis?: any): string {
+  const warmupDur = ageBand === "50_69" || ageBand === "70_plus" ? "10–12 Min" : "5–8 Min";
+  let metconHint = "MetCon: 8–12 Min AMRAP/EMOM/Circuit, moderate bis hohe Intensität je nach Ziel.";
+  if (fitnessGoal === "fat_loss") metconHint = "MetCon: 8–12 Min, etwas intensiver (Fettabbau-Fokus).";
+  if (fitnessGoal === "strength") metconHint = "MetCon: optional kurz (8 Min) oder weglassen wenn Zeit knapp.";
+  const painZones = anamnesis?.painZones ?? [];
+  if (painZones.length > 0) {
+    metconHint += " Bei Schmerz/Reha: MetCon weglassen oder sehr leicht (enabledBlocks ohne metcon).";
+  }
+  return (
+    `- warmup: ${warmupDur} Cardio + Mobilität, leicht, metric time/distance_time\n` +
+    "- skill: 5–10 Min Technik, niedrige Last, kein Ausbelasten, konkrete Cues in note\n" +
+    "- strength: Hauptlift + 1–3 Assistance, metric weight_reps\n" +
+    `- metcon: ${metconHint}`
+  );
+}
+
+function isValidBlockType(value: unknown): value is (typeof BLOCK_TYPES)[number] {
+  return typeof value === "string" && (BLOCK_TYPES as readonly string[]).includes(value);
+}
+
+function defaultEnabledBlocksForGoal(fitnessGoal?: string, anamnesis?: { painZones?: string[] }): string[] {
+  const pain = anamnesis?.painZones ?? [];
+  if (pain.length >= 2 || fitnessGoal === "fitness") {
+    return ["warmup", "skill", "strength"];
+  }
+  return [...BLOCK_TYPES];
+}
+
+/** Legacy exercises[] → blocks[]; enabledBlocks setzen; exercises mit blockType flach halten. */
+function normalizePlanBlocks(
+  planData: { days?: any[] },
+  fitnessGoal?: string,
+  ageBand?: AgeBand,
+  anamnesis?: { painZones?: string[] },
+): void {
+  if (!planData?.days) return;
+
+  for (const day of planData.days) {
+    if (Array.isArray(day.blocks) && day.blocks.length > 0) {
+      const blocks = day.blocks
+        .filter((b: { type?: string }) => isValidBlockType(b.type))
+        .map((b: { type: string; exercises?: unknown[] }) => ({
+          type: b.type,
+          exercises: Array.isArray(b.exercises) ? b.exercises : [],
+        }));
+      day.blocks = blocks;
+      const fromBlocks = blocks
+        .filter((b: { exercises: unknown[] }) => b.exercises.length > 0)
+        .map((b: { type: string }) => b.type);
+      const explicit = Array.isArray(day.enabledBlocks)
+        ? day.enabledBlocks.filter((b: string) => isValidBlockType(b))
+        : [];
+      day.enabledBlocks =
+        explicit.length > 0
+          ? explicit
+          : fromBlocks.length > 0
+            ? fromBlocks
+            : defaultEnabledBlocksForGoal(fitnessGoal, anamnesis);
+    } else if (Array.isArray(day.exercises) && day.exercises.length > 0) {
+      const warmup: unknown[] = [];
+      const skill: unknown[] = [];
+      const strength: unknown[] = [];
+      const metcon: unknown[] = [];
+
+      for (const ex of day.exercises) {
+        if (isCardioExercise(ex) && (warmup.length === 0 || looksLikeCardioExercise(ex.name ?? "", ex.equipment))) {
+          warmup.push({ ...ex, blockType: "warmup" });
+        } else if (
+          typeof ex.note === "string" &&
+          /amrap|emom|circuit|metcon|for time|runden/i.test(ex.note)
+        ) {
+          metcon.push({ ...ex, blockType: "metcon" });
+        } else if (
+          typeof ex.note === "string" &&
+          /tempo|technik|skill|pause|3-0-3|leicht/i.test(ex.note) &&
+          skill.length < 2
+        ) {
+          skill.push({ ...ex, blockType: "skill" });
+        } else {
+          strength.push({ ...ex, blockType: "strength" });
+        }
+      }
+
+      const blocks = [
+        { type: "warmup", exercises: warmup },
+        { type: "skill", exercises: skill },
+        { type: "strength", exercises: strength },
+        { type: "metcon", exercises: metcon },
+      ].filter((b) => b.exercises.length > 0);
+
+      day.blocks = blocks.length > 0 ? blocks : [{ type: "strength", exercises: day.exercises }];
+      day.enabledBlocks = blocks.map((b) => b.type);
+      if (day.enabledBlocks.length === 0) {
+        day.enabledBlocks = defaultEnabledBlocksForGoal(fitnessGoal, anamnesis);
+      }
+    } else {
+      day.blocks = [];
+      day.enabledBlocks = defaultEnabledBlocksForGoal(fitnessGoal, anamnesis);
+    }
+
+    const flat: any[] = [];
+    for (const block of day.blocks ?? []) {
+      if (!isValidBlockType(block.type) || !Array.isArray(block.exercises)) continue;
+      for (const ex of block.exercises) {
+        flat.push({ ...ex, blockType: block.type });
+      }
+    }
+    day.exercises = flat;
+
+    if (ageBand === "50_69" || ageBand === "70_plus") {
+      const warmupBlock = (day.blocks ?? []).find((b: { type: string }) => b.type === "warmup");
+      if (warmupBlock && Array.isArray(warmupBlock.exercises)) {
+        for (const ex of warmupBlock.exercises) {
+          if (ex.metric === "time" && Array.isArray(ex.sets) && ex.sets[0]) {
+            if ((ex.sets[0].durationSec ?? 0) < 480) ex.sets[0].durationSec = 600;
+          }
+        }
+      }
+    }
+  }
+}
+
+function sanitizePlanDayNames(planData: { days?: { name?: string }[] }): void {
   if (!planData?.days) return;
   for (const day of planData.days) {
-    if (!day.isRestDay && day.workout?.name) {
-      day.workout.name = sanitizeWorkoutName(day.workout.name);
+    if (day.name) {
+      day.name = sanitizeDayName(day.name);
     }
   }
 }
@@ -707,6 +952,15 @@ interface ExerciseCountParams {
   experienceLevel?: string;
   fitnessGoal?: string;
   anamnesis?: { sleepHours?: number | null; stressLevel?: unknown } | null;
+  ageYears?: number;
+}
+
+function ageModifier(ageYears?: number): number {
+  if (ageYears == null) return 0;
+  if (ageYears >= 70) return -2;
+  if (ageYears >= 50) return -1;
+  if (ageYears < 30) return 0;
+  return 0;
 }
 
 function baseMaxForMinutes(minutes?: number | null): number {
@@ -747,14 +1001,15 @@ function exerciseCountBounds(params: ExerciseCountParams): { min: number; max: n
   let max =
     baseMaxForMinutes(params.minutes) +
     experienceModifier(params.experienceLevel) +
-    goalModifier(params.fitnessGoal);
+    goalModifier(params.fitnessGoal) +
+    ageModifier(params.ageYears);
 
   if (isConservativeVolume(params.anamnesis)) {
     max -= 1;
   }
 
-  max = Math.min(8, Math.max(3, max));
-  const min = Math.max(3, max - 1);
+  max = Math.min(8, Math.max(2, max));
+  const min = Math.max(2, max - 1);
   return { min, max };
 }
 
@@ -763,8 +1018,9 @@ function formatExerciseCountRule(
   experienceLevel?: string,
   fitnessGoal?: string,
   anamnesis?: ExerciseCountParams["anamnesis"],
+  ageYears?: number,
 ): string {
-  const bounds = exerciseCountBounds({ minutes, experienceLevel, fitnessGoal, anamnesis });
+  const bounds = exerciseCountBounds({ minutes, experienceLevel, fitnessGoal, anamnesis, ageYears });
   const sessionMins = minutes ?? 60;
   const expLabel = translateExperience(experienceLevel);
   const goalLabel = translateGoal(fitnessGoal);
@@ -774,9 +1030,9 @@ function formatExerciseCountRule(
     : "";
 
   return (
-    `Übungsanzahl an Dauer, Erfahrung und Ziel koppeln: ${sessionMins} Min, ${expLabel}, Ziel ${goalLabel} → ` +
+    `Übungsanzahl im strength-Block an Dauer, Erfahrung, Ziel und Alter koppeln: ${sessionMins} Min, ${expLabel}, Ziel ${goalLabel} → ` +
     `${bounds.min}–${bounds.max} Kraftübungen anstreben.${profiHint}${conservativeHint} ` +
-    `Je 3 Sätze bei Kraft. Optional 1 Cardio-Warm-up am Anfang (zählt NICHT zur Übungsanzahl). Kurze notes (max. 90 Zeichen).`
+    `Je 3 Sätze bei Kraft. Warm-up/Skill/MetCon separat (Cardio-Warm-up zählt NICHT zur Kraft-Cap). Kurze notes (max. 90 Zeichen).`
   );
 }
 
@@ -890,6 +1146,7 @@ function normalizePlanSets(
   experienceLevel?: string,
   minutesPerSession?: number | null,
   anamnesis?: ExerciseCountParams["anamnesis"],
+  ageYears?: number,
 ): void {
   if (!planData?.days) return;
 
@@ -901,12 +1158,13 @@ function normalizePlanSets(
     experienceLevel,
     fitnessGoal,
     anamnesis,
+    ageYears,
   });
 
   for (const day of planData.days) {
-    if (day.isRestDay || !day.workout?.exercises) continue;
+    if (!Array.isArray(day.exercises) || day.exercises.length === 0) continue;
 
-    for (const ex of day.workout.exercises) {
+    for (const ex of day.exercises) {
       if (looksLikeCardioExercise(ex.name ?? "", ex.equipment) && (!ex.metric || ex.metric === "weight_reps")) {
         ex.equipment = CARDIO_EQUIPMENT;
         ex.metric = inferCardioMetric(ex.name ?? "", ex.equipment);
@@ -915,17 +1173,33 @@ function normalizePlanSets(
       if (!ex.metric) ex.metric = "weight_reps";
     }
 
-    day.workout.exercises = applyExerciseLimit(day.workout.exercises, max);
-    const strengthCount = day.workout.exercises.filter((ex: { metric?: string; name?: string; equipment?: string }) =>
-      !isCardioExercise(ex)
-    ).length;
-    if (strengthCount < min) {
-      console.warn(
-        `Workout "${day.workout.name}" hat nur ${strengthCount} Kraftübungen (Ziel: min. ${min})`,
-      );
+    const byBlock: Record<string, any[]> = { warmup: [], skill: [], strength: [], metcon: [] };
+    for (const ex of day.exercises) {
+      const bt = isValidBlockType(ex.blockType) ? ex.blockType : "strength";
+      byBlock[bt].push(ex);
     }
 
-    for (const ex of day.workout.exercises) {
+    byBlock.strength = applyExerciseLimit(byBlock.strength, max);
+    byBlock.warmup = byBlock.warmup.slice(0, 2);
+    byBlock.skill = byBlock.skill.slice(0, 3);
+    byBlock.metcon = byBlock.metcon.slice(0, 3);
+
+    const strengthCount = byBlock.strength.filter((ex) => !isCardioExercise(ex)).length;
+    if (strengthCount < min) {
+      console.warn(`Tag "${day.name}" hat nur ${strengthCount} Kraftübungen im strength-Block (Ziel: min. ${min})`);
+    }
+
+    const merged = [...byBlock.warmup, ...byBlock.skill, ...byBlock.strength, ...byBlock.metcon];
+    day.exercises = merged;
+
+    if (Array.isArray(day.blocks)) {
+      for (const block of day.blocks) {
+        if (!isValidBlockType(block.type)) continue;
+        block.exercises = byBlock[block.type] ?? [];
+      }
+    }
+
+    for (const ex of day.exercises) {
       if (isCardioMetric(ex.metric)) {
         normalizeCardioExercise(ex);
       } else {
@@ -997,19 +1271,12 @@ function generateMockPlan(data: any): any {
 
   const activePool = exercisePool[data.anamnesis?.trainingLocation || "gym"] || exercisePool.gym;
   const sessionMins = data.anamnesis?.minutesPerSession ?? 60;
+  const ageYears = ageFromBirthDate(data.birthDate);
 
-  // Erstelle die Tage
-  for (let i = 0; i < 7; i++) {
-    const isRest = i % 2 === 1 || days.filter(d => !d.isRestDay).length >= weeklyDays;
-    
-    if (isRest) {
-      days.push({
-        isRestDay: true,
-        note: "Aktive Regeneration: Dehnen oder leichter Spaziergang."
-      });
-    } else {
-      const workoutNum = days.filter(d => !d.isRestDay).length + 1;
-      const workoutLabel = getSplitWorkoutLabel(data.anamnesis, workoutNum);
+  // Erstelle nur Trainingstage (keine Ruhetage)
+  for (let i = 0; i < weeklyDays; i++) {
+      const workoutNum = i + 1;
+      const dayLabel = getSplitWorkoutLabel(data.anamnesis, workoutNum);
 
       // Filtere Übungen nach Schmerzpunkten
       let exercises = [...activePool];
@@ -1028,6 +1295,7 @@ function generateMockPlan(data: any): any {
         experienceLevel: data.experienceLevel,
         fitnessGoal: data.fitnessGoal,
         anamnesis: data.anamnesis,
+        ageYears,
       });
       const selectedExs = exercises.slice(0, bounds.max).map(item => {
         const painHint = painZones.length > 0 ? " · saubere Technik" : "";
@@ -1054,33 +1322,50 @@ function generateMockPlan(data: any): any {
         sets: [{ reps: 0, kg: 0, durationSec: 300 }],
       };
 
+      const skillEx = selectedExs[0]
+        ? {
+            name: selectedExs[0].name,
+            metric: "weight_reps",
+            muscleGroup: selectedExs[0].muscleGroup,
+            equipment: selectedExs[0].equipment,
+            note: "2x5 leicht, Technik @ 50% 1RM, langsames Tempo",
+            sets: [
+              { reps: 5, kg: 0 },
+              { reps: 5, kg: 0 },
+            ],
+          }
+        : null;
+
+      const strengthExs = selectedExs.slice(skillEx ? 1 : 0);
+
+      const metconEx = {
+        name: "AMRAP 10 Min",
+        metric: "weight_reps",
+        muscleGroup: "Ganzkörper",
+        equipment: "Körpergewicht",
+        note: "10 Min AMRAP: Burpees, Liegestütze, Ausfallschritte — moderates Tempo",
+        sets: [{ reps: 0, kg: 0 }],
+      };
+
       const location = data.anamnesis?.trainingLocation || "gym";
-      const workoutExercises = location === "gym" ? [cardioWarmup, ...selectedExs] : selectedExs;
+      const blocks: { type: string; exercises: unknown[] }[] = [];
+      if (location === "gym") {
+        blocks.push({ type: "warmup", exercises: [cardioWarmup] });
+      }
+      if (skillEx) {
+        blocks.push({ type: "skill", exercises: [skillEx] });
+      }
+      blocks.push({ type: "strength", exercises: strengthExs.length > 0 ? strengthExs : selectedExs });
+      if (painZones.length === 0) {
+        blocks.push({ type: "metcon", exercises: [metconEx] });
+      }
 
       days.push({
-        isRestDay: false,
+        name: dayLabel,
         note: `Trainingseinheit ${workoutNum} für dein Ziel: ${goalName}`,
-        workout: {
-          name: workoutLabel,
-          sub: `${workoutLabel} · ${locationName.split(" ")[0]}`,
-          tags: ["KI", "Premium"],
-          durationMin: sessionMins,
-          exercises: workoutExercises
-        }
+        enabledBlocks: blocks.map((b) => b.type),
+        blocks,
       });
-    }
-  }
-
-  const bounds = exerciseCountBounds({
-    minutes: sessionMins,
-    experienceLevel: data.experienceLevel,
-    fitnessGoal: data.fitnessGoal,
-    anamnesis: data.anamnesis,
-  });
-  for (const day of days) {
-    if (!day.isRestDay && day.workout?.exercises) {
-      day.workout.exercises = applyExerciseLimit(day.workout.exercises, bounds.max);
-    }
   }
 
   return {

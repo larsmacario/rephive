@@ -1,33 +1,63 @@
 import type { ReactNode } from "react";
 import { motion } from "framer-motion";
-import type { LibraryWorkout } from "../data";
+import type { PlanDayExercise } from "../data";
 import { prefersReducedMotion } from "../lib/haptics";
+import type { TrainingBlockType } from "../lib/planBlocks";
 import { M } from "../theme";
 import { Icon } from "./Icon";
-import { WorkoutExercisePreview } from "./PlanDayAccordion";
+import { PlanDayExercisePreview } from "./PlanDayAccordion";
 
 const ENTRANCE_EASE = [0.25, 0.1, 0.25, 1] as const;
+
+export interface PlanDaySlideExercise {
+  id: string;
+  name: string;
+  note?: string;
+  blockType?: TrainingBlockType;
+  metric: PlanDayExercise["metric"];
+  sets: PlanDayExercise["sets"];
+}
 
 export interface PlanDaySlideProps {
   dayNumber: number;
   label: string;
-  isRestDay: boolean;
   isCurrent?: boolean;
   isActive?: boolean;
-  workout?: LibraryWorkout | null;
+  exercises?: PlanDaySlideExercise[];
+  enabledBlocks?: TrainingBlockType[];
   variant?: "builder" | "detail";
+  builderMode?: boolean;
+  onAddExerciseToBlock?: (block: TrainingBlockType) => void;
+  onRemoveBlock?: (block: TrainingBlockType) => void;
+  disabledBlocks?: TrainingBlockType[];
+  onRestoreBlock?: (block: TrainingBlockType) => void;
+  editableName?: boolean;
+  nameValue?: string;
+  onNameChange?: (value: string) => void;
+  onExerciseClick?: (exerciseId: string) => void;
   actions?: ReactNode;
+  footer?: ReactNode;
 }
 
 export function PlanDaySlide({
   dayNumber,
   label,
-  isRestDay,
   isCurrent = false,
   isActive = true,
-  workout,
+  exercises = [],
+  enabledBlocks,
   variant = "detail",
+  builderMode = false,
+  onAddExerciseToBlock,
+  onRemoveBlock,
+  disabledBlocks = [],
+  onRestoreBlock,
+  editableName = false,
+  nameValue,
+  onNameChange,
+  onExerciseClick,
   actions,
+  footer,
 }: PlanDaySlideProps) {
   const highlighted = isCurrent;
   const reducedMotion = prefersReducedMotion();
@@ -48,36 +78,55 @@ export function PlanDaySlide({
         width: variant === "builder" ? 34 : 32,
         height: variant === "builder" ? 34 : 32,
         borderRadius: variant === "builder" ? 9 : 8,
-        background: isRestDay ? M.panel : M.brandSoft,
-        color: isRestDay ? M.mut : M.brand,
+        background: M.brandSoft,
+        color: M.brand,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         flex: "0 0 auto",
       }}
     >
-      <Icon name={isRestDay ? "pause" : "dumbbell"} size={variant === "builder" ? 18 : 16} stroke={2} />
+      <Icon name="dumbbell" size={variant === "builder" ? 18 : 16} stroke={2} />
     </div>
   );
 
-  const bodyContent = isRestDay ? (
-    <p
-      style={{
-        margin: "24px 0 0",
-        textAlign: "center",
-        color: M.mut,
-        fontSize: 13,
-        fontWeight: 600,
-        lineHeight: 1.5,
-      }}
-    >
-      Kein Workout an diesem Tag — Zeit zur Regeneration.
-    </p>
-  ) : workout ? (
-    <WorkoutExercisePreview workout={workout} flat />
-  ) : (
-    <div style={{ color: M.mut, fontSize: 13, fontWeight: 600 }}>Workout nicht gefunden.</div>
-  );
+  const previewExercises: PlanDayExercise[] = exercises.map((e) => ({
+    id: e.id,
+    name: e.name,
+    note: e.note,
+    blockType: e.blockType ?? "strength",
+    metric: e.metric,
+    sets: e.sets,
+  }));
+
+  const bodyContent =
+    previewExercises.length > 0 || (enabledBlocks?.length ?? 0) > 0 ? (
+      <PlanDayExercisePreview
+        exercises={previewExercises}
+        enabledBlocks={enabledBlocks}
+        showEmptyBlocks
+        flat
+        builderMode={builderMode}
+        onExerciseClick={onExerciseClick}
+        onAddExercise={onAddExerciseToBlock}
+        onRemoveBlock={onRemoveBlock}
+        disabledBlocks={disabledBlocks}
+        onRestoreBlock={onRestoreBlock}
+      />
+    ) : (
+      <p
+        style={{
+          margin: "24px 0 0",
+          textAlign: "center",
+          color: M.mut,
+          fontSize: 13,
+          fontWeight: 600,
+          lineHeight: 1.5,
+        }}
+      >
+        Noch keine Übungen — füge welche hinzu.
+      </p>
+    );
 
   return (
     <div style={containerStyle}>
@@ -98,7 +147,25 @@ export function PlanDaySlide({
           {variant === "builder" ? (
             <>
               <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut2, fontWeight: 700 }}>TAG {dayNumber}</div>
-              <div style={{ fontWeight: 600, fontSize: 15.5, marginTop: 2 }}>{label}</div>
+              {editableName && onNameChange ? (
+                <input
+                  value={nameValue ?? label}
+                  onChange={(e) => onNameChange(e.target.value)}
+                  style={{
+                    width: "100%",
+                    marginTop: 2,
+                    fontWeight: 600,
+                    fontSize: 15.5,
+                    background: "transparent",
+                    border: "none",
+                    color: M.fg,
+                    outline: "none",
+                    padding: 0,
+                  }}
+                />
+              ) : (
+                <div style={{ fontWeight: 600, fontSize: 15.5, marginTop: 2 }}>{label}</div>
+              )}
             </>
           ) : (
             <>
@@ -140,6 +207,7 @@ export function PlanDaySlide({
           transition={{ duration: 0.22, delay: animateEntrance ? 0.08 : 0, ease: ENTRANCE_EASE }}
         >
           {bodyContent}
+          {footer}
         </motion.div>
       </div>
     </div>

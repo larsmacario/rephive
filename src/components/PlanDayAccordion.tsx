@@ -1,28 +1,48 @@
 import type { CSSProperties, ReactNode } from "react";
-import type { LibraryWorkout } from "../data";
+import type { PlanDayExercise } from "../data";
 import { M } from "../theme";
 import { formatSetSummary, isUniform } from "../lib/exerciseSets";
+import { groupExercisesByBlock, BLOCK_LABELS, type TrainingBlockType } from "../lib/planBlocks";
 import { segmentExercises } from "../lib/superset";
 import { Icon } from "./Icon";
+import { MButton } from "./MButton";
+import { PlanBlockSection } from "./PlanBlockSection";
 import { SupersetBlock } from "./SupersetBlock";
 
-export interface WorkoutExercisePreviewProps {
-  workout: LibraryWorkout;
+export interface PlanDayExercisePreviewProps {
+  exercises: PlanDayExercise[];
+  enabledBlocks?: TrainingBlockType[];
+  skippedBlocks?: TrainingBlockType[];
   flat?: boolean;
+  onExerciseClick?: (exerciseId: string) => void;
+  showEmptyBlocks?: boolean;
+  builderMode?: boolean;
+  onAddExercise?: (block: TrainingBlockType) => void;
+  onRemoveBlock?: (block: TrainingBlockType) => void;
+  disabledBlocks?: TrainingBlockType[];
+  onRestoreBlock?: (block: TrainingBlockType) => void;
 }
 
-export function WorkoutExercisePreview({ workout, flat = false }: WorkoutExercisePreviewProps) {
-  const segments = segmentExercises(workout.exercises);
+function ExerciseList({
+  exercises,
+  flat,
+  onExerciseClick,
+}: {
+  exercises: PlanDayExercise[];
+  flat?: boolean;
+  onExerciseClick?: (exerciseId: string) => void;
+}) {
+  const segments = segmentExercises(exercises);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: flat ? 8 : 6 }}>
       {segments.map((seg) => {
-        const renderEx = (ex: (typeof workout.exercises)[number]) => {
+        const renderEx = (ex: PlanDayExercise) => {
           const summary = formatSetSummary(ex.sets, ex.metric);
           const uniform = isUniform(ex.sets);
-          return (
+          const clickable = Boolean(onExerciseClick);
+          const inner = (
             <div
-              key={ex.id}
               style={{
                 padding: flat ? "11px 12px" : "10px 12px",
                 borderRadius: flat ? 10 : 12,
@@ -30,6 +50,7 @@ export function WorkoutExercisePreview({ workout, flat = false }: WorkoutExercis
                 border: "1px solid " + M.line2,
                 fontSize: 13,
                 fontWeight: 600,
+                cursor: clickable ? "pointer" : undefined,
               }}
             >
               <div style={{ display: "flex", alignItems: "flex-start", gap: flat ? 0 : 10 }}>
@@ -87,6 +108,30 @@ export function WorkoutExercisePreview({ workout, flat = false }: WorkoutExercis
               )}
             </div>
           );
+
+          if (clickable) {
+            return (
+              <button
+                key={ex.id}
+                type="button"
+                onClick={() => onExerciseClick?.(ex.id)}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  padding: 0,
+                  border: "none",
+                  background: "transparent",
+                  textAlign: "left",
+                  font: "inherit",
+                  color: "inherit",
+                }}
+              >
+                {inner}
+              </button>
+            );
+          }
+
+          return <div key={ex.id}>{inner}</div>;
         };
 
         if (seg.kind === "single") return renderEx(seg.exercise);
@@ -100,13 +145,112 @@ export function WorkoutExercisePreview({ workout, flat = false }: WorkoutExercis
   );
 }
 
+export function PlanDayExercisePreview({
+  exercises,
+  enabledBlocks,
+  skippedBlocks = [],
+  flat = false,
+  onExerciseClick,
+  showEmptyBlocks = false,
+  builderMode = false,
+  onAddExercise,
+  onRemoveBlock,
+  disabledBlocks = [],
+  onRestoreBlock,
+}: PlanDayExercisePreviewProps) {
+  const skippedSet = new Set(skippedBlocks);
+  const groups = groupExercisesByBlock(exercises, enabledBlocks);
+
+  if (groups.length === 0 && exercises.length > 0) {
+    return <ExerciseList exercises={exercises} flat={flat} onExerciseClick={onExerciseClick} />;
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {groups.map(({ block, exercises: blockExercises }) => {
+        const skipped = skippedSet.has(block);
+        if (!showEmptyBlocks && blockExercises.length === 0 && !skipped) return null;
+        return (
+          <PlanBlockSection
+            key={block}
+            block={block}
+            skipped={skipped}
+            headerAction={
+              builderMode && onRemoveBlock ? (
+                <MButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onRemoveBlock(block)}
+                  style={{ color: M.mut2, fontSize: 11, padding: "4px 8px" }}
+                >
+                  Entfernen
+                </MButton>
+              ) : undefined
+            }
+          >
+            {blockExercises.length > 0 ? (
+              <ExerciseList exercises={blockExercises} flat={flat} onExerciseClick={onExerciseClick} />
+            ) : (
+              <div style={{ fontSize: 12, color: M.mut, fontWeight: 500, padding: "4px 2px" }}>
+                {skipped ? "Nicht absolviert" : "Noch keine Übungen"}
+              </div>
+            )}
+            {builderMode && onAddExercise && (
+              <MButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                fullWidth
+                onClick={() => onAddExercise(block)}
+                style={{
+                  marginTop: 8,
+                  border: "1.5px dashed " + M.line,
+                  color: M.fg,
+                  fontFamily: M.disp,
+                  letterSpacing: 0.3,
+                  fontSize: 12,
+                }}
+              >
+                <Icon name="plus" size={14} stroke={2.6} /> Übung hinzufügen
+              </MButton>
+            )}
+          </PlanBlockSection>
+        );
+      })}
+      {builderMode && disabledBlocks.length > 0 && onRestoreBlock && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+          <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut2, fontWeight: 700 }}>ENTFERNT</div>
+          {disabledBlocks.map((block) => (
+            <MButton
+              key={block}
+              type="button"
+              variant="ghost"
+              size="sm"
+              fullWidth
+              onClick={() => onRestoreBlock(block)}
+              style={{
+                border: "1.5px dashed " + M.line,
+                color: M.mut,
+                justifyContent: "flex-start",
+              }}
+            >
+              <Icon name="plus" size={14} stroke={2.6} /> {BLOCK_LABELS[block]} hinzufügen
+            </MButton>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export interface PlanDayAccordionProps {
   dayId: string;
   dayNumber: number;
   label: string;
-  isRestDay: boolean;
   isCurrent?: boolean;
-  workout?: LibraryWorkout | null;
+  exercises?: PlanDayExercise[];
+  enabledBlocks?: TrainingBlockType[];
   expanded: boolean;
   onToggle?: (dayId: string) => void;
   leading?: ReactNode;
@@ -118,9 +262,9 @@ export function PlanDayAccordion({
   dayId,
   dayNumber,
   label,
-  isRestDay,
   isCurrent = false,
-  workout,
+  exercises = [],
+  enabledBlocks,
   expanded,
   onToggle,
   leading,
@@ -128,7 +272,7 @@ export function PlanDayAccordion({
   variant = "detail",
 }: PlanDayAccordionProps) {
   const highlighted = isCurrent;
-  const canExpand = !isRestDay && Boolean(workout);
+  const canExpand = exercises.length > 0 || (enabledBlocks?.length ?? 0) > 0;
 
   const containerStyle: CSSProperties =
     variant === "builder"
@@ -193,15 +337,15 @@ export function PlanDayAccordion({
         width: variant === "builder" ? 34 : undefined,
         height: variant === "builder" ? 34 : undefined,
         borderRadius: variant === "builder" ? 9 : undefined,
-        background: isRestDay ? M.panel : variant === "builder" ? M.accSoft : undefined,
-        color: isRestDay ? M.mut : variant === "builder" ? M.acc : highlighted ? M.acc : M.mut2,
+        background: variant === "builder" ? M.accSoft : undefined,
+        color: variant === "builder" ? M.acc : highlighted ? M.acc : M.mut2,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         flex: "0 0 auto",
       }}
     >
-      <Icon name={isRestDay ? "pause" : "dumbbell"} size={variant === "builder" ? 18 : 16} stroke={2} />
+      <Icon name="dumbbell" size={variant === "builder" ? 18 : 16} stroke={2} />
     </div>
   );
 
@@ -231,14 +375,18 @@ export function PlanDayAccordion({
         {actions}
       </div>
 
-      {canExpand && expanded && workout && (
+      {canExpand && expanded && (
         <div
           style={{
             padding: variant === "builder" ? "0 14px 14px" : "0 12px 12px",
             borderTop: "1px solid " + M.line2,
           }}
         >
-          <WorkoutExercisePreview workout={workout} />
+          <PlanDayExercisePreview
+            exercises={exercises}
+            enabledBlocks={enabledBlocks}
+            showEmptyBlocks
+          />
         </div>
       )}
     </div>

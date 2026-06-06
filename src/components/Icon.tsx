@@ -25,6 +25,7 @@ const ICON_PATHS: Record<string, string> = {
   sparkles: "M12 2L13.2 8.8L20 10L13.2 11.2L12 18L10.8 11.2L4 10L10.8 8.8L12 2zM19 15L19.6 17.2L22 17.8L19.6 18.4L19 20.6L18.4 18.4L16 17.8L18.4 17.2L19 15z",
   arrowUp: "M12 19V5M5 12l7-7 7 7",
   grip: "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01",
+  moreH: "M5 12h.01M12 12h.01M19 12h.01",
   clock: "M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z",
   home: "M3 11l9-7 9 7M5 10v9h5v-6h4v6h5v-9",
   history: "M3 4v5h5M3.5 9a9 9 0 1 0 2.2-3.6L3 9M12 8v5l4 2",

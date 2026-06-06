@@ -1,22 +1,16 @@
 import type { Workout, WorkoutSet } from "./lib/engine";
 import type { ExerciseMetric } from "./lib/exerciseCatalog";
+import type { TrainingBlockType } from "./lib/planBlocks";
 
-export interface LibraryWorkout {
+export interface PlanDayExercise {
   id: string;
   name: string;
-  sub: string;
-  tags: string[];
-  dur: number;
-  userId: string | null;
-  exercises: {
-    id: string;
-    name: string;
-    note?: string;
-    supersetId?: string;
-    catalogExerciseId?: string | null;
-    metric: ExerciseMetric;
-    sets: WorkoutSet[];
-  }[];
+  note?: string;
+  blockType: TrainingBlockType;
+  supersetId?: string;
+  catalogExerciseId?: string | null;
+  metric: ExerciseMetric;
+  sets: WorkoutSet[];
 }
 
 export interface LibraryExercise {
@@ -43,6 +37,7 @@ export interface SessionExercise {
   id: string;
   name: string;
   note?: string;
+  blockType?: TrainingBlockType;
   supersetId?: string;
   metric: ExerciseMetric;
   sets: WorkoutSet[];
@@ -59,24 +54,24 @@ export interface HistoryEntry {
   vol: number;
   sets: number;
   pr: boolean;
-  workoutId: string | null;
+  planDayId: string | null;
+  skippedBlocks: TrainingBlockType[];
   exercises: SessionExercise[];
-}
-
-export interface PlanDayWorkoutSummary {
-  id: string;
-  name: string;
-  tags: string[];
-  dur: number;
-  exerciseCount: number;
 }
 
 export interface PlanDay {
   id: string;
   position: number;
-  isRestDay: boolean;
+  name: string;
   note?: string;
-  workout?: PlanDayWorkoutSummary;
+  enabledBlocks: TrainingBlockType[];
+  exercises: PlanDayExercise[];
+}
+
+export function planDayDisplayName(day: Pick<PlanDay, "name" | "position">): string {
+  const trimmed = day.name.trim();
+  if (trimmed) return trimmed;
+  return `Tag ${day.position + 1}`;
 }
 
 export interface PlanSummaryNutrition {
@@ -132,21 +127,33 @@ export interface LibraryPlan {
   summary: PlanSummary | null;
 }
 
-/** Default global workout id (Push Day) for the home screen. */
-export const DEFAULT_WORKOUT_ID = "b0000001-0000-4000-8000-000000000001";
+export interface PlanDayForTracking {
+  id: string;
+  name: string;
+  planId: string;
+  enabledBlocks: TrainingBlockType[];
+  exercises: PlanDayExercise[];
+}
 
-// deep clone (resets done flags) so a tracking session is independent
-export const startSession = (w: LibraryWorkout): Workout => normalizeWorkout({
-  name: w.name,
-  sub: w.sub,
-  exercises: w.exercises.map((e) => ({
-    ...e,
-    supersetId: e.supersetId,
-    catalogExerciseId: e.catalogExerciseId ?? undefined,
-    metric: e.metric,
-    sets: e.sets.map((s) => ({ ...s, done: false })),
-  })),
-});
+/** Deep clone (resets done flags) for live tracking from a plan day. */
+export const startPlanDaySession = (
+  day: PlanDayForTracking,
+  skippedBlocks: TrainingBlockType[] = [],
+): Workout =>
+  normalizeWorkout({
+    name: day.name,
+    sub: "",
+    enabledBlocks: day.enabledBlocks,
+    skippedBlocks,
+    exercises: day.exercises.map((e) => ({
+      ...e,
+      blockType: e.blockType,
+      supersetId: e.supersetId,
+      catalogExerciseId: e.catalogExerciseId ?? undefined,
+      metric: e.metric,
+      sets: e.sets.map((s) => ({ ...s, done: false })),
+    })),
+  });
 
 export const CUSTOM_SESSION_NAME = "Individuelles Training";
 

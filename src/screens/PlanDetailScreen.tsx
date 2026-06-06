@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { M } from "../theme";
 import { useAuth } from "../lib/auth";
-import { deletePlan, setActivePlan, usePlan, useWorkouts } from "../lib/db";
+import { deletePlan, setActivePlan, usePlan } from "../lib/db";
+import { planDayDisplayName } from "../data";
 import { Icon } from "../components/Icon";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { PlanAdviceCollapsible } from "../components/PlanAdviceCollapsible";
@@ -10,7 +11,6 @@ import { PlanDaySlide } from "../components/PlanDaySlide";
 import { OneRmPercentInfoCard } from "../components/OneRmPercentInfoCard";
 import { MStat, MTag } from "../components/widgets";
 import { MButton } from "../components/MButton";
-import { CoachingNotesSection } from "../components/CoachingNotesSection";
 
 export interface PlanDetailScreenProps {
   planId: string;
@@ -22,13 +22,10 @@ export interface PlanDetailScreenProps {
 export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDetailScreenProps) {
   const { user } = useAuth();
   const { data: plan, loading, error, reload } = usePlan(planId);
-  const { data: workouts } = useWorkouts();
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
-
-  const workoutList = workouts ?? [];
 
   useEffect(() => {
     if (!plan) return;
@@ -83,16 +80,13 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
     );
   }
 
-  const workoutDays = plan.days.filter((d) => !d.isRestDay).length;
-  const restDays = plan.days.filter((d) => d.isRestDay).length;
-  const isAiPlan =
-    plan.name.toLowerCase().startsWith("ki ") ||
-    plan.days.some((d) => d.workout?.tags?.some((t) => t.toLowerCase() === "ki"));
+  const totalExercises = plan.days.reduce((sum, d) => sum + d.exercises.length, 0);
+  const isAiPlan = plan.summary !== null;
 
   const slideCount = 1 + plan.days.length;
-  const slideLabel = (index: number, _count: number) => {
+  const tabLabel = (index: number) => {
     if (index === 0) return "Übersicht";
-    return `Tag ${index} von ${plan.days.length}`;
+    return `Tag ${index}`;
   };
 
   const summarySlide = (
@@ -140,14 +134,8 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <Icon name="dumbbell" size={15} stroke={2} color={M.mut} />
-            {workoutDays} Workouts
+            {totalExercises} Übungen
           </span>
-          {restDays > 0 && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <Icon name="pause" size={15} stroke={2} color={M.mut} />
-              {restDays} Ruhe
-            </span>
-          )}
         </div>
 
         {plan.isActive && (
@@ -205,7 +193,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
             </div>
 
             <PlanAdviceCollapsible>
-              <div style={{ paddingTop: 14 }}>
+              <div>
                 <div style={{ fontSize: 11, color: M.brand, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>TRAININGSFOKUS</div>
                 <p style={{ margin: 0, fontSize: 13, color: M.fg, lineHeight: 1.5 }}>{plan.summary.advice.trainingFocus}</p>
               </div>
@@ -233,7 +221,6 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
 
   const daySlides = plan.days.map((day, dayIndex) => {
     const isCurrent = plan.isActive && day.position === plan.currentDay;
-    const workout = day.workout ? workoutList.find((w) => w.id === day.workout?.id) ?? null : null;
     return (
       <div
         key={day.id}
@@ -248,11 +235,11 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
       >
         <PlanDaySlide
           dayNumber={day.position + 1}
-          label={day.isRestDay ? "Ruhetag" : day.workout?.name ?? "Workout"}
-          isRestDay={day.isRestDay}
+          label={planDayDisplayName(day)}
           isCurrent={isCurrent}
           isActive={activeSlideIndex === dayIndex + 1}
-          workout={workout}
+          exercises={day.exercises}
+          enabledBlocks={day.enabledBlocks}
           variant="detail"
         />
       </div>
@@ -285,13 +272,10 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
           activeIndex={activeSlideIndex}
           onIndexChange={setActiveSlideIndex}
           ariaLabel="Plan-Übersicht und Tage"
-          slideLabel={slideLabel}
+          tabLabel={tabLabel}
         >
           {[summarySlide, ...daySlides]}
         </HorizontalSlidePager>
-        <div style={{ padding: "0 22px" }}>
-          <CoachingNotesSection targetType="plan" targetId={plan.id} />
-        </div>
       </div>
 
       <div

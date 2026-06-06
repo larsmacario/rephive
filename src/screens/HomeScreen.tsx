@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { brandSurface, M } from "../theme";
 import type { LibraryPlan, PlanDay } from "../data";
+import { planDayDisplayName } from "../data";
 import { useAuth } from "../lib/auth";
 import {
   type ActiveWorkoutDraft,
@@ -15,12 +16,12 @@ import { Icon } from "../components/Icon";
 import { usePreferences } from "../lib/preferences";
 import { WorkoutFinishSheet } from "../components/WorkoutFinishSheet";
 import { ConfirmSheet } from "../components/ConfirmSheet";
-import { MStat, MTag } from "../components/widgets";
+import { MStat } from "../components/widgets";
 import { MButton } from "../components/MButton";
 import { FLOAT_NAV_SCROLL_BOTTOM_GAP } from "../components/FloatNav";
 
 export interface HomeScreenProps {
-  onStart: (id: string, planId?: string) => void;
+  onStart: (planDayId: string, planId?: string) => void;
   onStartCustom: () => void;
   activeWorkout?: ActiveWorkoutDraft | null;
   onResumeActive: () => void;
@@ -37,7 +38,7 @@ export interface HomeScreenProps {
   onOpenAbout: () => void;
   onOpenSupport: () => void;
   onOpenAITrainingPlan?: () => void;
-  onOpenCoaching?: () => void;
+  onOpenExercises?: () => void;
   refreshKey?: number;
   trackLoading?: boolean;
 }
@@ -77,7 +78,7 @@ export function HomeScreen({
   onOpenAbout,
   onOpenSupport,
   onOpenAITrainingPlan,
-  onOpenCoaching,
+  onOpenExercises,
   refreshKey = 0,
   trackLoading,
 }: HomeScreenProps) {
@@ -134,16 +135,6 @@ export function HomeScreen({
   const maxV = Math.max(...weekData.map((w) => w.v), 1);
   const currentDay = activePlan ? getCurrentDay(activePlan) : null;
   const upcomingDays = activePlan ? getUpcomingDays(activePlan, 3) : [];
-
-  const handleRestDay = async () => {
-    if (!activePlan) return;
-    setAdvancing(true);
-    try {
-      await onAdvancePlan(activePlan.id);
-    } finally {
-      setAdvancing(false);
-    }
-  };
 
   const handleSkipWorkout = () => {
     if (!activePlan) return;
@@ -203,7 +194,7 @@ export function HomeScreen({
       title: "KONTO",
       items: [
         { label: "Profil", onClick: () => runFromMenu(onOpenProfile) },
-        { label: "Coaching", onClick: () => onOpenCoaching && runFromMenu(onOpenCoaching) },
+        { label: "Übungen", onClick: () => onOpenExercises && runFromMenu(onOpenExercises) },
         { label: "Statistik", onClick: () => runFromMenu(onOpenStats) },
         { label: "Einstellungen", onClick: () => runFromMenu(onOpenSettings) },
       ],
@@ -300,31 +291,10 @@ export function HomeScreen({
     >
       <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 24, lineHeight: 1.1 }}>Kein aktiver Plan</div>
       <div style={{ color: M.mut, fontSize: 14, marginTop: 10, lineHeight: 1.4 }}>
-        Erstelle einen Trainingsplan und ordne deine Workouts den Tagen zu.
+        Erstelle einen Trainingsplan und lege pro Tag deine Übungen fest.
       </div>
       <MButton onClick={onOpenPlans} variant="primary" size="md" fullWidth style={{ marginTop: 16 }}>
         <Icon name="layers" size={16} color={M.brandInk} /> Plan erstellen
-      </MButton>
-    </div>
-  ) : currentDay.isRestDay ? (
-    <div
-      style={{
-        marginTop: 14,
-        borderRadius: 20,
-        padding: "18px 18px 16px",
-        position: "relative",
-        overflow: "hidden",
-        background: M.card,
-        border: "1px solid " + M.line,
-      }}
-    >
-      <div style={{ fontSize: 11, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>
-        {activePlan.name.toUpperCase()} · TAG {activePlan.currentDay + 1}
-      </div>
-      <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 28, lineHeight: 1, marginTop: 8 }}>Ruhetag</div>
-      <div style={{ color: M.mut, fontSize: 14, marginTop: 10 }}>Heute ist Erholung angesagt. Gönn dir die Pause.</div>
-      <MButton disabled={advancing} onClick={handleRestDay} variant="secondary" size="md" fullWidth style={{ marginTop: 16, background: M.panel }}>
-        <Icon name="check" size={16} color={M.fg} /> Ruhetag abhaken
       </MButton>
     </div>
   ) : (
@@ -341,50 +311,38 @@ export function HomeScreen({
         {activePlan.name.toUpperCase()} · TAG {activePlan.currentDay + 1}
       </div>
       <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 28, lineHeight: 1, marginTop: 8 }}>
-        {currentDay.workout?.name ?? "Workout"}
+        {planDayDisplayName(currentDay)}
       </div>
-      {currentDay.workout && (
-        <>
-          <div style={{ display: "flex", gap: 7, marginTop: 12, flexWrap: "wrap" }}>
-            {currentDay.workout.tags.map((t) => (
-              <MTag key={t}>{t}</MTag>
-            ))}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              marginTop: 14,
-              fontSize: 12.5,
-              color: M.mut,
-              fontWeight: 600,
-            }}
-          >
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <Icon name="dumbbell" size={15} stroke={2} color={M.mut} />
-              {currentDay.workout.exerciseCount} Übungen
-            </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <Icon name="clock" size={15} stroke={2} color={M.mut} />~{currentDay.workout.dur} Min
-            </span>
-          </div>
-        </>
-      )}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          marginTop: 14,
+          fontSize: 12.5,
+          color: M.mut,
+          fontWeight: 600,
+        }}
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <Icon name="dumbbell" size={15} stroke={2} color={M.mut} />
+          {currentDay.exercises.length} Übung{currentDay.exercises.length === 1 ? "" : "en"}
+        </span>
+      </div>
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
         <MButton
-          disabled={trackLoading || !currentDay.workout}
-          onClick={() => currentDay.workout && onStart(currentDay.workout.id, activePlan.id)}
+          disabled={trackLoading || currentDay.exercises.length === 0}
+          onClick={() => onStart(currentDay.id, activePlan.id)}
           variant="primary"
           size="md"
           style={{ flex: 1 }}
         >
-          <Icon name="play" size={16} color={M.brandInk} /> Workout starten
+          <Icon name="play" size={16} color={M.brandInk} /> Training starten
         </MButton>
         <MButton
           disabled={advancing}
           onClick={handleSkipWorkout}
-          aria-label="Workout überspringen"
+          aria-label="Tag überspringen"
           variant="secondary"
           size="icon"
         >
@@ -424,8 +382,8 @@ export function HomeScreen({
               }}
             >
               <span style={{ color: M.mut2, minWidth: 42 }}>Tag {dayNumber}</span>
-              <span style={{ color: M.fg, flex: 1 }}>{day.isRestDay ? "Ruhetag" : day.workout?.name ?? "Workout"}</span>
-              <Icon name={day.isRestDay ? "pause" : "dumbbell"} size={16} stroke={2} color={M.mut2} />
+              <span style={{ color: M.fg, flex: 1 }}>{planDayDisplayName(day)}</span>
+              <Icon name="dumbbell" size={16} stroke={2} color={M.mut2} />
             </div>
           ))}
         </div>
@@ -911,9 +869,9 @@ export function HomeScreen({
       />
       <ConfirmSheet
         open={showSkipConfirm}
-        title="Workout überspringen?"
-        message={`Möchtest du das geplante Workout "${currentDay?.workout?.name ?? "Workout"}" wirklich überspringen? Der Plan springt damit zum nächsten Tag.`}
-        confirmLabel="WORKOUT ÜBERSPRINGEN"
+        title="Tag überspringen?"
+        message={`Möchtest du „${currentDay ? planDayDisplayName(currentDay) : "diesen Tag"}“ wirklich überspringen? Der Plan springt zum nächsten Tag.`}
+        confirmLabel="TAG ÜBERSPRINGEN"
         icon="skipFwd"
         onConfirm={handleSkipWorkoutConfirm}
         onCancel={() => setShowSkipConfirm(false)}

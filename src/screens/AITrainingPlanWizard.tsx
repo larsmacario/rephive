@@ -6,7 +6,7 @@ import { Icon } from "../components/Icon";
 import { BirthDateField } from "../components/BirthDateField";
 import { OneRmPercentInfoCard } from "../components/OneRmPercentInfoCard";
 import { createBodyMeasurement, generateAndSaveAITrainingPlan, fetchRecentSessionsWithExercises, useBodyMeasurements } from "../lib/db";
-import { buildNutrition } from "../lib/nutrition";
+import { buildNutrition, ageFromBirthDate } from "../lib/nutrition";
 import {
   createAiConsentGrant,
   hasAiConsent,
@@ -1389,7 +1389,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                   {getExerciseCountHint(minutesPerSession, experienceLevel, fitnessGoal, {
                     sleepHours,
                     stressLevel,
-                  })}
+                  }, ageFromBirthDate(birthDate.trim() || profile?.birth_date))}
                 </p>
               )}
             </div>

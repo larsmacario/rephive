@@ -12,6 +12,13 @@ export interface AiPlanVolumeAnamnesis {
   stressLevel?: number | string | null;
 }
 
+function ageModifier(ageYears?: number | null): number {
+  if (ageYears == null) return 0;
+  if (ageYears >= 70) return -2;
+  if (ageYears >= 50) return -1;
+  return 0;
+}
+
 function isHighStress(level: unknown): boolean {
   if (typeof level === "number") return level >= 8;
   return level === "high";
@@ -56,18 +63,20 @@ export function exerciseCountBounds(params: {
   experienceLevel?: AiPlanExperienceLevel;
   fitnessGoal?: AiPlanFitnessGoal;
   anamnesis?: AiPlanVolumeAnamnesis | null;
+  ageYears?: number | null;
 }): { min: number; max: number } {
   let max =
     baseMaxForMinutes(params.minutes) +
     experienceModifier(params.experienceLevel) +
-    goalModifier(params.fitnessGoal);
+    goalModifier(params.fitnessGoal) +
+    ageModifier(params.ageYears);
 
   if (isConservativeVolume(params.anamnesis)) {
     max -= 1;
   }
 
-  max = Math.min(8, Math.max(3, max));
-  const min = Math.max(3, max - 1);
+  max = Math.min(8, Math.max(2, max));
+  const min = Math.max(2, max - 1);
   return { min, max };
 }
 
@@ -76,12 +85,14 @@ export function getExerciseCountHint(
   experienceLevel: AiPlanExperienceLevel,
   fitnessGoal: AiPlanFitnessGoal,
   anamnesis?: AiPlanVolumeAnamnesis | null,
+  ageYears?: number | null,
 ): string {
   const { min, max } = exerciseCountBounds({
     minutes,
     experienceLevel,
     fitnessGoal,
     anamnesis,
+    ageYears,
   });
-  return `ca. ${min}–${max} Kraftübungen pro Workout (Cardio-Warm-up zählt nicht mit)`;
+  return `ca. ${min}–${max} Kraftübungen pro strength-Block (Warm-up/Skill/MetCon separat)`;
 }

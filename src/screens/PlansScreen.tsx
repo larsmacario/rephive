@@ -61,7 +61,7 @@ export function PlansScreen({ onOpenBuilder, onOpenPlan, refreshKey = 0 }: Plans
           </div>
         )}
         {list.map((plan) => {
-          const workoutDays = plan.days.filter((d) => !d.isRestDay).length;
+          const exerciseCount = plan.days.reduce((sum, d) => sum + d.exercises.length, 0);
 
           return (
             <button
@@ -98,7 +98,7 @@ export function PlansScreen({ onOpenBuilder, onOpenPlan, refreshKey = 0 }: Plans
                   {plan.isActive && <MTag>Aktiv</MTag>}
                 </div>
                 <div style={{ fontSize: 12.5, color: M.mut, marginTop: 5, fontWeight: 600 }}>
-                  {plan.days.length} Tage · {workoutDays} Workouts
+                  {plan.days.length} Tage · {exerciseCount} Übungen
                 </div>
               </div>
               <Icon name="chevR" size={20} color={M.mut2} stroke={2.2} />

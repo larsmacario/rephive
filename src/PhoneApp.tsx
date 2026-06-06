@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { normalizeWorkout, startCustomSession, startSession } from "./data";
+import { normalizeWorkout, startCustomSession, startPlanDaySession } from "./data";
 import type { Workout } from "./lib/engine";
 import {
   type ActiveWorkoutDraft,
@@ -11,8 +11,9 @@ import {
   saveActiveWorkout,
   snapshotToDraft,
 } from "./lib/activeWorkout";
-import { advancePlan, fetchWorkout, saveSession, type SaveSessionInput } from "./lib/db";
+import { advancePlan, fetchPlanDayForTracking, saveSession, type SaveSessionInput } from "./lib/db";
 import type { ExerciseMetric } from "./lib/exerciseCatalog";
+import type { TrainingBlockType } from "./lib/planBlocks";
 import { useAuth } from "./lib/auth";
 import { useBreakpoint } from "./lib/responsive";
 import { PhoneShell } from "./components/PhoneShell";
@@ -21,14 +22,12 @@ import { ConfirmSheet } from "./components/ConfirmSheet";
 import { TimerLeaveSheet } from "./components/TimerLeaveSheet";
 import { HomeScreen } from "./screens/HomeScreen";
 import { PlansScreen } from "./screens/PlansScreen";
-import { WorkoutsHubScreen } from "./screens/WorkoutsHubScreen";
+import { ExercisesScreen } from "./screens/ExercisesScreen";
 import { TimerScreen } from "./screens/TimerScreen";
 import { HistoryScreen } from "./screens/HistoryScreen";
 import { TrackScreen } from "./screens/TrackScreen";
-import { BuilderScreen } from "./screens/BuilderScreen";
 import { PlanBuilderScreen } from "./screens/PlanBuilderScreen";
 import { PlanDetailScreen } from "./screens/PlanDetailScreen";
-import { WorkoutDetailScreen } from "./screens/WorkoutDetailScreen";
 import { SessionDetailScreen } from "./screens/SessionDetailScreen";
 import { SessionEditScreen } from "./screens/SessionEditScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
@@ -42,13 +41,10 @@ import { ActiveTimerProvider, useActiveTimer } from "./lib/activeTimer";
 import { usePreferences } from "./lib/preferences";
 import { OnboardingWizard } from "./screens/OnboardingWizard";
 import { AITrainingPlanWizard } from "./screens/AITrainingPlanWizard";
-import { AthleteCoachingScreen } from "./screens/AthleteCoachingScreen";
-
 type Route =
-  | { kind: "tracking"; session: Workout; workoutId?: string; startedAt: number; tags: string[]; planId?: string }
-  | { kind: "builder"; workoutId?: string }
-  | { kind: "workoutDetail"; workoutId: string }
+  | { kind: "tracking"; session: Workout; planDayId?: string; startedAt: number; tags: string[]; planId?: string }
   | { kind: "planBuilder"; planId?: string }
+  | { kind: "exercises" }
   | { kind: "sessionDetail"; sessionId: string }
   | { kind: "sessionEdit"; sessionId: string }
   | { kind: "planDetail"; planId: string }
@@ -60,7 +56,6 @@ type Route =
   | { kind: "about" }
   | { kind: "support" }
   | { kind: "aiTrainingPlanWizard" }
-  | { kind: "coaching" }
   | null;
 
 type FinishPayload = {
@@ -69,11 +64,13 @@ type FinishPayload = {
   durationMin: number;
   volumeKg: number;
   setCount: number;
-  workoutId?: string;
+  planDayId?: string;
   planId?: string;
+  skippedBlocks?: TrainingBlockType[];
   exercises: {
     name: string;
     note?: string;
+    blockType?: TrainingBlockType;
     supersetId?: string;
     metric?: ExerciseMetric;
     sets: { reps: number; kg: number; done: boolean }[];
@@ -82,22 +79,24 @@ type FinishPayload = {
 
 function buildPayloadFromDraft(draft: ActiveWorkoutDraft): FinishPayload {
   const { doneSets, volumeKg } = getDraftMetrics(draft);
-  const isCustom = !draft.workoutId;
+  const isCustom = !draft.planDayId;
   return {
     name: draft.session.name,
     tags: isCustom ? ["Individuell"] : draft.tags,
     durationMin: Math.max(1, Math.round(getActiveDurationSec(draft.startedAt) / 60)),
     volumeKg,
     setCount: doneSets,
-    workoutId: draft.workoutId,
+    planDayId: draft.planDayId,
     planId: draft.planId,
     exercises: draft.session.exercises.map((e) => ({
       name: e.name,
       note: e.note,
+      blockType: e.blockType,
       supersetId: e.supersetId,
       metric: e.metric,
       sets: e.sets,
     })),
+    skippedBlocks: draft.skippedBlocks ?? draft.session.skippedBlocks,
   };
 }
 
@@ -110,7 +109,7 @@ export function PhoneApp() {
 }
 
 function PhoneAppInner() {
-  const { user, profile, profileReady } = useAuth();
+  const { user, profileReady } = useAuth();
   const { preferences } = usePreferences();
   const { active: timerActive } = useActiveTimer();
   const breakpoint = useBreakpoint();
@@ -157,20 +156,20 @@ function PhoneAppInner() {
     action?.();
   };
 
-  const goTrack = async (id: string, planId?: string) => {
+  const goTrackPlanDay = async (planDayId: string, planId?: string) => {
     runWithReplaceDraftConfirm(() => {
       void (async () => {
         setTrackLoading(true);
         try {
-          const w = await fetchWorkout(id);
-          if (!w) return;
+          const day = await fetchPlanDayForTracking(planDayId);
+          if (!day) return;
           setRoute({
             kind: "tracking",
-            session: startSession(w),
-            workoutId: w.id,
+            session: startPlanDaySession(day),
+            planDayId: day.id,
             startedAt: Date.now(),
-            tags: w.tags,
-            planId,
+            tags: ["Plan"],
+            planId: planId ?? day.planId,
           });
         } finally {
           setTrackLoading(false);
@@ -197,16 +196,15 @@ function PhoneAppInner() {
       session: normalizeWorkout(
         JSON.parse(JSON.stringify(activeWorkout.session)) as Workout,
       ),
-      workoutId: activeWorkout.workoutId,
+      planDayId: activeWorkout.planDayId,
       startedAt: activeWorkout.startedAt,
       tags: activeWorkout.tags,
       planId: activeWorkout.planId,
     });
   };
 
-  const goBuild = (workoutId?: string) => setRoute({ kind: "builder", workoutId });
-  const goWorkoutDetail = (workoutId: string) => setRoute({ kind: "workoutDetail", workoutId });
   const goPlanBuild = (planId?: string) => setRoute({ kind: "planBuilder", planId });
+  const goExercises = () => setRoute({ kind: "exercises" });
   const goSessionDetail = (sessionId: string) => setRoute({ kind: "sessionDetail", sessionId });
   const goSessionEdit = (sessionId: string) => setRoute({ kind: "sessionEdit", sessionId });
   const goPlanDetail = (planId: string) => setRoute({ kind: "planDetail", planId });
@@ -221,7 +219,6 @@ function PhoneAppInner() {
   const goAbout = () => setRoute({ kind: "about" });
   const goSupport = () => setRoute({ kind: "support" });
   const goAITrainingPlanWizard = () => setRoute({ kind: "aiTrainingPlanWizard" });
-  const goCoaching = () => setRoute({ kind: "coaching" });
   const close = (toTab?: Tab) => {
     setRoute(null);
     if (toTab) setTab(toTab);
@@ -230,12 +227,13 @@ function PhoneAppInner() {
   const handleSaveWorkout = async (payload: FinishPayload) => {
     if (!user) return;
     await saveSession(user.id, {
-      workoutId: payload.workoutId,
+      planDayId: payload.planDayId,
       name: payload.name,
       tags: payload.tags,
       durationMin: payload.durationMin,
       volumeKg: payload.volumeKg,
       setCount: payload.setCount,
+      skippedBlocks: payload.skippedBlocks,
       exercises: payload.exercises,
     });
     if (payload.planId) {
@@ -300,39 +298,21 @@ function PhoneAppInner() {
       <TrackScreen
         session={route.session}
         startedAt={route.startedAt}
-        workoutId={route.workoutId}
+        planDayId={route.planDayId}
         tags={route.tags}
         planId={route.planId}
         onPause={handlePauseFromTrack}
         onDiscard={handleDiscardWorkout}
+        onSaveTimerSession={handleSaveTimerSession}
         onFinish={handleSaveWorkout}
       />
     );
     showNav = false;
-  } else if (route?.kind === "builder") {
+  } else if (route?.kind === "exercises") {
     body = (
-      <BuilderScreen
-        workoutId={route.workoutId}
-        onBack={() => close("workouts")}
-        onSave={() => {
-          setRefreshKey((k) => k + 1);
-          close("workouts");
-        }}
-      />
-    );
-    showNav = false;
-  } else if (route?.kind === "workoutDetail") {
-    body = (
-      <WorkoutDetailScreen
-        workoutId={route.workoutId}
-        trackLoading={trackLoading}
-        onBack={() => close("workouts")}
-        onStart={goTrack}
-        onEdit={goBuild}
-        onDeleted={() => {
-          setRefreshKey((k) => k + 1);
-          close("workouts");
-        }}
+      <ExercisesScreen
+        refreshKey={refreshKey}
+        onBack={() => close("home")}
       />
     );
     showNav = false;
@@ -368,7 +348,6 @@ function PhoneAppInner() {
         trackLoading={trackLoading}
         onBack={() => close("history")}
         onEdit={goSessionEdit}
-        onStart={goTrack}
         onDeleted={() => {
           setRefreshKey((k) => k + 1);
           close("history");
@@ -409,9 +388,6 @@ function PhoneAppInner() {
   } else if (route?.kind === "support") {
     body = <SupportScreen onBack={() => close("home")} />;
     showNav = false;
-  } else if (route?.kind === "coaching") {
-    body = <AthleteCoachingScreen onBack={() => close("home")} refreshKey={refreshKey} />;
-    showNav = false;
   } else if (route?.kind === "aiTrainingPlanWizard") {
     body = (
       <AITrainingPlanWizard
@@ -428,7 +404,7 @@ function PhoneAppInner() {
       <HomeScreen
         refreshKey={refreshKey}
         activeWorkout={activeWorkout}
-        onStart={goTrack}
+        onStart={goTrackPlanDay}
         onStartCustom={goCustomTrack}
         onResumeActive={resumeActiveWorkout}
         onSaveActive={handleSaveFromDraft}
@@ -444,7 +420,7 @@ function PhoneAppInner() {
         onOpenAbout={goAbout}
         onOpenSupport={goSupport}
         onOpenAITrainingPlan={goAITrainingPlanWizard}
-        onOpenCoaching={goCoaching}
+        onOpenExercises={goExercises}
         trackLoading={trackLoading}
       />
     );
@@ -454,14 +430,6 @@ function PhoneAppInner() {
         refreshKey={refreshKey}
         onOpenBuilder={() => goPlanBuild()}
         onOpenPlan={goPlanDetail}
-      />
-    );
-  } else if (tab === "workouts") {
-    body = (
-      <WorkoutsHubScreen
-        refreshKey={refreshKey}
-        onOpenBuilder={() => goBuild()}
-        onOpenWorkout={goWorkoutDetail}
       />
     );
   } else if (tab === "timer") {
@@ -475,7 +443,7 @@ function PhoneAppInner() {
     return null;
   }
 
-  if (!preferences.onboarded && profile?.role !== "coach" && profile?.role !== "owner") {
+  if (!preferences.onboarded) {
     return (
       <PhoneShell reserveBottomSafeArea={false}>
         <OnboardingWizard />

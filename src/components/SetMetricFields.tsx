@@ -19,7 +19,10 @@ export interface SetMetricFieldsProps {
   onBump: (field: SetField, delta: number) => void;
   onSetValue?: (field: SetField, value: number) => void;
   compact?: boolean;
-  layout?: "inline" | "cells";
+  layout?: "inline" | "cells" | "stack";
+  size?: "md" | "lg";
+  /** Breite des Metrik-Blocks (z. B. „80%“ in Track-Karten). */
+  areaWidth?: string;
 }
 
 export function setFieldHeaders(metric: ExerciseMetric = DEFAULT_EXERCISE_METRIC): { key: SetField | "set"; label: string }[] {
@@ -76,6 +79,13 @@ function fieldLabel(field: SetField, spec: ReturnType<typeof getMetricSpec>): st
   return spec.kgLabel;
 }
 
+function fieldLabelTrack(field: SetField, spec: ReturnType<typeof getMetricSpec>): string {
+  if (field === "reps") return "Wiederholungen";
+  if (field === "durationSec") return "Zeit";
+  if (field === "distanceM") return "Distanz (m)";
+  return spec.kgLabel === "KG" ? "Gewicht (kg)" : spec.kgLabel;
+}
+
 export function SetMetricFields({
   set,
   metric = DEFAULT_EXERCISE_METRIC,
@@ -83,25 +93,42 @@ export function SetMetricFields({
   onSetValue,
   compact = false,
   layout = "cells",
+  size = "md",
+  areaWidth,
 }: SetMetricFieldsProps) {
   const spec = getMetricSpec(metric);
-  const fontSize = compact ? 15 : 21;
+  const isLg = size === "lg";
+  const fontSize = compact ? 15 : isLg ? 28 : 21;
   const fields: SetField[] = [];
   if (spec.showKg) fields.push("kg");
   if (spec.showReps) fields.push("reps");
   if (spec.showDistance) fields.push("distanceM");
   if (spec.showTime) fields.push("durationSec");
 
-  const renderEditableField = (field: SetField, withLabel = false) => (
+  const renderEditableField = (
+    field: SetField,
+    withLabel = false,
+    stretch = false,
+    labelOnTop = stretch,
+  ) => (
     <SetValueStepper
-      label={withLabel ? fieldLabel(field, spec) : undefined}
+      label={
+        withLabel
+          ? stretch && isLg && labelOnTop
+            ? fieldLabelTrack(field, spec)
+            : fieldLabel(field, spec)
+          : undefined
+      }
       value={fieldValue(set, field, metric)}
       step={fieldStep(field)}
       min={fieldMin(field)}
       kind={field}
       onChange={(val) => onSetValue!(field, val)}
       editable
-      fontSize={compact ? 17 : 18}
+      size={size}
+      fullWidth={stretch}
+      labelOnTop={labelOnTop}
+      fontSize={compact ? 17 : isLg ? 28 : 18}
       minWidth={fieldMinWidth(field, compact)}
     />
   );
@@ -137,16 +164,67 @@ export function SetMetricFields({
     );
   };
 
+  if (layout === "stack") {
+    const stackWidth = areaWidth ?? (isLg ? "80%" : "100%");
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "stretch",
+          gap: isLg ? 18 : 12,
+          width: stackWidth,
+          margin: "0 auto",
+        }}
+      >
+        {fields.map((field) => (
+          <div key={field} style={{ width: "100%" }}>
+            {onSetValue ? (
+              renderEditableField(field, true, true, true)
+            ) : (
+              <div style={{ textAlign: "center" }}>
+                {renderField(field)}
+                <div style={{ fontSize: 9, letterSpacing: 1, color: M.mut2, fontWeight: 700, marginTop: 2 }}>
+                  {fieldLabel(field, spec)}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (layout === "inline") {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: compact ? 8 : 10, flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: compact ? "center" : isLg ? "space-evenly" : "center",
+          gap: compact ? 8 : isLg ? 16 : 10,
+          flexWrap: "wrap",
+          width: isLg ? "100%" : undefined,
+        }}
+      >
         {fields.map((field, i) => (
-          <div key={field} style={{ display: "flex", alignItems: "center", gap: compact ? 6 : 8 }}>
+          <div key={field} style={{ display: "flex", alignItems: "flex-end", gap: compact ? 6 : isLg ? 12 : 8 }}>
             {i > 0 && (
-              <span style={{ color: M.mut2, fontFamily: M.disp, fontSize: compact ? 14 : 16 }}>×</span>
+              <span
+                style={{
+                  color: M.mut2,
+                  fontFamily: M.disp,
+                  fontSize: compact ? 14 : isLg ? 18 : 16,
+                  lineHeight: 1,
+                  paddingBottom: isLg ? 12 : 6,
+                  margin: isLg ? "0 4px" : undefined,
+                }}
+              >
+                ×
+              </span>
             )}
             {onSetValue ? (
-              renderEditableField(field, true)
+              renderEditableField(field, true, isLg, false)
             ) : (
               <div style={{ textAlign: "center" }}>
                 {renderField(field)}

@@ -1,21 +1,18 @@
 # Aktueller Stand
 
 ## Letzte Änderungen
-- **KI-Einwilligung (Apple 5.1.2(i)):** `aiConsent` in `profiles.preferences`, Wizard-Schritt Consent, Gates Client (`db.ts`) + Edge Function `requireAiConsent`; Widerruf/Re-Consent in Einstellungen; Datenschutz-Landingpage (Anthropic-Abschnitt).
-- **Edge Function:** `generate-training-plan` v19 deployed (`verify_jwt=true`, Consent-Gate live).
-- **Deploy-Scripts:** MCP-Artefakte entfernt; `scripts/deploy-training-plan.sh` + `deploy-delete-account.sh` nur noch CLI (Token-Fallback `~/.supabase/access-token`).
-- **App Store P1:** Home HILFE nur Support; iOS Info.plist Foto-Strings + ATS ohne `NSAllowsArbitraryLoads`.
+- **4-Bausteine-System live:** Migration `20260607120000_plan_training_blocks.sql` (remote), Edge Function `generate-training-plan` deployed (`blocks[]`, Altersbänder, `birthDate`).
+- **TrackScreen (Plan):** Scroll-Fix (innerer Wrapper, kein Flex-Shrink), Bausteine einklappbar (Default: nur erster Block offen), Fortschritts-Badge wie bei Übungen, Übungen pro Baustein hinzufügen, Session-Skip unverändert.
+- **UI PlanBlockSection:** Keine linken Akzent-Ränder; `BLOCK_GUIDE_HINTS` statt Minutenangaben.
+- **Coaching entfernt** (später neu): Migration `20260608120000_remove_coaching.sql`, Edge `send-coaching-invite` weg.
 
 ## Fokus
-- App-Store-Submit: KI-Consent-Flow + Body-Tracker-Foto + Legal-Links auf Gerät testen.
-- `npm run build` wieder grün bekommen (`BuilderItem.category` in BuilderScreen/PlanBuilderScreen).
+- TestFlight / manueller E2E: KI-Plan mit 4 Bausteinen, Block-Skip beim Finish, Block-Editor, Tracking-Flow.
 
 ## Nächste Schritte
-- TestFlight: Consent → Plan generieren; Widerruf in Einstellungen; 403 ohne Consent prüfen.
-- `npm run build` fixen, dann `npx cap sync ios` vor Release.
-- App Store Connect Privacy Labels (Fitness-Daten an Anthropic) manuell prüfen.
+- End-to-End in der App verifizieren (bestehender Plan unter „Kraft“, neuer KI-Plan mit Blocks).
+- Coaching später neu planen und implementieren.
 
 ## Offene Punkte
-- TS-Build-Fehler `BuilderItem.category` (vorbestehend).
-- KI-Katalog-Upsert: bestehende `exercises` bei Metric-Wechsel ggf. aktualisieren.
-- IAP/StoreKit für KI-Checkout v1.1 geplant (Wizard-Checkout aktuell simuliert).
+- UI: keine colored left borders (`.agents/claude.md`).
+- `exercises_backup_20260605` ohne RLS (Backup-Tabelle).

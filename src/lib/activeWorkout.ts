@@ -1,21 +1,26 @@
 import type { Workout } from "./engine";
+import type { TrainingBlockType } from "./planBlocks";
 import { setVolumeKg } from "./exerciseCatalog";
 
 export interface ActiveWorkoutDraft {
   session: Workout;
   startedAt: number;
-  workoutId?: string;
+  planDayId?: string;
   tags: string[];
   planId?: string;
+  enabledBlocks?: TrainingBlockType[];
+  skippedBlocks?: TrainingBlockType[];
   pausedAt: number;
 }
 
 export interface ActiveWorkoutSnapshot {
   session: Workout;
   startedAt: number;
-  workoutId?: string;
+  planDayId?: string;
   tags: string[];
   planId?: string;
+  enabledBlocks?: TrainingBlockType[];
+  skippedBlocks?: TrainingBlockType[];
 }
 
 const STORAGE_PREFIX = "hejcoach:activeWorkout:";

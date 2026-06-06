@@ -18,6 +18,7 @@ live tracken und Interval-Timer (EMOM / AMRAP / TABATA / For Time). Spätere nat
 - Variablen/Code Englisch, UI-Texte Deutsch.
 - Kein Geräte-Mockup (Status-Bar/Notch) — nur das echte App-UI plus Safe-Area-Insets.
 - Keine Browser-Dialogs (`alert`/`confirm`): Bestätigungen → `ConfirmSheet`, Hinweise/Fehler → `AlertSheet`.
+- UI ohne „KI-Look“: **keine farbigen linken Akzent-Ränder** (kein `borderLeft` in Accent-Farbe). Bausteine/Karten differenzieren über Typo und dezente Akzentfarbe nur im Text — Container neutral (`M.line2`, `M.card`).
 
 ## Memory
 Lies zu Beginn jeder Session `.agents/memory/project.md` und `.agents/memory/current.md`.

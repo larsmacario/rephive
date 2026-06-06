@@ -3,20 +3,19 @@ import { M } from "../theme";
 import { deleteSession, useSession } from "../lib/db";
 import { formatSetSummary } from "../lib/exerciseSets";
 import { formatTimerDetailMetrics, isTimerSession } from "../lib/timerSession";
+import { groupExercisesByBlock, skippedBlocksLabel } from "../lib/planBlocks";
 import { Icon } from "../components/Icon";
 import { MTag } from "../components/widgets";
+import { PlanBlockSection } from "../components/PlanBlockSection";
 import { SupersetBlock } from "../components/SupersetBlock";
 import { segmentExercises } from "../lib/superset";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { MButton } from "../components/MButton";
-import { CoachingNotesSection } from "../components/CoachingNotesSection";
-
 export interface SessionDetailScreenProps {
   sessionId: string;
   trackLoading?: boolean;
   onBack: () => void;
   onEdit: (sessionId: string) => void;
-  onStart: (workoutId: string) => void;
   onDeleted: () => void;
 }
 
@@ -37,7 +36,6 @@ export function SessionDetailScreen({
   trackLoading,
   onBack,
   onEdit,
-  onStart,
   onDeleted,
 }: SessionDetailScreenProps) {
   const { data: session, loading, error } = useSession(sessionId);
@@ -150,102 +148,109 @@ export function SessionDetailScreen({
           )}
         </div>
 
+        {session.skippedBlocks.length > 0 && (
+          <div style={{ marginTop: 12, fontSize: 12, color: M.mut, fontWeight: 600 }}>
+            Übersprungen: {skippedBlocksLabel(session.skippedBlocks)}
+          </div>
+        )}
+
         {session.exercises.length > 0 && (
           <>
             <div style={{ marginTop: 18, fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>ÜBUNGEN</div>
-            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-              {segmentExercises(session.exercises).map((seg) => {
-                const renderEx = (ex: (typeof session.exercises)[number]) => (
-                  <div
-                    key={ex.id}
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 12,
-                      background: M.card,
-                      border: "1px solid " + M.line2,
-                      fontSize: 13,
-                      fontWeight: 600,
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 8,
-                          background: M.accSoft,
-                          color: M.acc,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flex: "0 0 auto",
-                        }}
-                      >
-                        <Icon name="dumbbell" size={16} stroke={2} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: M.fg }}>{ex.name}</div>
-                        {ex.note && (
-                          <div style={{ color: M.mut, fontSize: 12, marginTop: 2, fontWeight: 500 }}>{ex.note}</div>
-                        )}
-                      </div>
-                      <span style={{ color: M.mut2, fontSize: 12, flex: "0 0 auto" }}>
-                        {formatSetSummary(ex.sets, ex.metric)}
-                      </span>
-                    </div>
-                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
-                      {ex.sets.map((s, si) => (
-                        <div
-                          key={si}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            padding: "6px 8px",
-                            borderRadius: 8,
-                            background: s.done ? M.accSoft : "transparent",
-                            color: s.done ? M.fg : M.mut2,
-                            fontSize: 12.5,
-                          }}
-                        >
-                          <span>Satz {si + 1}</span>
-                          <span style={{ fontFamily: M.disp, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                            {s.kg} kg × {s.reps}
-                            {s.done && <Icon name="check" size={14} stroke={2.6} color={M.acc} />}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-                if (seg.kind === "single") return renderEx(seg.exercise);
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 12 }}>
+              {groupExercisesByBlock(
+                session.exercises.map((ex) => ({ ...ex, blockType: ex.blockType ?? "strength" })),
+              ).map(({ block, exercises: blockExercises }) => {
+                const skipped = session.skippedBlocks.includes(block);
+                if (blockExercises.length === 0 && !skipped) return null;
                 return (
-                  <SupersetBlock key={seg.exercises.map((e) => e.id).join("-")}>
-                    {seg.exercises.map((ex) => renderEx(ex))}
-                  </SupersetBlock>
+                  <PlanBlockSection key={block} block={block} skipped={skipped}>
+                    {blockExercises.length > 0 ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {segmentExercises(blockExercises).map((seg) => {
+                          const renderEx = (ex: (typeof session.exercises)[number]) => (
+                            <div
+                              key={ex.id}
+                              style={{
+                                padding: "10px 12px",
+                                borderRadius: 12,
+                                background: M.card,
+                                border: "1px solid " + M.line2,
+                                fontSize: 13,
+                                fontWeight: 600,
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <div
+                                  style={{
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: 8,
+                                    background: M.accSoft,
+                                    color: M.acc,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flex: "0 0 auto",
+                                  }}
+                                >
+                                  <Icon name="dumbbell" size={16} stroke={2} />
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ color: M.fg }}>{ex.name}</div>
+                                  {ex.note && (
+                                    <div style={{ color: M.mut, fontSize: 12, marginTop: 2, fontWeight: 500 }}>{ex.note}</div>
+                                  )}
+                                </div>
+                                <span style={{ color: M.mut2, fontSize: 12, flex: "0 0 auto" }}>
+                                  {formatSetSummary(ex.sets, ex.metric)}
+                                </span>
+                              </div>
+                              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                                {ex.sets.map((s, si) => (
+                                  <div
+                                    key={si}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "space-between",
+                                      padding: "6px 8px",
+                                      borderRadius: 8,
+                                      background: s.done ? M.accSoft : "transparent",
+                                      color: s.done ? M.fg : M.mut2,
+                                      fontSize: 12.5,
+                                    }}
+                                  >
+                                    <span>Satz {si + 1}</span>
+                                    <span style={{ fontFamily: M.disp, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                      {s.kg} kg × {s.reps}
+                                      {s.done && <Icon name="check" size={14} stroke={2.6} color={M.acc} />}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                          if (seg.kind === "single") return renderEx(seg.exercise);
+                          return (
+                            <SupersetBlock key={seg.exercises.map((e) => e.id).join("-")}>
+                              {seg.exercises.map((ex) => renderEx(ex))}
+                            </SupersetBlock>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: M.mut, fontWeight: 500 }}>Nicht absolviert</div>
+                    )}
+                  </PlanBlockSection>
                 );
               })}
             </div>
-            <CoachingNotesSection targetType="session" targetId={session.id} />
           </>
         )}
       </div>
 
       <div style={{ padding: "10px 22px 14px", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid " + M.line2 }}>
-        {session.workoutId && (
-          <MButton
-            disabled={trackLoading || busy}
-            onClick={() => onStart(session.workoutId!)}
-            variant="primary"
-            size="md"
-            fullWidth
-            loading={trackLoading || busy}
-          >
-            <Icon name="play" size={16} color={M.accInk} />
-            Workout erneut starten
-          </MButton>
-        )}
-
         <div style={{ display: "flex", flexDirection: "row", alignItems: "stretch", gap: 8, flexWrap: "nowrap" }}>
           <MButton
             disabled={busy || trackLoading}

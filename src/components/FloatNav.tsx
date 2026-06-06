@@ -2,13 +2,12 @@ import { M, Z } from "../theme";
 import { CONTENT_HORIZONTAL_PADDING } from "../lib/responsive";
 import { Icon } from "./Icon";
 
-export type Tab = "home" | "plans" | "ai-plan" | "workouts" | "timer" | "history";
+export type Tab = "home" | "plans" | "ai-plan" | "timer" | "history";
 
 export const NAV: { id: Tab; label: string; icon: string }[] = [
   { id: "home", label: "Start", icon: "home" },
   { id: "plans", label: "Pläne", icon: "layers" },
   { id: "ai-plan", label: "KI Plan", icon: "sparkles" },
-  { id: "workouts", label: "Workouts", icon: "dumbbell" },
   { id: "history", label: "Verlauf", icon: "history" },
 ];
 

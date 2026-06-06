@@ -6,20 +6,25 @@ export interface WarmUpSetToggleProps {
   checked: boolean;
   onChange: (next: boolean) => void;
   layout?: "full" | "compact";
+  size?: "md" | "lg";
 }
 
-export function WarmUpSetToggle({ checked, onChange, layout = "full" }: WarmUpSetToggleProps) {
+export function WarmUpSetToggle({ checked, onChange, layout = "full", size = "md" }: WarmUpSetToggleProps) {
+  const isLg = size === "lg";
+
   if (layout === "compact") {
     return (
       <label
         style={{
-          width: WARMUP_COLUMN_WIDTH,
+          width: isLg ? 52 : WARMUP_COLUMN_WIDTH,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
+          justifyContent: "flex-end",
           cursor: "pointer",
           userSelect: "none",
           flexShrink: 0,
+          paddingBottom: isLg ? 2 : 0,
         }}
         title="Satz 1 als Warm-up markieren"
       >
@@ -28,15 +33,20 @@ export function WarmUpSetToggle({ checked, onChange, layout = "full" }: WarmUpSe
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
           aria-label="Satz 1 als Warm-up markieren"
-          style={{ width: 14, height: 14, accentColor: M.acc, cursor: "pointer" }}
+          style={{
+            width: isLg ? 18 : 14,
+            height: isLg ? 18 : 14,
+            accentColor: M.acc,
+            cursor: "pointer",
+          }}
         />
         <span
           style={{
-            fontSize: 9,
+            fontSize: isLg ? 10 : 9,
             letterSpacing: 1,
             color: checked ? M.acc : M.mut2,
             fontWeight: 700,
-            marginTop: 2,
+            marginTop: isLg ? 4 : 2,
           }}
         >
           W-UP
