@@ -1,6 +1,7 @@
 import { contentMaxWidth, useBreakpoint } from "../lib/responsive";
 import type { SaveSessionInput } from "../lib/db";
 import { IntervalTimerPanel } from "../components/IntervalTimerPanel";
+import { floatNavContentInset } from "../components/FloatNav";
 
 export interface TimerScreenProps {
   onSaveSession: (input: SaveSessionInput) => Promise<void>;
@@ -16,7 +17,7 @@ export function TimerScreen({ onSaveSession }: TimerScreenProps) {
         flex: 1,
         display: "flex",
         flexDirection: "column",
-        padding: "6px 22px 10px",
+        padding: `6px 22px ${floatNavContentInset("bottom")}`,
         minHeight: 0,
         width: "100%",
         maxWidth: maxW,

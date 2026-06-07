@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { M } from "../theme";
 import { usePlans } from "../lib/db";
+import { useNetwork } from "../lib/offline/networkStatus";
 import { Icon } from "../components/Icon";
 import { MTag } from "../components/widgets";
-import { FLOAT_NAV_SCROLL_BOTTOM_GAP } from "../components/FloatNav";
+import { floatNavContentInset } from "../components/FloatNav";
 import { MButton } from "../components/MButton";
 
 export interface PlansScreenProps {
@@ -13,7 +14,8 @@ export interface PlansScreenProps {
 }
 
 export function PlansScreen({ onOpenBuilder, onOpenPlan, refreshKey = 0 }: PlansScreenProps) {
-  const { data: plans, loading, error, reload } = usePlans();
+  const { isOnline } = useNetwork();
+  const { data: plans, loading, error, reload, isStale } = usePlans();
 
   useEffect(() => {
     reload();
@@ -34,7 +36,9 @@ export function PlansScreen({ onOpenBuilder, onOpenPlan, refreshKey = 0 }: Plans
         <div>
           <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 30, lineHeight: 1 }}>Pläne</div>
           <div style={{ fontSize: 12.5, color: M.mut, marginTop: 3, fontWeight: 600 }}>
-            {loading ? "…" : `${list.length} Trainingspläne · nur einer aktiv`}
+            {loading && list.length === 0
+              ? "…"
+              : `${list.length} Trainingspläne · nur einer aktiv${isStale && !isOnline ? " · Offline" : ""}`}
           </div>
         </div>
         <MButton onClick={onOpenBuilder} variant="primary" size="icon" aria-label="Plan erstellen">
@@ -47,13 +51,15 @@ export function PlansScreen({ onOpenBuilder, onOpenPlan, refreshKey = 0 }: Plans
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
-          padding: `0 22px ${FLOAT_NAV_SCROLL_BOTTOM_GAP}px`,
+          padding: `0 22px ${floatNavContentInset("bottom")}`,
           display: "flex",
           flexDirection: "column",
           gap: 8,
         }}
       >
-        {loading && <div style={{ color: M.mut, fontSize: 14 }}>Pläne werden geladen…</div>}
+        {loading && list.length === 0 && (
+          <div style={{ color: M.mut, fontSize: 14 }}>Pläne werden geladen…</div>
+        )}
         {error && <div style={{ color: "#ff8a8a", fontSize: 14 }}>{error}</div>}
         {!loading && list.length === 0 && (
           <div style={{ color: M.mut, fontSize: 14, textAlign: "center", marginTop: 24 }}>

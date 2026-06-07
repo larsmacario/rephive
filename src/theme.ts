@@ -40,6 +40,46 @@ export const M = {
   body: "'Archivo', sans-serif",
 } as const;
 
+/** Compact exercise list rows (Track, Plan, Bibliothek, Picker). */
+export const EXERCISE_ROW = {
+  height: 56,
+  iconSize: 34,
+  iconRadius: 10,
+  paddingX: 12,
+  gap: 12,
+  titleSize: 16,
+  metaSize: 12,
+  borderRadius: 12,
+} as const;
+
+export type ExerciseRowBackground = "card" | "panel" | "transparent";
+
+export function exerciseRowStyle(options?: {
+  background?: ExerciseRowBackground;
+  borderRadius?: number;
+}): CSSProperties {
+  const bg = options?.background ?? "panel";
+  return {
+    height: EXERCISE_ROW.height,
+    boxSizing: "border-box",
+    display: "flex",
+    alignItems: "center",
+    gap: EXERCISE_ROW.gap,
+    padding: `0 ${EXERCISE_ROW.paddingX}px`,
+    borderRadius: options?.borderRadius ?? EXERCISE_ROW.borderRadius,
+    background: bg === "card" ? M.card : bg === "panel" ? M.panel : "transparent",
+    border: bg === "transparent" ? "none" : "1px solid " + M.line2,
+    flexShrink: 0,
+    width: "100%",
+  };
+}
+
+export const exerciseRowEllipsis: CSSProperties = {
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
 export type BrandSurfaceVariant = "hero" | "card" | "selected";
 
 /** Reusable card/surface styles for brand-accented UI. */

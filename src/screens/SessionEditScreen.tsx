@@ -97,7 +97,12 @@ export function SessionEditScreen({ sessionId, onBack, onSave }: SessionEditScre
         exercises: exercises.map((e) => ({
           name: e.name,
           note: e.note,
+          blockType: e.blockType,
+          blockFormat: e.blockFormat,
+          blockId: e.blockId,
           supersetId: e.supersetId,
+          catalogExerciseId: e.catalogExerciseId,
+          perceivedEffort: e.perceivedEffort,
           metric: e.metric,
           sets: e.sets,
         })),

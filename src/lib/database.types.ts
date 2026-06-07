@@ -195,8 +195,65 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_day_blocks: {
+        Row: {
+          block_type: string
+          format: string
+          id: string
+          interval_seconds: number | null
+          note: string | null
+          plan_day_id: string
+          position: number
+          prep_seconds: number | null
+          rest_between_rounds_seconds: number | null
+          rest_seconds: number | null
+          rounds: number | null
+          time_cap_seconds: number | null
+          work_seconds: number | null
+        }
+        Insert: {
+          block_type: string
+          format?: string
+          id?: string
+          interval_seconds?: number | null
+          note?: string | null
+          plan_day_id: string
+          position: number
+          prep_seconds?: number | null
+          rest_between_rounds_seconds?: number | null
+          rest_seconds?: number | null
+          rounds?: number | null
+          time_cap_seconds?: number | null
+          work_seconds?: number | null
+        }
+        Update: {
+          block_type?: string
+          format?: string
+          id?: string
+          interval_seconds?: number | null
+          note?: string | null
+          plan_day_id?: string
+          position?: number
+          prep_seconds?: number | null
+          rest_between_rounds_seconds?: number | null
+          rest_seconds?: number | null
+          rounds?: number | null
+          time_cap_seconds?: number | null
+          work_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_day_blocks_plan_day_id_fkey"
+            columns: ["plan_day_id"]
+            isOneToOne: false
+            referencedRelation: "plan_days"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_day_exercises: {
         Row: {
+          block_id: string
           block_type: string
           catalog_exercise_id: string | null
           id: string
@@ -209,6 +266,7 @@ export type Database = {
           superset_id: string | null
         }
         Insert: {
+          block_id: string
           block_type?: string
           catalog_exercise_id?: string | null
           id?: string
@@ -221,6 +279,7 @@ export type Database = {
           superset_id?: string | null
         }
         Update: {
+          block_id?: string
           block_type?: string
           catalog_exercise_id?: string | null
           id?: string
@@ -233,6 +292,13 @@ export type Database = {
           superset_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "plan_day_exercises_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "plan_day_blocks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "plan_day_exercises_catalog_exercise_id_fkey"
             columns: ["catalog_exercise_id"]
@@ -319,6 +385,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_path: string | null
           birth_date: string | null
           created_at: string
           display_name: string | null
@@ -327,6 +394,7 @@ export type Database = {
           role: Database["public"]["Enums"]["app_role"]
         }
         Insert: {
+          avatar_path?: string | null
           birth_date?: string | null
           created_at?: string
           display_name?: string | null
@@ -335,6 +403,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
         }
         Update: {
+          avatar_path?: string | null
           birth_date?: string | null
           created_at?: string
           display_name?: string | null
@@ -349,6 +418,7 @@ export type Database = {
           duration_min: number
           id: string
           is_pr: boolean
+          metcon_results: Json
           name: string
           performed_at: string
           plan_day_id: string | null
@@ -362,6 +432,7 @@ export type Database = {
           duration_min?: number
           id?: string
           is_pr?: boolean
+          metcon_results?: Json
           name: string
           performed_at?: string
           plan_day_id?: string | null
@@ -375,6 +446,7 @@ export type Database = {
           duration_min?: number
           id?: string
           is_pr?: boolean
+          metcon_results?: Json
           name?: string
           performed_at?: string
           plan_day_id?: string | null
@@ -396,39 +468,58 @@ export type Database = {
       }
       session_exercises: {
         Row: {
+          block_format: string
+          block_id: string | null
           block_type: string | null
+          catalog_exercise_id: string | null
           id: string
           metric_type: string
           name: string
           note: string | null
+          perceived_effort: string | null
           position: number
           session_id: string
           sets: Json
           superset_id: string | null
         }
         Insert: {
+          block_format?: string
+          block_id?: string | null
           block_type?: string | null
+          catalog_exercise_id?: string | null
           id?: string
           metric_type?: string
           name: string
           note?: string | null
-          position?: number
+          perceived_effort?: string | null
+          position: number
           session_id: string
           sets?: Json
           superset_id?: string | null
         }
         Update: {
+          block_format?: string
+          block_id?: string | null
           block_type?: string | null
+          catalog_exercise_id?: string | null
           id?: string
           metric_type?: string
           name?: string
           note?: string | null
+          perceived_effort?: string | null
           position?: number
           session_id?: string
           sets?: Json
           superset_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "session_exercises_catalog_exercise_id_fkey"
+            columns: ["catalog_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "session_exercises_session_id_fkey"
             columns: ["session_id"]

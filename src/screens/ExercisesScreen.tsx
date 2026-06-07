@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LibraryExercise } from "../data";
+import { useAuth } from "../lib/auth";
 import { deleteExercise, useExercises } from "../lib/db";
 import { normalizeMuscleGroup, metricShort } from "../lib/exerciseCatalog";
 import { MuscleGroupSelect } from "../components/MuscleGroupSelect";
-import { M } from "../theme";
+import { EXERCISE_ROW, exerciseRowEllipsis, exerciseRowStyle, M } from "../theme";
 import { CatalogStandardLock } from "../components/CatalogStandardLock";
 import { Icon } from "../components/Icon";
+import { ExerciseListRowText } from "../components/ExerciseListRow";
 import { AlertSheet } from "../components/AlertSheet";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { ExerciseDetailSheet } from "../components/ExerciseDetailSheet";
@@ -19,6 +21,7 @@ export interface ExercisesScreenProps {
 }
 
 export function ExercisesScreen({ refreshKey = 0, onBack }: ExercisesScreenProps) {
+  const { user } = useAuth();
   const { data: exercises, loading, error, reload } = useExercises();
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
@@ -57,11 +60,11 @@ export function ExercisesScreen({ refreshKey = 0, onBack }: ExercisesScreenProps
   };
 
   const handleDeleteConfirm = async () => {
-    if (!deleteTarget?.userId || deleteBusy) return;
+    if (!user || !deleteTarget?.userId || deleteBusy) return;
     const ex = deleteTarget;
     setDeleteBusy(true);
     try {
-      await deleteExercise(ex.id);
+      await deleteExercise(user.id, ex.id);
       setDeleteTarget(null);
       reload();
     } catch (e) {
@@ -144,18 +147,7 @@ export function ExercisesScreen({ refreshKey = 0, onBack }: ExercisesScreenProps
         {filtered.map((ex) => {
           const isOwned = ex.userId !== null;
           return (
-            <div
-              key={ex.id}
-              style={{
-                background: M.card,
-                border: "1px solid " + M.line2,
-                borderRadius: 14,
-                padding: "12px 14px",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-              }}
-            >
+            <div key={ex.id} style={exerciseRowStyle({ background: "card", borderRadius: 14 })}>
               <button
                 type="button"
                 onClick={() => setDetailExercise(ex)}
@@ -169,51 +161,30 @@ export function ExercisesScreen({ refreshKey = 0, onBack }: ExercisesScreenProps
                   padding: 0,
                 }}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    minWidth: 0,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: M.disp,
-                      fontWeight: 700,
-                      fontSize: 18,
-                      lineHeight: 1.1,
-                      color: M.fg,
-                      minWidth: 0,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {ex.name}
-                  </span>
-                  {!isOwned && <CatalogStandardLock />}
-                </div>
-                <div style={{ fontSize: 12.5, color: M.mut, marginTop: 4, fontWeight: 600 }}>
-                  {ex.group} · {ex.equip} · {metricShort(ex.metric)}
-                </div>
-                {ex.descriptionDe && (
-                  <div
-                    style={{
-                      fontSize: 12.5,
-                      color: M.mut2,
-                      marginTop: 6,
-                      lineHeight: 1.4,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {ex.descriptionDe}
-                  </div>
-                )}
+                <ExerciseListRowText
+                  title={
+                    <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                      <span
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          fontFamily: M.disp,
+                          fontWeight: 700,
+                          fontSize: EXERCISE_ROW.titleSize,
+                          lineHeight: 1.2,
+                          color: M.fg,
+                          ...exerciseRowEllipsis,
+                        }}
+                      >
+                        {ex.name}
+                      </span>
+                      {!isOwned ? <CatalogStandardLock /> : null}
+                    </span>
+                  }
+                  subtitle={`${ex.group} · ${ex.equip} · ${metricShort(ex.metric)}`}
+                />
               </button>
-              {isOwned && (
+              {isOwned ? (
                 <MButton
                   type="button"
                   onClick={() => setDeleteTarget(ex)}
@@ -224,7 +195,7 @@ export function ExercisesScreen({ refreshKey = 0, onBack }: ExercisesScreenProps
                 >
                   <Icon name="trash" size={16} stroke={2} />
                 </MButton>
-              )}
+              ) : null}
             </div>
           );
         })}

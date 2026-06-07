@@ -1,14 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SegmentKind } from "../theme";
 import type { ExerciseMetric } from "./exerciseCatalog";
+import type { PlanDayBlock } from "../data";
+import type { MetconSessionResult } from "./metcon";
 import type { TrainingBlockType } from "./planBlocks";
 import { DEFAULT_EXERCISE_METRIC, setVolumeKg } from "./exerciseCatalog";
-import { applySetField, bumpSetField, createEmptySet, setSetWarmUp, type SetField } from "./exerciseSets";
+import {
+  applySetField,
+  bumpSetField,
+  carrySetValuesToNext,
+  createEmptySet,
+  setSetWarmUp,
+  type SetField,
+} from "./exerciseSets";
+import type { PerceivedEffort, SetSuggestion } from "./progressionEngine";
+import { suggestionsToWorkoutSets } from "./progressionEngine";
 import {
   linkWithPrevious,
+  sanitizeSupersetIds,
   shouldStartRestAfterSet,
   unlinkFromSuperset,
-  sanitizeSupersetIds,
 } from "./superset";
 
 // ── types ───────────────────────────────────────────────────
@@ -32,22 +43,32 @@ export interface WorkoutSet {
   distanceM?: number;
   /** Visual marker: first set only (S1 warm-up). */
   warmUp?: boolean;
+  /** Auto-Pilot: suggested from engine, not persisted. */
+  suggested?: boolean;
 }
 export interface Exercise {
   id: string;
   name: string;
   note?: string;
   blockType?: TrainingBlockType;
+  blockFormat?: import("./planBlocks").BlockFormat;
+  blockId?: string;
   supersetId?: string;
   catalogExerciseId?: string;
+  muscleGroup?: string;
   metric: ExerciseMetric;
   sets: WorkoutSet[];
+  /** Session-only: 1-tap perceived effort after exercise. */
+  perceivedEffort?: import("./progressionEngine").PerceivedEffort;
 }
 export interface Workout {
   name: string;
   sub: string;
   enabledBlocks?: TrainingBlockType[];
   skippedBlocks?: TrainingBlockType[];
+  blocks?: PlanDayBlock[];
+  /** Session-only MetCon scores keyed by block id */
+  metconResults?: Record<string, MetconSessionResult>;
   exercises: Exercise[];
 }
 
@@ -352,11 +373,22 @@ export function useWorkout(initial: Workout, opts?: WorkoutOptions) {
     const markingDone = ex && !ex.sets[si].done;
     setWo((w) => ({
       ...w,
-      exercises: w.exercises.map((e) =>
-        e.id !== exId
-          ? e
-          : { ...e, sets: e.sets.map((s, i) => (i === si ? { ...s, done: !s.done } : s)) },
-      ),
+      exercises: w.exercises.map((e) => {
+        if (e.id !== exId) return e;
+
+        let sets = e.sets.map((s, i) =>
+          i !== si
+            ? s
+            : { ...s, done: !s.done, suggested: markingDone ? false : s.suggested },
+        );
+
+        if (markingDone) {
+          const carried = carrySetValuesToNext(sets, si, e.metric ?? DEFAULT_EXERCISE_METRIC);
+          if (carried) sets = carried;
+        }
+
+        return { ...e, sets };
+      }),
     }));
     if (
       autoRestEnabled &&
@@ -383,7 +415,7 @@ export function useWorkout(initial: Workout, opts?: WorkoutOptions) {
           : {
               ...e,
               sets: e.sets.map((s, i) =>
-                i !== si ? s : { ...bumpSetField(s, field, delta, e.metric), done: s.done },
+                i !== si ? s : { ...bumpSetField(s, field, delta, e.metric), done: s.done, suggested: false },
               ),
             },
       ),
@@ -399,7 +431,7 @@ export function useWorkout(initial: Workout, opts?: WorkoutOptions) {
           : {
               ...e,
               sets: e.sets.map((s, i) =>
-                i !== si ? s : { ...applySetField(s, field, value, e.metric), done: s.done },
+                i !== si ? s : { ...applySetField(s, field, value, e.metric), done: s.done, suggested: false },
               ),
             },
       ),
@@ -496,6 +528,56 @@ export function useWorkout(initial: Workout, opts?: WorkoutOptions) {
     }));
   };
 
+  const applyExercisePrefill = (exId: string, suggestions: SetSuggestion[]) => {
+    setWo((w) => ({
+      ...w,
+      exercises: w.exercises.map((e) =>
+        e.id !== exId ? e : { ...e, sets: suggestionsToWorkoutSets(suggestions) },
+      ),
+    }));
+  };
+
+  const confirmAllSuggested = (exId: string) => {
+    setWo((w) => ({
+      ...w,
+      exercises: w.exercises.map((e) =>
+        e.id !== exId
+          ? e
+          : {
+              ...e,
+              sets: e.sets.map((s) =>
+                s.suggested && !s.done ? { ...s, done: true, suggested: false } : s,
+              ),
+            },
+      ),
+    }));
+  };
+
+  const setPerceivedEffort = (exId: string, effort: PerceivedEffort | undefined) => {
+    setWo((w) => ({
+      ...w,
+      exercises: w.exercises.map((e) =>
+        e.id !== exId ? e : { ...e, perceivedEffort: effort },
+      ),
+    }));
+  };
+
+  const setMetconResult = (blockId: string, result: MetconSessionResult) => {
+    setWo((w) => ({
+      ...w,
+      metconResults: { ...(w.metconResults ?? {}), [blockId]: result },
+      exercises: w.exercises.map((e) =>
+        e.blockId === blockId
+          ? {
+              ...e,
+              note: result.label,
+              sets: e.sets.map((s) => ({ ...s, done: true, suggested: false })),
+            }
+          : e,
+      ),
+    }));
+  };
+
   const totalSets = wo.exercises.reduce((a, e) => a + e.sets.length, 0);
   const doneSets = wo.exercises.reduce((a, e) => a + e.sets.filter((s) => s.done).length, 0);
   const volume = wo.exercises.reduce(
@@ -521,6 +603,10 @@ export function useWorkout(initial: Workout, opts?: WorkoutOptions) {
     addSet,
     removeSet,
     toggleSetWarmUp,
+    applyExercisePrefill,
+    confirmAllSuggested,
+    setPerceivedEffort,
+    setMetconResult,
     totalSets,
     doneSets,
     volume,

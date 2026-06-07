@@ -10,9 +10,13 @@ export interface TrackExerciseMenuSheetProps {
   linkedToPrevious: boolean;
   onClose: () => void;
   onVideo?: () => void;
+  onEditSets?: () => void;
+  onGuide?: () => void;
   onHistory: () => void;
   onRemove: () => void;
   onToggleSuperset?: () => void;
+  /** Nur Sätze bearbeiten + Aus Session entfernen (Verlauf/Video/Supersatz ausgeblendet). */
+  variant?: "full" | "actions";
 }
 
 function MenuAction({
@@ -60,10 +64,15 @@ export function TrackExerciseMenuSheet({
   linkedToPrevious,
   onClose,
   onVideo,
+  onEditSets,
+  onGuide,
   onHistory,
   onRemove,
   onToggleSuperset,
+  variant = "full",
 }: TrackExerciseMenuSheetProps) {
+  const compact = variant === "actions";
+
   return (
     <BottomSheet open={open} onClose={onClose} aria-label={`Menü · ${exerciseName}`} fitContent>
       <div style={{ padding: "4px 20px 20px" }}>
@@ -82,7 +91,7 @@ export function TrackExerciseMenuSheet({
         >
           {exerciseName}
         </div>
-        {hasVideo && onVideo ? (
+        {hasVideo && onVideo && !compact ? (
           <MenuAction
             label="Video ansehen"
             icon="play"
@@ -92,15 +101,37 @@ export function TrackExerciseMenuSheet({
             }}
           />
         ) : null}
-        <MenuAction
-          label="Verlauf"
-          icon="history"
-          onClick={() => {
-            onClose();
-            onHistory();
-          }}
-        />
-        {showSupersetAction && onToggleSuperset ? (
+        {onEditSets ? (
+          <MenuAction
+            label="Sätze bearbeiten"
+            icon="edit"
+            onClick={() => {
+              onClose();
+              onEditSets();
+            }}
+          />
+        ) : null}
+        {onGuide ? (
+          <MenuAction
+            label="Anleitung"
+            icon="list"
+            onClick={() => {
+              onClose();
+              onGuide();
+            }}
+          />
+        ) : null}
+        {!compact ? (
+          <MenuAction
+            label="Verlauf"
+            icon="history"
+            onClick={() => {
+              onClose();
+              onHistory();
+            }}
+          />
+        ) : null}
+        {showSupersetAction && onToggleSuperset && !compact ? (
           <MenuAction
             label={linkedToPrevious ? "Supersatz lösen" : "Mit vorheriger verknüpfen"}
             icon="layers"

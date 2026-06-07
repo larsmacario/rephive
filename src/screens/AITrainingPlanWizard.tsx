@@ -575,9 +575,9 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
   return (
     <div
       style={{
+        flex: 1,
+        minHeight: 0,
         width: "100%",
-        height: "100%",
-        background: M.bg,
         color: M.fg,
         display: "flex",
         flexDirection: "column",

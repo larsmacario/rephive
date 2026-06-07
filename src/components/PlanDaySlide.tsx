@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { motion } from "framer-motion";
-import type { PlanDayExercise } from "../data";
+import type { PlanDayBlock, PlanDayExercise } from "../data";
 import { prefersReducedMotion } from "../lib/haptics";
 import type { TrainingBlockType } from "../lib/planBlocks";
 import { M } from "../theme";
@@ -24,6 +24,7 @@ export interface PlanDaySlideProps {
   isCurrent?: boolean;
   isActive?: boolean;
   exercises?: PlanDaySlideExercise[];
+  blocks?: PlanDayBlock[];
   enabledBlocks?: TrainingBlockType[];
   variant?: "builder" | "detail";
   builderMode?: boolean;
@@ -31,6 +32,8 @@ export interface PlanDaySlideProps {
   onRemoveBlock?: (block: TrainingBlockType) => void;
   disabledBlocks?: TrainingBlockType[];
   onRestoreBlock?: (block: TrainingBlockType) => void;
+  optionalMetconLink?: { visible: boolean; onAdd: () => void };
+  onMetconSettings?: () => void;
   editableName?: boolean;
   nameValue?: string;
   onNameChange?: (value: string) => void;
@@ -45,6 +48,7 @@ export function PlanDaySlide({
   isCurrent = false,
   isActive = true,
   exercises = [],
+  blocks = [],
   enabledBlocks,
   variant = "detail",
   builderMode = false,
@@ -52,6 +56,8 @@ export function PlanDaySlide({
   onRemoveBlock,
   disabledBlocks = [],
   onRestoreBlock,
+  optionalMetconLink,
+  onMetconSettings,
   editableName = false,
   nameValue,
   onNameChange,
@@ -103,15 +109,17 @@ export function PlanDaySlide({
     previewExercises.length > 0 || (enabledBlocks?.length ?? 0) > 0 ? (
       <PlanDayExercisePreview
         exercises={previewExercises}
+        blocks={blocks}
         enabledBlocks={enabledBlocks}
         showEmptyBlocks
-        flat
         builderMode={builderMode}
         onExerciseClick={onExerciseClick}
         onAddExercise={onAddExerciseToBlock}
         onRemoveBlock={onRemoveBlock}
         disabledBlocks={disabledBlocks}
         onRestoreBlock={onRestoreBlock}
+        optionalMetconLink={optionalMetconLink}
+        onMetconSettings={onMetconSettings}
       />
     ) : (
       <p

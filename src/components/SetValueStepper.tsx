@@ -45,6 +45,8 @@ export interface SetValueStepperProps {
   fullWidth?: boolean;
   /** Track-Karten: Label über dem Feld (stack) vs. darunter (inline). */
   labelOnTop?: boolean;
+  /** Gedämpfte Darstellung für Auto-Pilot-Vorschläge. */
+  muted?: boolean;
 }
 
 type StepperFormatters = {
@@ -105,6 +107,7 @@ export function SetValueStepper({
   size = "md",
   fullWidth = false,
   labelOnTop = true,
+  muted = false,
 }: SetValueStepperProps) {
   const isLg = size === "lg";
   const isTrackRow = fullWidth && isLg;
@@ -180,7 +183,7 @@ export function SetValueStepper({
     background: isTrackRow ? M.card : M.card,
     border: "1px solid " + M.line2,
     borderRadius: isTrackRow ? 12 : isLg ? 10 : 8,
-    color: M.fg,
+    color: muted ? M.mut : M.fg,
     padding: isTrackRow ? "12px 14px" : isLg ? "4px 6px" : "2px 4px",
     outline: "none",
     minHeight: isTrackRow ? 52 : undefined,
@@ -208,6 +211,7 @@ export function SetValueStepper({
     border: isTrackRow ? "1px solid " + M.line2 : undefined,
     borderRadius: isTrackRow ? 12 : undefined,
     boxSizing: "border-box",
+    color: muted ? M.mut : M.fg,
   };
 
   return (

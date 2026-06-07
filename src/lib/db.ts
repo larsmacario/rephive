@@ -1,5 +1,30 @@
 import { useCallback, useEffect, useState } from "react";
 import { FunctionsFetchError, FunctionsHttpError } from "@supabase/supabase-js";
+import {
+  applyAdvancePlanLocal,
+  applySetActivePlanLocal,
+  getCachedActivePlan,
+  getCachedPlan,
+  getCachedPlans,
+  hasPlansCache,
+  removeCachedPlan,
+  resolvePlanDayFromLocal,
+  upsertCachedPlan,
+  writePlansCache,
+} from "./offline/planStore";
+import {
+  getCachedExercises,
+  removeCachedExercise,
+  upsertCachedExercise,
+  writeExercisesCache,
+} from "./offline/exerciseStore";
+import {
+  buildLibraryPlanFromCreateInput,
+  buildLibraryPlanFromUpdateInput,
+} from "./offline/planBuilder";
+import { enqueueMutation, registerSyncHandlers } from "./offline/syncEngine";
+import { getIsOnlineSync } from "./offline/networkStatus";
+import { useCachedAsync } from "./offline/useCachedAsync";
 import { supabase } from "./supabase";
 import type { Tables, Json } from "./database.types";
 import { type WorkoutSet } from "./engine";
@@ -8,6 +33,7 @@ import type {
   HistoryEntry,
   LibraryPlan,
   PlanDay,
+  PlanDayBlock,
   PlanDayExercise,
   PlanDayForTracking,
   PlanSummary,
@@ -34,11 +60,27 @@ import { parseExerciseMetric } from "./exerciseCatalog";
 import type { ExerciseMetric } from "./exerciseCatalog";
 import {
   assignBlockPositions,
+  BLOCK_ORDER,
+  inferBlockFormatForExercises,
+  isBlockFormat,
   isTrainingBlockType,
+  normalizeBlockFormat,
   normalizeEnabledBlocks,
   sortPlanDayExerciseRows,
+  type BlockFormat,
   type TrainingBlockType,
 } from "./planBlocks";
+import {
+  detectMetconFormatFromText,
+  normalizeMetconExercise,
+  parseDurationSecFromText,
+  parseExerciseNamesFromMetconNote,
+  type MetconExerciseLike,
+  type MetconSessionResult,
+} from "./metcon";
+import type { PerceivedEffort } from "./progressionEngine";
+import { isTimerSession } from "./timerSession";
+import { isTurboTrackingSessionTag } from "./turboTracking";
 import { useAuth } from "./auth";
 
 type DbSession = Tables<"sessions">;
@@ -46,6 +88,7 @@ type DbPlan = Tables<"plans">;
 type DbSessionExercise = Tables<"session_exercises">;
 type DbBodyMeasurement = Tables<"body_measurements">;
 type DbPlanDay = Tables<"plan_days">;
+type DbPlanDayBlock = Tables<"plan_day_blocks">;
 type DbPlanDayExercise = Tables<"plan_day_exercises">;
 
 interface StoredSet {
@@ -103,28 +146,72 @@ function mapSessionExerciseRow(e: DbSessionExercise): SessionExercise {
     id: e.id,
     name: e.name,
     note: e.note ?? undefined,
+    blockId: e.block_id ?? undefined,
     blockType: e.block_type && isTrainingBlockType(e.block_type) ? e.block_type : undefined,
+    blockFormat: isBlockFormat(e.block_format) ? e.block_format : undefined,
     supersetId: e.superset_id ?? undefined,
+    catalogExerciseId: e.catalog_exercise_id ?? undefined,
     metric: parseExerciseMetric(e.metric_type),
+    perceivedEffort: parsePerceivedEffort(e.perceived_effort),
     sets: parseSessionSets(e.sets),
   };
+}
+
+function parsePerceivedEffort(raw: string | null | undefined): PerceivedEffort | undefined {
+  if (raw === "easy" || raw === "ok" || raw === "hard") return raw;
+  return undefined;
 }
 
 export interface SessionExerciseInput {
   name: string;
   note?: string;
+  blockId?: string;
   blockType?: TrainingBlockType;
+  blockFormat?: BlockFormat;
   supersetId?: string;
+  catalogExerciseId?: string;
   metric?: ExerciseMetric;
+  perceivedEffort?: PerceivedEffort;
   sets: WorkoutSet[];
 }
 
-function mapPlanDayExerciseRow(e: DbPlanDayExercise): PlanDayExercise {
+function mapPlanDayBlockRow(b: DbPlanDayBlock): PlanDayBlock {
+  return {
+    id: b.id,
+    blockType: isTrainingBlockType(b.block_type) ? b.block_type : "strength",
+    format: normalizeBlockFormat(b.format),
+    position: b.position,
+    rounds: b.rounds ?? undefined,
+    timeCapSeconds: b.time_cap_seconds ?? undefined,
+    intervalSeconds: b.interval_seconds ?? undefined,
+    workSeconds: b.work_seconds ?? undefined,
+    restSeconds: b.rest_seconds ?? undefined,
+    restBetweenRoundsSeconds: b.rest_between_rounds_seconds ?? undefined,
+    prepSeconds: b.prep_seconds ?? undefined,
+    note: b.note ?? undefined,
+  };
+}
+
+function buildBlockFormatLookup(blocks: DbPlanDayBlock[]): Map<string, BlockFormat> {
+  const map = new Map<string, BlockFormat>();
+  for (const block of blocks) {
+    map.set(block.id, normalizeBlockFormat(block.format));
+  }
+  return map;
+}
+
+function mapPlanDayExerciseRow(
+  e: DbPlanDayExercise,
+  blockFormats?: Map<string, BlockFormat>,
+): PlanDayExercise {
+  const blockId = e.block_id;
   return {
     id: e.id,
     name: e.name,
     note: e.note ?? undefined,
+    blockId,
     blockType: isTrainingBlockType(e.block_type) ? e.block_type : "strength",
+    blockFormat: blockFormats?.get(blockId),
     supersetId: e.superset_id ?? undefined,
     catalogExerciseId: e.catalog_exercise_id ?? undefined,
     metric: parseExerciseMetric(e.metric_type),
@@ -168,6 +255,23 @@ function formatSessionDate(iso: string): { day: string; date: string } {
   return { day, date };
 }
 
+async function fetchPlanDayBlocks(planDayIds: string[]): Promise<Map<string, DbPlanDayBlock[]>> {
+  if (planDayIds.length === 0) return new Map();
+  const { data, error } = await supabase
+    .from("plan_day_blocks")
+    .select("*")
+    .in("plan_day_id", planDayIds)
+    .order("position");
+  if (error) throw error;
+  const map = new Map<string, DbPlanDayBlock[]>();
+  for (const row of data ?? []) {
+    const list = map.get(row.plan_day_id) ?? [];
+    list.push(row);
+    map.set(row.plan_day_id, list);
+  }
+  return map;
+}
+
 async function fetchPlanDayExercises(planDayIds: string[]): Promise<Map<string, DbPlanDayExercise[]>> {
   if (planDayIds.length === 0) return new Map();
   const { data, error } = await supabase
@@ -193,14 +297,22 @@ export async function fetchPlanDayForTracking(planDayId: string): Promise<PlanDa
     .maybeSingle();
   if (dayError) throw dayError;
   if (!day) return null;
-  const exMap = await fetchPlanDayExercises([planDayId]);
+
+  const [exMap, blocksMap] = await Promise.all([
+    fetchPlanDayExercises([planDayId]),
+    fetchPlanDayBlocks([planDayId]),
+  ]);
   const rows = exMap.get(planDayId) ?? [];
+  const dayBlocks = blocksMap.get(planDayId) ?? [];
+  const blockFormats = buildBlockFormatLookup(dayBlocks);
+
   return {
     id: day.id,
     name: planDayDisplayName({ name: day.name ?? "", position: day.position }),
     planId: day.plan_id,
     enabledBlocks: normalizeEnabledBlocks(day.enabled_blocks),
-    exercises: sortPlanDayExerciseRows(rows).map(mapPlanDayExerciseRow),
+    blocks: dayBlocks.map(mapPlanDayBlockRow),
+    exercises: sortPlanDayExerciseRows(rows).map((row) => mapPlanDayExerciseRow(row, blockFormats)),
   };
 }
 
@@ -250,8 +362,12 @@ async function replaceSessionExercises(sessionId: string, exercises: SessionExer
     position: i,
     name: e.name,
     note: e.note ?? null,
+    block_id: e.blockId ?? null,
     block_type: e.blockType ?? null,
+    block_format: normalizeBlockFormat(e.blockFormat),
     superset_id: e.supersetId ?? null,
+    catalog_exercise_id: e.catalogExerciseId ?? null,
+    perceived_effort: e.perceivedEffort ?? null,
     metric_type: e.metric ?? "weight_reps",
     sets: e.sets as unknown as Json,
   }));
@@ -290,7 +406,7 @@ function mapExerciseRow(e: Tables<"exercises">): LibraryExercise {
   };
 }
 
-export async function fetchExercises(): Promise<LibraryExercise[]> {
+export async function fetchExercisesRemote(): Promise<LibraryExercise[]> {
   const { data, error } = await supabase
     .from("exercises")
     .select("*")
@@ -298,6 +414,17 @@ export async function fetchExercises(): Promise<LibraryExercise[]> {
     .order("name");
   if (error) throw error;
   return (data ?? []).map(mapExerciseRow);
+}
+
+/** @deprecated Use fetchExercisesCached — kept for direct remote refresh */
+export async function fetchExercises(): Promise<LibraryExercise[]> {
+  return fetchExercisesRemote();
+}
+
+export async function fetchExercisesCached(userId: string): Promise<LibraryExercise[]> {
+  const items = await fetchExercisesRemote();
+  await writeExercisesCache(userId, items);
+  return items;
 }
 
 export interface ExerciseInput {
@@ -309,10 +436,29 @@ export interface ExerciseInput {
   descriptionDe?: string | null;
 }
 
-export async function createExercise(userId: string, input: ExerciseInput): Promise<string> {
+function libraryExerciseFromInput(exerciseId: string, userId: string, input: ExerciseInput): LibraryExercise {
+  return {
+    id: exerciseId,
+    name: input.name.trim(),
+    category: "strength",
+    group: input.muscleGroup,
+    equip: input.equipment,
+    userId,
+    metric: input.metric,
+    youtubeUrl: input.youtubeUrl ?? null,
+    descriptionDe: input.descriptionDe?.trim() || null,
+  };
+}
+
+export async function createExerciseRemote(
+  userId: string,
+  input: ExerciseInput,
+  exerciseId: string,
+): Promise<string> {
   const { data, error } = await supabase
     .from("exercises")
     .insert({
+      id: exerciseId,
       user_id: userId,
       name: input.name.trim(),
       category: "strength",
@@ -328,7 +474,22 @@ export async function createExercise(userId: string, input: ExerciseInput): Prom
   return data.id;
 }
 
-export async function updateExercise(exerciseId: string, input: ExerciseInput): Promise<void> {
+export async function createExercise(userId: string, input: ExerciseInput): Promise<string> {
+  const exerciseId = crypto.randomUUID();
+
+  if (getIsOnlineSync()) {
+    const id = await createExerciseRemote(userId, input, exerciseId);
+    const items = await fetchExercisesRemote();
+    await writeExercisesCache(userId, items);
+    return id;
+  }
+
+  await upsertCachedExercise(userId, libraryExerciseFromInput(exerciseId, userId, input));
+  await enqueueMutation(userId, "CREATE_EXERCISE", { exerciseId, input });
+  return exerciseId;
+}
+
+export async function updateExerciseRemote(exerciseId: string, input: ExerciseInput): Promise<void> {
   const { error } = await supabase
     .from("exercises")
     .update({
@@ -343,9 +504,41 @@ export async function updateExercise(exerciseId: string, input: ExerciseInput): 
   if (error) throw error;
 }
 
-export async function deleteExercise(exerciseId: string): Promise<void> {
+export async function updateExercise(
+  userId: string,
+  exerciseId: string,
+  input: ExerciseInput,
+): Promise<void> {
+  if (getIsOnlineSync()) {
+    await updateExerciseRemote(exerciseId, input);
+    const items = await fetchExercisesRemote();
+    await writeExercisesCache(userId, items);
+    return;
+  }
+
+  const cached = await getCachedExercises(userId);
+  const existing = cached?.find((e) => e.id === exerciseId);
+  if (existing) {
+    await upsertCachedExercise(userId, { ...existing, ...libraryExerciseFromInput(exerciseId, userId, input) });
+  }
+  await enqueueMutation(userId, "UPDATE_EXERCISE", { exerciseId, input });
+}
+
+export async function deleteExerciseRemote(exerciseId: string): Promise<void> {
   const { error } = await supabase.from("exercises").delete().eq("id", exerciseId);
   if (error) throw error;
+}
+
+export async function deleteExercise(userId: string, exerciseId: string): Promise<void> {
+  if (getIsOnlineSync()) {
+    await deleteExerciseRemote(exerciseId);
+    const items = await fetchExercisesRemote();
+    await writeExercisesCache(userId, items);
+    return;
+  }
+
+  await removeCachedExercise(userId, exerciseId);
+  await enqueueMutation(userId, "DELETE_EXERCISE", { exerciseId });
 }
 
 export async function fetchSessions(): Promise<HistoryEntry[]> {
@@ -494,10 +687,11 @@ export interface SaveSessionInput {
   setCount: number;
   isPr?: boolean;
   skippedBlocks?: TrainingBlockType[];
+  metconResults?: Record<string, MetconSessionResult>;
   exercises?: SessionExerciseInput[];
 }
 
-export async function saveSession(userId: string, input: SaveSessionInput): Promise<void> {
+export async function saveSessionRemote(userId: string, input: SaveSessionInput): Promise<void> {
   const { data, error } = await supabase
     .from("sessions")
     .insert({
@@ -510,6 +704,7 @@ export async function saveSession(userId: string, input: SaveSessionInput): Prom
       set_count: input.setCount,
       is_pr: input.isPr ?? false,
       skipped_blocks: input.skippedBlocks ?? [],
+      metcon_results: (input.metconResults ?? {}) as unknown as Json,
     })
     .select("id")
     .single();
@@ -519,13 +714,92 @@ export async function saveSession(userId: string, input: SaveSessionInput): Prom
   }
 }
 
-async function insertPlanDayExercises(planDayId: string, exercises: PlanDayExerciseInput[]): Promise<void> {
+export async function saveSession(
+  userId: string,
+  input: SaveSessionInput,
+  opts?: { advancePlanId?: string },
+): Promise<void> {
+  if (getIsOnlineSync()) {
+    await saveSessionRemote(userId, input);
+    if (opts?.advancePlanId) {
+      await advancePlanRemote(opts.advancePlanId);
+      await applyAdvancePlanLocal(userId, opts.advancePlanId);
+    }
+    return;
+  }
+
+  await enqueueMutation(userId, "SAVE_SESSION", {
+    input,
+    advancePlanId: opts?.advancePlanId,
+  });
+  if (opts?.advancePlanId) {
+    await applyAdvancePlanLocal(userId, opts.advancePlanId);
+  }
+}
+
+async function insertPlanDayExercises(
+  planDayId: string,
+  exercises: PlanDayExerciseInput[],
+  blockConfigs: PlanDayBlockInput[] = [],
+): Promise<void> {
   if (exercises.length === 0) return;
   const positioned = assignBlockPositions(
     exercises.map((e) => ({ ...e, blockType: e.blockType ?? "strength" })),
   );
+
+  const byBlockType = new Map<TrainingBlockType, typeof positioned>();
+  for (const exercise of positioned) {
+    const list = byBlockType.get(exercise.blockType) ?? [];
+    list.push(exercise);
+    byBlockType.set(exercise.blockType, list);
+  }
+
+  const presentBlockTypes = BLOCK_ORDER.filter(
+    (blockType) => (byBlockType.get(blockType)?.length ?? 0) > 0,
+  );
+  if (presentBlockTypes.length === 0) return;
+
+  const configByType = new Map(
+    blockConfigs.map((c) => [c.blockType, c] as const),
+  );
+
+  const blockRows = presentBlockTypes.map((blockType, position) => {
+    const cfg = configByType.get(blockType);
+    const inferred = inferBlockFormatForExercises(blockType, byBlockType.get(blockType) ?? []);
+    return {
+      id: cfg?.id ?? crypto.randomUUID(),
+      plan_day_id: planDayId,
+      block_type: blockType,
+      format: normalizeBlockFormat(cfg?.format ?? inferred),
+      position,
+      rounds: cfg?.rounds ?? null,
+      time_cap_seconds: cfg?.timeCapSeconds ?? null,
+      interval_seconds: cfg?.intervalSeconds ?? null,
+      work_seconds: cfg?.workSeconds ?? null,
+      rest_seconds: cfg?.restSeconds ?? null,
+      rest_between_rounds_seconds: cfg?.restBetweenRoundsSeconds ?? null,
+      prep_seconds: cfg?.prepSeconds ?? 5,
+      note: cfg?.note ?? null,
+    };
+  });
+
+  const { data: insertedBlocks, error: blockError } = await supabase
+    .from("plan_day_blocks")
+    .insert(blockRows)
+    .select("id, block_type");
+  if (blockError) throw blockError;
+
+  const blockIdByType = new Map<TrainingBlockType, string>();
+  for (const block of insertedBlocks ?? []) {
+    if (isTrainingBlockType(block.block_type)) {
+      blockIdByType.set(block.block_type, block.id);
+    }
+  }
+
   const rows = positioned.map((e) => ({
+    id: e.id ?? crypto.randomUUID(),
     plan_day_id: planDayId,
+    block_id: blockIdByType.get(e.blockType)!,
     block_type: e.blockType,
     position: e.position,
     name: e.name,
@@ -693,6 +967,7 @@ function mapPlanRow(
   plan: DbPlan,
   days: DbPlanDay[],
   exercisesMap: Map<string, DbPlanDayExercise[]>,
+  blocksMap: Map<string, DbPlanDayBlock[]>,
 ): LibraryPlan {
   return {
     id: plan.id,
@@ -703,14 +978,20 @@ function mapPlanRow(
     summary: parsePlanSummary(plan.summary),
     days: days
       .sort((a, b) => a.position - b.position)
-      .map((d): PlanDay => ({
-        id: d.id,
-        position: d.position,
-        name: d.name ?? "",
-        note: d.note ?? undefined,
-        enabledBlocks: normalizeEnabledBlocks(d.enabled_blocks),
-        exercises: sortPlanDayExerciseRows(exercisesMap.get(d.id) ?? []).map(mapPlanDayExerciseRow),
-      })),
+      .map((d): PlanDay => {
+        const blockFormats = buildBlockFormatLookup(blocksMap.get(d.id) ?? []);
+        return {
+          id: d.id,
+          position: d.position,
+          name: d.name ?? "",
+          note: d.note ?? undefined,
+          enabledBlocks: normalizeEnabledBlocks(d.enabled_blocks),
+          blocks: (blocksMap.get(d.id) ?? []).map(mapPlanDayBlockRow),
+          exercises: sortPlanDayExerciseRows(exercisesMap.get(d.id) ?? []).map((row) =>
+            mapPlanDayExerciseRow(row, blockFormats),
+          ),
+        };
+      }),
   };
 }
 
@@ -720,17 +1001,30 @@ async function loadPlansWithDays(planRows: DbPlan[]): Promise<LibraryPlan[]> {
   const dayIds = Array.from(daysMap.values())
     .flat()
     .map((d) => d.id);
-  const exercisesMap = await fetchPlanDayExercises(dayIds);
-  return planRows.map((p) => mapPlanRow(p, daysMap.get(p.id) ?? [], exercisesMap));
+  const [exercisesMap, blocksMap] = await Promise.all([
+    fetchPlanDayExercises(dayIds),
+    fetchPlanDayBlocks(dayIds),
+  ]);
+  return planRows.map((p) => mapPlanRow(p, daysMap.get(p.id) ?? [], exercisesMap, blocksMap));
 }
 
-export async function fetchPlans(): Promise<LibraryPlan[]> {
+export async function fetchPlansRemote(): Promise<LibraryPlan[]> {
   const { data: plans, error } = await supabase.from("plans").select("*").order("created_at", { ascending: false });
   if (error) throw error;
   return loadPlansWithDays(plans ?? []);
 }
 
-export async function fetchActivePlan(userId: string): Promise<LibraryPlan | null> {
+export async function fetchPlans(): Promise<LibraryPlan[]> {
+  return fetchPlansRemote();
+}
+
+export async function fetchPlansCached(userId: string): Promise<LibraryPlan[]> {
+  const plans = await fetchPlansRemote();
+  await writePlansCache(userId, plans);
+  return plans;
+}
+
+export async function fetchActivePlanRemote(userId: string): Promise<LibraryPlan | null> {
   const { data: plan, error } = await supabase
     .from("plans")
     .select("*")
@@ -743,7 +1037,31 @@ export async function fetchActivePlan(userId: string): Promise<LibraryPlan | nul
   return loaded[0] ?? null;
 }
 
+export async function fetchActivePlan(userId: string): Promise<LibraryPlan | null> {
+  return fetchActivePlanRemote(userId);
+}
+
+export async function fetchActivePlanCached(userId: string): Promise<LibraryPlan | null> {
+  const plans = await fetchPlansCached(userId);
+  return plans.find((p) => p.isActive) ?? null;
+}
+
+export interface PlanDayBlockInput {
+  id?: string;
+  blockType: TrainingBlockType;
+  format?: BlockFormat;
+  rounds?: number;
+  timeCapSeconds?: number;
+  intervalSeconds?: number;
+  workSeconds?: number;
+  restSeconds?: number;
+  restBetweenRoundsSeconds?: number;
+  prepSeconds?: number;
+  note?: string;
+}
+
 export interface PlanDayExerciseInput {
+  id?: string;
   name: string;
   note?: string;
   blockType?: TrainingBlockType;
@@ -754,9 +1072,11 @@ export interface PlanDayExerciseInput {
 }
 
 export interface CreatePlanDayInput {
+  id?: string;
   name?: string;
   note?: string;
   enabledBlocks?: TrainingBlockType[];
+  blockConfigs?: PlanDayBlockInput[];
   exercises: PlanDayExerciseInput[];
 }
 
@@ -766,6 +1086,8 @@ export interface CreatePlanInput {
   days: CreatePlanDayInput[];
   activate?: boolean;
   summary?: PlanSummary | null;
+  planId?: string;
+  dayIds?: string[];
 }
 
 async function deactivateAllPlans(userId: string): Promise<void> {
@@ -782,29 +1104,31 @@ function validatePlanDays(days: CreatePlanDayInput[]): void {
   }
 }
 
-export async function createPlan(userId: string, input: CreatePlanInput): Promise<string> {
+export async function createPlanRemote(
+  userId: string,
+  input: CreatePlanInput,
+  ids: { planId: string; dayIds: string[] },
+): Promise<string> {
   validatePlanDays(input.days);
 
   if (input.activate) {
     await deactivateAllPlans(userId);
   }
 
-  const { data: plan, error } = await supabase
-    .from("plans")
-    .insert({
-      user_id: userId,
-      name: input.name,
-      sub: input.sub ?? "",
-      is_active: input.activate ?? false,
-      current_day: 0,
-      summary: input.summary ? (input.summary as unknown as Json) : null,
-    })
-    .select("id")
-    .single();
+  const { error } = await supabase.from("plans").insert({
+    id: ids.planId,
+    user_id: userId,
+    name: input.name,
+    sub: input.sub ?? "",
+    is_active: input.activate ?? false,
+    current_day: 0,
+    summary: input.summary ? (input.summary as unknown as Json) : null,
+  });
   if (error) throw error;
 
   const dayRows = input.days.map((d, i) => ({
-    plan_id: plan.id,
+    id: ids.dayIds[i] ?? crypto.randomUUID(),
+    plan_id: ids.planId,
     position: i,
     name: d.name?.trim() || `Tag ${i + 1}`,
     note: d.note ?? null,
@@ -820,10 +1144,31 @@ export async function createPlan(userId: string, input: CreatePlanInput): Promis
   for (const inserted of insertedDays ?? []) {
     const dayInput = input.days[inserted.position];
     if (!dayInput) continue;
-    await insertPlanDayExercises(inserted.id, dayInput.exercises);
+    await insertPlanDayExercises(inserted.id, dayInput.exercises, dayInput.blockConfigs ?? []);
   }
 
-  return plan.id;
+  return ids.planId;
+}
+
+export async function createPlan(userId: string, input: CreatePlanInput): Promise<string> {
+  const planId = input.planId ?? crypto.randomUUID();
+  const dayIds = input.dayIds ?? input.days.map(() => crypto.randomUUID());
+
+  if (getIsOnlineSync()) {
+    const id = await createPlanRemote(userId, input, { planId, dayIds });
+    const plans = await fetchPlansRemote();
+    await writePlansCache(userId, plans);
+    return id;
+  }
+
+  const localPlan = buildLibraryPlanFromCreateInput(planId, dayIds, input);
+  if (input.activate) {
+    await applySetActivePlanLocal(userId, planId);
+    localPlan.isActive = true;
+  }
+  await upsertCachedPlan(userId, localPlan);
+  await enqueueMutation(userId, "CREATE_PLAN", { input, planId, dayIds });
+  return planId;
 }
 
 export interface UpdatePlanInput {
@@ -840,7 +1185,7 @@ export async function fetchPlan(planId: string): Promise<LibraryPlan | null> {
   return loaded[0] ?? null;
 }
 
-export async function updatePlan(planId: string, input: UpdatePlanInput): Promise<void> {
+export async function updatePlanRemote(planId: string, input: UpdatePlanInput): Promise<void> {
   validatePlanDays(input.days);
 
   const { data: plan, error: fetchError } = await supabase.from("plans").select("current_day").eq("id", planId).single();
@@ -862,6 +1207,7 @@ export async function updatePlan(planId: string, input: UpdatePlanInput): Promis
   if (deleteError) throw deleteError;
 
   const dayRows = input.days.map((d, i) => ({
+    id: d.id ?? crypto.randomUUID(),
     plan_id: planId,
     position: i,
     name: d.name?.trim() || `Tag ${i + 1}`,
@@ -878,23 +1224,62 @@ export async function updatePlan(planId: string, input: UpdatePlanInput): Promis
   for (const inserted of insertedDays ?? []) {
     const dayInput = input.days[inserted.position];
     if (!dayInput) continue;
-    await insertPlanDayExercises(inserted.id, dayInput.exercises);
+    await insertPlanDayExercises(inserted.id, dayInput.exercises, dayInput.blockConfigs ?? []);
   }
 }
 
-export async function deletePlan(planId: string): Promise<void> {
+export async function updatePlan(userId: string, planId: string, input: UpdatePlanInput): Promise<void> {
+  if (getIsOnlineSync()) {
+    await updatePlanRemote(planId, input);
+    const plans = await fetchPlansRemote();
+    await writePlansCache(userId, plans);
+    return;
+  }
+
+  const existing = await getCachedPlan(userId, planId);
+  if (!existing) throw new Error("Plan nicht im Offline-Cache. Bitte zuerst online öffnen.");
+  const updated = buildLibraryPlanFromUpdateInput(existing, input);
+  await upsertCachedPlan(userId, updated);
+  await enqueueMutation(userId, "UPDATE_PLAN", { planId, input });
+}
+
+export async function deletePlanRemote(planId: string): Promise<void> {
   const { error } = await supabase.from("plans").delete().eq("id", planId);
   if (error) throw error;
 }
 
-export async function setActivePlan(userId: string, planId: string): Promise<void> {
+export async function deletePlan(userId: string, planId: string): Promise<void> {
+  if (getIsOnlineSync()) {
+    await deletePlanRemote(planId);
+    const plans = await fetchPlansRemote();
+    await writePlansCache(userId, plans);
+    return;
+  }
+
+  await removeCachedPlan(userId, planId);
+  await enqueueMutation(userId, "DELETE_PLAN", { planId });
+}
+
+export async function setActivePlanRemote(userId: string, planId: string): Promise<void> {
   await deactivateAllPlans(userId);
 
   const { error } = await supabase.from("plans").update({ is_active: true }).eq("id", planId).eq("user_id", userId);
   if (error) throw error;
 }
 
-export async function advancePlan(planId: string): Promise<void> {
+export async function setActivePlan(userId: string, planId: string): Promise<void> {
+  if (getIsOnlineSync()) {
+    await setActivePlanRemote(userId, planId);
+    const plans = await fetchPlansRemote();
+    await writePlansCache(userId, plans);
+    return;
+  }
+
+  await applySetActivePlanLocal(userId, planId);
+  await enqueueMutation(userId, "SET_ACTIVE_PLAN", { userId, planId });
+}
+
+export async function advancePlanRemote(planId: string): Promise<void> {
   const { data: plan, error: fetchError } = await supabase.from("plans").select("current_day").eq("id", planId).single();
   if (fetchError) throw fetchError;
 
@@ -909,6 +1294,29 @@ export async function advancePlan(planId: string): Promise<void> {
   const { error } = await supabase.from("plans").update({ current_day: nextDay }).eq("id", planId);
   if (error) throw error;
 }
+
+export async function advancePlan(userId: string, planId: string): Promise<void> {
+  if (getIsOnlineSync()) {
+    await advancePlanRemote(planId);
+    await applyAdvancePlanLocal(userId, planId);
+    return;
+  }
+
+  await applyAdvancePlanLocal(userId, planId);
+  await enqueueMutation(userId, "ADVANCE_PLAN", { planId });
+}
+
+export async function fetchPlanDayForTrackingCached(
+  userId: string,
+  planDayId: string,
+): Promise<PlanDayForTracking | null> {
+  const local = await resolvePlanDayFromLocal(userId, planDayId);
+  if (local) return local;
+  if (!getIsOnlineSync()) return null;
+  return fetchPlanDayForTracking(planDayId);
+}
+
+export { resolvePlanDayFromLocal };
 
 function useAsync<T>(loader: () => Promise<T>, deps: unknown[]): { data: T | null; loading: boolean; error: string | null; reload: () => void } {
   const [data, setData] = useState<T | null>(null);
@@ -944,7 +1352,21 @@ function useAsync<T>(loader: () => Promise<T>, deps: unknown[]): { data: T | nul
 
 export function useExercises() {
   const { user } = useAuth();
-  return useAsync(fetchExercises, [user?.id]);
+  return useCachedAsync(
+    {
+      cacheLoader: async () => {
+        if (!user) return null;
+        const items = await getCachedExercises(user.id);
+        return items ?? null;
+      },
+      networkLoader: async () => {
+        if (!user) return [];
+        return fetchExercisesCached(user.id);
+      },
+      enabled: !!user,
+    },
+    [user?.id],
+  );
 }
 
 export function useSessions() {
@@ -969,17 +1391,55 @@ export function useHomeStats() {
 
 export function usePlans() {
   const { user } = useAuth();
-  return useAsync(fetchPlans, [user?.id]);
+  return useCachedAsync(
+    {
+      cacheLoader: async () => {
+        if (!user || !(await hasPlansCache(user.id))) return null;
+        return getCachedPlans(user.id);
+      },
+      networkLoader: async () => {
+        if (!user) return [];
+        return fetchPlansCached(user.id);
+      },
+      enabled: !!user,
+    },
+    [user?.id],
+  );
 }
 
 export function useActivePlan() {
   const { user } = useAuth();
-  return useAsync(async () => (user ? fetchActivePlan(user.id) : null), [user?.id]);
+  return useCachedAsync(
+    {
+      cacheLoader: async () => {
+        if (!user || !(await hasPlansCache(user.id))) return null;
+        return getCachedActivePlan(user.id);
+      },
+      networkLoader: async () => {
+        if (!user) return null;
+        return fetchActivePlanCached(user.id);
+      },
+      enabled: !!user,
+    },
+    [user?.id],
+  );
 }
 
 export function usePlan(planId: string | null) {
   const { user } = useAuth();
-  return useAsync(async () => (planId ? fetchPlan(planId) : null), [user?.id, planId]);
+  return useCachedAsync(
+    {
+      cacheLoader: async () => (user && planId ? getCachedPlan(user.id, planId) : null),
+      networkLoader: async () => {
+        if (!user || !planId) return null;
+        const plan = await fetchPlan(planId);
+        if (plan) await upsertCachedPlan(user.id, plan);
+        return plan;
+      },
+      enabled: !!user && !!planId,
+    },
+    [user?.id, planId],
+  );
 }
 
 export interface BodyMeasurement {
@@ -1253,13 +1713,72 @@ export interface ExerciseHistoryEntry {
   note?: string;
 }
 
-export async function fetchExerciseHistory(userId: string, exerciseName: string): Promise<ExerciseHistoryEntry[]> {
-  const { data, error } = await supabase
+export interface ExerciseRef {
+  catalogExerciseId?: string;
+  name: string;
+}
+
+export interface LastPerformance {
+  sets: WorkoutSet[];
+  metric: ExerciseMetric;
+  blockFormat?: BlockFormat;
+  performedAt: string;
+  sessionId: string;
+  perceivedEffort?: PerceivedEffort | null;
+}
+
+export function normalizeExerciseName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+function sessionExerciseRowMatchesRef(
+  row: { name: string; catalog_exercise_id?: string | null },
+  ref: ExerciseRef,
+): boolean {
+  if (ref.catalogExerciseId && row.catalog_exercise_id === ref.catalogExerciseId) return true;
+  return normalizeExerciseName(row.name) === normalizeExerciseName(ref.name);
+}
+
+function hasCompletedPerformance(sets: WorkoutSet[]): boolean {
+  return sets.some((s) => s.done && (s.kg > 0 || s.reps > 0 || (s.durationSec ?? 0) > 0 || (s.distanceM ?? 0) > 0));
+}
+
+interface SessionExerciseHistoryRow {
+  id: string;
+  name: string;
+  note: string | null;
+  metric_type: string;
+  block_format: string;
+  catalog_exercise_id: string | null;
+  perceived_effort: string | null;
+  sets: unknown;
+  sessions: {
+    id: string;
+    name: string;
+    performed_at: string;
+    user_id: string;
+  } | {
+    id: string;
+    name: string;
+    performed_at: string;
+    user_id: string;
+  }[] | null;
+}
+
+async function fetchSessionExerciseRowsForRef(
+  userId: string,
+  ref: ExerciseRef,
+): Promise<SessionExerciseHistoryRow[]> {
+  let query = supabase
     .from("session_exercises")
     .select(`
       id,
+      name,
       note,
       metric_type,
+      block_format,
+      catalog_exercise_id,
+      perceived_effort,
       sets,
       sessions (
         id,
@@ -1267,16 +1786,78 @@ export async function fetchExerciseHistory(userId: string, exerciseName: string)
         performed_at,
         user_id
       )
-    `)
-    .eq("name", exerciseName);
+    `);
 
+  if (ref.catalogExerciseId) {
+    query = query.eq("catalog_exercise_id", ref.catalogExerciseId);
+  } else {
+    query = query.eq("name", ref.name.trim());
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   if (!data) return [];
 
-  const mapped: ExerciseHistoryEntry[] = data
-    .map((row: any): ExerciseHistoryEntry | null => {
+  return (data as SessionExerciseHistoryRow[]).filter((row) => {
+    const sess = Array.isArray(row.sessions) ? row.sessions[0] : row.sessions;
+    if (!sess || sess.user_id !== userId) return false;
+    if (ref.catalogExerciseId) return true;
+    return sessionExerciseRowMatchesRef(row, ref);
+  });
+}
+
+function mapRowToLastPerformance(
+  row: SessionExerciseHistoryRow,
+  userId: string,
+): LastPerformance | null {
+  const sess = Array.isArray(row.sessions) ? row.sessions[0] : row.sessions;
+  if (!sess || sess.user_id !== userId) return null;
+  const sets = parseSessionSets(row.sets);
+  if (!hasCompletedPerformance(sets)) return null;
+  return {
+    sets,
+    metric: parseExerciseMetric(row.metric_type),
+    blockFormat: isBlockFormat(row.block_format) ? row.block_format : undefined,
+    performedAt: sess.performed_at,
+    sessionId: sess.id,
+    perceivedEffort: parsePerceivedEffort(row.perceived_effort) ?? null,
+  };
+}
+
+/** Ein DB-Roundtrip: letzte Leistung + Verlauf für Auto-Pilot. */
+export async function fetchExercisePerformanceByRef(
+  userId: string,
+  ref: ExerciseRef,
+  limit = 10,
+): Promise<{ lastPerformance: LastPerformance | null; history: LastPerformance[] }> {
+  const rows = await fetchSessionExerciseRowsForRef(userId, ref);
+  const performances: LastPerformance[] = [];
+  for (const row of rows) {
+    const perf = mapRowToLastPerformance(row, userId);
+    if (perf) performances.push(perf);
+  }
+  performances.sort((a, b) => new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime());
+  return {
+    lastPerformance: performances[0] ?? null,
+    history: performances.slice(0, limit),
+  };
+}
+
+export async function fetchLastPerformance(userId: string, ref: ExerciseRef): Promise<LastPerformance | null> {
+  const { lastPerformance } = await fetchExercisePerformanceByRef(userId, ref, 1);
+  return lastPerformance;
+}
+
+export async function fetchExerciseHistoryByRef(
+  userId: string,
+  ref: ExerciseRef,
+  limit = 10,
+): Promise<ExerciseHistoryEntry[]> {
+  const rows = await fetchSessionExerciseRowsForRef(userId, ref);
+  const mapped: ExerciseHistoryEntry[] = rows
+    .map((row): ExerciseHistoryEntry | null => {
       const sess = Array.isArray(row.sessions) ? row.sessions[0] : row.sessions;
-      if (!sess || sess.user_id !== userId) return null;
+      if (!sess) return null;
       return {
         sessionId: sess.id,
         sessionName: sess.name,
@@ -1289,7 +1870,11 @@ export async function fetchExerciseHistory(userId: string, exerciseName: string)
     .filter((e): e is ExerciseHistoryEntry => e !== null);
 
   mapped.sort((a, b) => new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime());
-  return mapped.slice(0, 10);
+  return mapped.slice(0, limit);
+}
+
+export async function fetchExerciseHistory(userId: string, exerciseName: string): Promise<ExerciseHistoryEntry[]> {
+  return fetchExerciseHistoryByRef(userId, { name: exerciseName });
 }
 
 export function useExerciseHistory(exerciseName: string | null) {
@@ -1411,15 +1996,85 @@ export async function generateAndSaveAITrainingPlan(
     if (day.isRestDay) continue;
 
     const exercises: PlanDayExerciseInput[] = [];
+    const blockConfigs: PlanDayBlockInput[] = [];
     let enabledBlocks = normalizeEnabledBlocks(day.enabledBlocks);
 
     if (Array.isArray(day.blocks) && day.blocks.length > 0) {
       const blockTypesWithExercises: TrainingBlockType[] = [];
       for (const block of day.blocks) {
         if (!isTrainingBlockType(block.type) || !Array.isArray(block.exercises)) continue;
-        if (block.exercises.length > 0) blockTypesWithExercises.push(block.type);
-        for (const e of block.exercises) {
+
+        let blockExercises = block.exercises as {
+          name: string;
+          metric?: ExerciseMetric;
+          note?: string;
+          sets?: unknown;
+        }[];
+
+        if (
+          block.type === "metcon" &&
+          blockExercises.length === 1 &&
+          typeof blockExercises[0]?.note === "string" &&
+          /amrap|emom|circuit|burpee|liegestütz/i.test(
+            `${blockExercises[0].name} ${blockExercises[0].note}`,
+          )
+        ) {
+          const legacy = blockExercises[0];
+          const names = parseExerciseNamesFromMetconNote(legacy.note ?? legacy.name);
+          if (names.length >= 2) {
+            blockExercises = names.map((name) => ({
+              name,
+              metric: "reps" as ExerciseMetric,
+              note: legacy.note,
+              sets: [{ reps: 10, kg: 0 }],
+            }));
+          }
+        }
+
+        if (blockExercises.length > 0) blockTypesWithExercises.push(block.type);
+        for (const e of blockExercises) {
+          if (block.type === "metcon") {
+            const metconEx = e as MetconExerciseLike;
+            metconEx.sets = parseSets(e.sets);
+            normalizeMetconExercise(metconEx);
+          }
           exercises.push({ ...mapAiExercise(e), blockType: block.type });
+        }
+
+        if (block.type === "metcon") {
+          const cfg = block.config ?? block.metconConfig ?? {};
+          const formatRaw =
+            (typeof block.format === "string" && isBlockFormat(block.format)
+              ? block.format
+              : null) ??
+            (typeof cfg.format === "string" && isBlockFormat(cfg.format) ? cfg.format : null) ??
+            detectMetconFormatFromText(
+              `${blockExercises[0]?.name ?? ""} ${blockExercises[0]?.note ?? ""}`,
+            );
+          const durationSec =
+            typeof cfg.durationSec === "number"
+              ? cfg.durationSec
+              : typeof cfg.timeCapSeconds === "number"
+                ? cfg.timeCapSeconds
+                : parseDurationSecFromText(blockExercises[0]?.note ?? blockExercises[0]?.name ?? "");
+          blockConfigs.push({
+            blockType: "metcon",
+            format: formatRaw,
+            timeCapSeconds: durationSec ?? (formatRaw === "amrap" ? 600 : undefined),
+            rounds: typeof cfg.rounds === "number" ? cfg.rounds : undefined,
+            intervalSeconds:
+              typeof cfg.intervalSec === "number"
+                ? cfg.intervalSec
+                : typeof cfg.intervalSeconds === "number"
+                  ? cfg.intervalSeconds
+                  : undefined,
+            workSeconds: typeof cfg.workSec === "number" ? cfg.workSec : undefined,
+            restSeconds: typeof cfg.restSec === "number" ? cfg.restSec : undefined,
+            restBetweenRoundsSeconds:
+              typeof cfg.restBetweenRoundsSec === "number" ? cfg.restBetweenRoundsSec : undefined,
+            prepSeconds: typeof cfg.prepSec === "number" ? cfg.prepSec : 5,
+            note: typeof block.note === "string" ? block.note : undefined,
+          });
         }
       }
       if (enabledBlocks.length === 0 && blockTypesWithExercises.length > 0) {
@@ -1443,6 +2098,7 @@ export async function generateAndSaveAITrainingPlan(
       name: dayName,
       note: day.note || "",
       enabledBlocks,
+      blockConfigs,
       exercises: assignBlockPositions(exercises),
     });
   }
@@ -1509,4 +2165,51 @@ export async function fetchRecentSessionsWithExercises(limit = 10): Promise<Hist
   );
   return sessions.filter((s): s is HistoryEntry => s !== null);
 }
+
+export async function fetchRecentTurboTrackingSessions(limit = 10): Promise<HistoryEntry[]> {
+  const fetchLimit = Math.max(limit * 4, 20);
+  const { data: sessionRows, error } = await supabase
+    .from("sessions")
+    .select("id, tags")
+    .order("performed_at", { ascending: false })
+    .limit(fetchLimit);
+  if (error) throw error;
+  if (!sessionRows || sessionRows.length === 0) return [];
+
+  const candidateIds = sessionRows
+    .filter((row) => {
+      const tags = row.tags ?? [];
+      return isTurboTrackingSessionTag(tags) && !isTimerSession(tags);
+    })
+    .slice(0, limit)
+    .map((row) => row.id);
+
+  const sessions = await Promise.all(
+    candidateIds.map(async (id) => {
+      try {
+        return await fetchSession(id);
+      } catch (e) {
+        console.error(`Fehler beim Laden der Session ${id}:`, e);
+        return null;
+      }
+    }),
+  );
+  return sessions.filter((s): s is HistoryEntry => s !== null);
+}
+
+registerSyncHandlers({
+  saveSessionRemote,
+  advancePlanRemote,
+  createPlanRemote,
+  updatePlanRemote,
+  deletePlanRemote,
+  setActivePlanRemote,
+  createExerciseRemote,
+  updateExerciseRemote,
+  deleteExerciseRemote,
+  refreshPlansRemote: fetchPlansRemote,
+  refreshExercisesRemote: fetchExercisesRemote,
+});
+
+export { processSyncQueue, getSyncPendingCount } from "./offline/syncEngine";
 

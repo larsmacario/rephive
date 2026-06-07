@@ -16,23 +16,14 @@ import {
 } from "../lib/exerciseSets";
 import type { ExerciseMetric } from "../lib/exerciseCatalog";
 import { DEFAULT_EXERCISE_METRIC } from "../lib/exerciseCatalog";
-import { Icon } from "./Icon";
-import { SetMetricFields, setFieldHeaders } from "./SetMetricFields";
-import { WARMUP_COLUMN_WIDTH, WarmUpSetToggle } from "./WarmUpSetToggle";
+import { SetMetricFields } from "./SetMetricFields";
+import { WarmUpSetToggle } from "./WarmUpSetToggle";
+import { SetTable } from "./SetTable";
 
 type ConfigSet = TemplateSet | TrackedSet;
 
 function isTrackedSet(s: ConfigSet): s is TrackedSet {
   return "done" in s;
-}
-
-function setNumberLabel(index: number, warmUp?: boolean): string {
-  if (index === 0 && warmUp) return "W";
-  return String(index + 1);
-}
-
-function individualActionsWidth(variant: "template" | "tracked"): number {
-  return variant === "tracked" ? 72 : 36;
 }
 
 export interface ExerciseSetConfiguratorProps {
@@ -42,6 +33,8 @@ export interface ExerciseSetConfiguratorProps {
   onChange: (setMode: SetMode, sets: ConfigSet[]) => void;
   metric?: ExerciseMetric;
   compact?: boolean;
+  /** Cap uniform/individual set count (e.g. MetCon = 1). */
+  maxSets?: number;
 }
 
 export function SetModeToggle({
@@ -93,10 +86,8 @@ export function ExerciseSetConfigurator({
   onChange,
   metric = DEFAULT_EXERCISE_METRIC,
   compact = false,
+  maxSets,
 }: ExerciseSetConfiguratorProps) {
-  const headers = setFieldHeaders(metric);
-  const valueFontSize = compact ? 17 : 21;
-
   const handleModeChange = (mode: SetMode) => {
     if (mode === setMode) return;
     const next = mode === "uniform" ? switchToUniform(sets) : switchToIndividual(sets);
@@ -128,6 +119,7 @@ export function ExerciseSetConfigurator({
   const count = sets.length || 1;
   const template = sets[0] ?? { reps: 10, kg: 0 };
   const warmUpChecked = Boolean(sets[0]?.warmUp);
+  const singleSetOnly = maxSets === 1;
 
   const toggleWarmUp = (enabled: boolean) => {
     onChange(setMode, setSetWarmUp(sets, enabled));
@@ -135,9 +127,9 @@ export function ExerciseSetConfigurator({
 
   return (
     <div style={{ width: "100%" }}>
-      <SetModeToggle setMode={setMode} onChange={handleModeChange} />
+      {!singleSetOnly && <SetModeToggle setMode={setMode} onChange={handleModeChange} />}
 
-      {setMode === "uniform" ? (
+      {setMode === "uniform" || singleSetOnly ? (
         <div
           style={{
             display: "flex",
@@ -147,8 +139,12 @@ export function ExerciseSetConfigurator({
             flexWrap: "wrap",
           }}
         >
-          <UniformStepper label="SÄTZE" value={count} onDec={() => bumpUniform("count", -1)} onInc={() => bumpUniform("count", 1)} />
-          <span style={{ color: M.mut2, fontFamily: M.disp, fontSize: compact ? 14 : 16 }}>×</span>
+          {!singleSetOnly && (
+            <UniformStepper label="SÄTZE" value={count} onDec={() => bumpUniform("count", -1)} onInc={() => bumpUniform("count", 1)} />
+          )}
+          {!singleSetOnly && (
+            <span style={{ color: M.mut2, fontFamily: M.disp, fontSize: compact ? 14 : 16 }}>×</span>
+          )}
           <SetMetricFields
             set={template}
             metric={metric}
@@ -157,147 +153,21 @@ export function ExerciseSetConfigurator({
             onBump={(field, delta) => bumpUniform(field, delta)}
             onSetValue={(field, value) => onChange("uniform", setUniformField(sets, field, value, metric))}
           />
-          <WarmUpSetToggle layout="full" checked={warmUpChecked} onChange={toggleWarmUp} />
+          {!singleSetOnly && <WarmUpSetToggle layout="full" checked={warmUpChecked} onChange={toggleWarmUp} />}
         </div>
       ) : (
-        <div>
-          <div
-            style={{
-              display: "flex",
-              fontSize: 10,
-              letterSpacing: 1.2,
-              color: M.mut2,
-              fontWeight: 700,
-              padding: "4px 4px 8px",
-            }}
-          >
-            {headers.map((h) => (
-              <span
-                key={h.key}
-                style={{
-                  width: h.key === "set" ? 34 : undefined,
-                  flex: h.key === "set" ? undefined : 1,
-                  textAlign: h.key === "set" ? "left" : "center",
-                }}
-              >
-                {h.label}
-              </span>
-            ))}
-            <span
-              style={{
-                width: WARMUP_COLUMN_WIDTH,
-                textAlign: "center",
-              }}
-            >
-              W-UP
-            </span>
-            <span style={{ width: individualActionsWidth(variant) }} />
-          </div>
-          {sets.map((s, si) => (
-            <div
-              key={si}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                padding: "6px 4px",
-                borderTop: "1px solid " + M.line2,
-              }}
-            >
-              <span
-                style={{
-                  width: 34,
-                  fontFamily: M.disp,
-                  fontWeight: 700,
-                  fontSize: valueFontSize,
-                  color: isTrackedSet(s) && s.done ? M.acc : si === 0 && s.warmUp ? M.acc : M.mut,
-                }}
-              >
-                {setNumberLabel(si, s.warmUp)}
-              </span>
-              <SetMetricFields
-                set={s}
-                metric={metric}
-                compact={compact}
-                onBump={(field, delta) => editSet(si, field, delta)}
-                onSetValue={(field, value) => setField(si, field, value)}
-              />
-              {si === 0 ? (
-                <WarmUpSetToggle layout="compact" checked={Boolean(s.warmUp)} onChange={toggleWarmUp} />
-              ) : (
-                <span style={{ width: WARMUP_COLUMN_WIDTH, flexShrink: 0 }} />
-              )}
-              <div
-                style={{
-                  width: individualActionsWidth(variant),
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  alignItems: "center",
-                  gap: 6,
-                  flexShrink: 0,
-                }}
-              >
-                {variant === "tracked" && isTrackedSet(s) && (
-                  <button
-                    type="button"
-                    onClick={() => toggleDone(si)}
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 9,
-                      border: s.done ? "none" : "1.5px solid " + M.line,
-                      background: s.done ? M.acc : "transparent",
-                      color: s.done ? M.accInk : M.mut,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Icon name="check" size={17} stroke={2.6} />
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => onChange("individual", removeIndividualSet(sets, si))}
-                  disabled={sets.length <= 1}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 9,
-                    border: "1px solid " + M.line2,
-                    background: "transparent",
-                    color: M.mut2,
-                    cursor: sets.length <= 1 ? "not-allowed" : "pointer",
-                    opacity: sets.length <= 1 ? 0.4 : 1,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Icon name="minus" size={16} stroke={2.2} />
-                </button>
-              </div>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => onChange("individual", addIndividualSet(sets))}
-            style={{
-              width: "100%",
-              marginTop: 8,
-              padding: "8px 0",
-              borderRadius: 10,
-              border: "1px dashed " + M.line,
-              background: "transparent",
-              color: M.mut,
-              fontWeight: 600,
-              fontSize: 13,
-              cursor: "pointer",
-            }}
-          >
-            + Satz
-          </button>
-        </div>
+        <SetTable
+          sets={sets}
+          metric={metric}
+          variant={variant}
+          compact={compact}
+          onBumpSet={(si, field, delta) => editSet(si, field, delta)}
+          onSetValue={(si, field, value) => setField(si, field, value)}
+          onToggleDone={variant === "tracked" ? toggleDone : undefined}
+          onRemove={(si) => onChange("individual", removeIndividualSet(sets, si))}
+          onWarmUpChange={toggleWarmUp}
+          onAddSet={() => onChange("individual", addIndividualSet(sets))}
+        />
       )}
     </div>
   );

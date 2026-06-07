@@ -73,11 +73,11 @@ export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: Exercise
   }, [open, exercise]);
 
   const handleDelete = async () => {
-    if (!exercise?.id || !exercise.userId || deleting) return;
+    if (!user || !exercise?.id || !exercise.userId || deleting) return;
     setDeleting(true);
     setError(null);
     try {
-      await deleteExercise(exercise.id);
+      await deleteExercise(user.id, exercise.id);
       setDeleteConfirmOpen(false);
       onSaved();
       onClose();
@@ -125,7 +125,7 @@ export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: Exercise
     setError(null);
     try {
       if (isEdit && exercise) {
-        await updateExercise(exercise.id, input);
+        await updateExercise(user.id, exercise.id, input);
       } else {
         await createExercise(user.id, input);
       }

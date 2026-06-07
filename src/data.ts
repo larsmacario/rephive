@@ -1,16 +1,34 @@
 import type { Workout, WorkoutSet } from "./lib/engine";
 import type { ExerciseMetric } from "./lib/exerciseCatalog";
-import type { TrainingBlockType } from "./lib/planBlocks";
+import type { BlockFormat, TrainingBlockType } from "./lib/planBlocks";
+import type { PerceivedEffort } from "./lib/progressionEngine";
 
 export interface PlanDayExercise {
   id: string;
   name: string;
   note?: string;
+  blockId?: string;
   blockType: TrainingBlockType;
+  blockFormat?: BlockFormat;
   supersetId?: string;
   catalogExerciseId?: string | null;
   metric: ExerciseMetric;
   sets: WorkoutSet[];
+}
+
+export interface PlanDayBlock {
+  id: string;
+  blockType: TrainingBlockType;
+  format: BlockFormat;
+  position: number;
+  rounds?: number;
+  timeCapSeconds?: number;
+  intervalSeconds?: number;
+  workSeconds?: number;
+  restSeconds?: number;
+  restBetweenRoundsSeconds?: number;
+  prepSeconds?: number;
+  note?: string;
 }
 
 export interface LibraryExercise {
@@ -37,9 +55,13 @@ export interface SessionExercise {
   id: string;
   name: string;
   note?: string;
+  blockId?: string;
   blockType?: TrainingBlockType;
+  blockFormat?: BlockFormat;
   supersetId?: string;
+  catalogExerciseId?: string;
   metric: ExerciseMetric;
+  perceivedEffort?: PerceivedEffort;
   sets: WorkoutSet[];
 }
 
@@ -65,6 +87,7 @@ export interface PlanDay {
   name: string;
   note?: string;
   enabledBlocks: TrainingBlockType[];
+  blocks?: PlanDayBlock[];
   exercises: PlanDayExercise[];
 }
 
@@ -132,6 +155,7 @@ export interface PlanDayForTracking {
   name: string;
   planId: string;
   enabledBlocks: TrainingBlockType[];
+  blocks: PlanDayBlock[];
   exercises: PlanDayExercise[];
 }
 
@@ -145,9 +169,12 @@ export const startPlanDaySession = (
     sub: "",
     enabledBlocks: day.enabledBlocks,
     skippedBlocks,
+    blocks: day.blocks,
     exercises: day.exercises.map((e) => ({
       ...e,
+      blockId: e.blockId,
       blockType: e.blockType,
+      blockFormat: e.blockFormat,
       supersetId: e.supersetId,
       catalogExerciseId: e.catalogExerciseId ?? undefined,
       metric: e.metric,
@@ -156,6 +183,7 @@ export const startPlanDaySession = (
   });
 
 export const CUSTOM_SESSION_NAME = "Individuelles Training";
+export const TURBO_TRACKING_SESSION_NAME = "TurboTracking";
 
 /** Ensures every exercise has metric (e.g. drafts from older app versions). */
 export function normalizeWorkout(session: Workout): Workout {
@@ -169,7 +197,7 @@ export function normalizeWorkout(session: Workout): Workout {
   };
 }
 
-/** Empty ad-hoc session — exercises added live during tracking. */
+/** @deprecated Use startTurboTrackingSession via setup wizard. */
 export const startCustomSession = (): Workout => ({
   name: CUSTOM_SESSION_NAME,
   sub: "",

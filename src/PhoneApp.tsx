@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { normalizeWorkout, startCustomSession, startPlanDaySession } from "./data";
+import { normalizeWorkout, startPlanDaySession } from "./data";
 import type { Workout } from "./lib/engine";
+import { TURBO_TRACKING_TAG } from "./lib/turboTracking";
 import {
   type ActiveWorkoutDraft,
   type ActiveWorkoutSnapshot,
@@ -11,14 +12,25 @@ import {
   saveActiveWorkout,
   snapshotToDraft,
 } from "./lib/activeWorkout";
-import { advancePlan, fetchPlanDayForTracking, saveSession, type SaveSessionInput } from "./lib/db";
+import {
+  advancePlan,
+  fetchPlanDayForTrackingCached,
+  processSyncQueue,
+  saveSession,
+  type SaveSessionInput,
+} from "./lib/db";
+import { NetworkProvider, useNetwork } from "./lib/offline/networkStatus";
 import type { ExerciseMetric } from "./lib/exerciseCatalog";
-import type { TrainingBlockType } from "./lib/planBlocks";
+import type { BlockFormat, TrainingBlockType } from "./lib/planBlocks";
+import type { PerceivedEffort } from "./lib/progressionEngine";
+import { inferExerciseBlockFormat } from "./lib/progressionEngine";
+import type { WorkoutSet } from "./lib/engine";
 import { useAuth } from "./lib/auth";
 import { useBreakpoint } from "./lib/responsive";
 import { PhoneShell } from "./components/PhoneShell";
-import { FloatNav, floatNavContentInset, type Tab } from "./components/FloatNav";
+import { FloatNav, FloatNavContentFade, floatNavContentInset, type Tab } from "./components/FloatNav";
 import { ConfirmSheet } from "./components/ConfirmSheet";
+import { OfflineBanner } from "./components/OfflineBanner";
 import { TimerLeaveSheet } from "./components/TimerLeaveSheet";
 import { HomeScreen } from "./screens/HomeScreen";
 import { PlansScreen } from "./screens/PlansScreen";
@@ -41,8 +53,18 @@ import { ActiveTimerProvider, useActiveTimer } from "./lib/activeTimer";
 import { usePreferences } from "./lib/preferences";
 import { OnboardingWizard } from "./screens/OnboardingWizard";
 import { AITrainingPlanWizard } from "./screens/AITrainingPlanWizard";
+import { TurboTrackingSetupScreen } from "./screens/TurboTrackingSetupScreen";
 type Route =
-  | { kind: "tracking"; session: Workout; planDayId?: string; startedAt: number; tags: string[]; planId?: string }
+  | {
+      kind: "tracking";
+      session: Workout;
+      planDayId?: string;
+      startedAt: number;
+      tags: string[];
+      planId?: string;
+      turboTracking?: boolean;
+    }
+  | { kind: "turboTrackingSetup" }
   | { kind: "planBuilder"; planId?: string }
   | { kind: "exercises" }
   | { kind: "sessionDetail"; sessionId: string }
@@ -67,22 +89,31 @@ type FinishPayload = {
   planDayId?: string;
   planId?: string;
   skippedBlocks?: TrainingBlockType[];
+  metconResults?: Record<string, import("./lib/metcon").MetconSessionResult>;
   exercises: {
     name: string;
     note?: string;
     blockType?: TrainingBlockType;
+    blockFormat?: BlockFormat;
+    blockId?: string;
     supersetId?: string;
+    catalogExerciseId?: string;
+    perceivedEffort?: PerceivedEffort;
     metric?: ExerciseMetric;
-    sets: { reps: number; kg: number; done: boolean }[];
+    sets: WorkoutSet[];
   }[];
 };
+
+function setsForPersistence(sets: WorkoutSet[]): WorkoutSet[] {
+  return sets.map(({ suggested: _suggested, ...rest }) => rest);
+}
 
 function buildPayloadFromDraft(draft: ActiveWorkoutDraft): FinishPayload {
   const { doneSets, volumeKg } = getDraftMetrics(draft);
   const isCustom = !draft.planDayId;
   return {
     name: draft.session.name,
-    tags: isCustom ? ["Individuell"] : draft.tags,
+    tags: draft.turboTracking ? [TURBO_TRACKING_TAG] : isCustom ? [TURBO_TRACKING_TAG] : draft.tags,
     durationMin: Math.max(1, Math.round(getActiveDurationSec(draft.startedAt) / 60)),
     volumeKg,
     setCount: doneSets,
@@ -92,24 +123,32 @@ function buildPayloadFromDraft(draft: ActiveWorkoutDraft): FinishPayload {
       name: e.name,
       note: e.note,
       blockType: e.blockType,
+      blockFormat: e.blockFormat ?? inferExerciseBlockFormat(e),
+      blockId: e.blockId,
       supersetId: e.supersetId,
+      catalogExerciseId: e.catalogExerciseId,
+      perceivedEffort: e.perceivedEffort,
       metric: e.metric,
-      sets: e.sets,
+      sets: setsForPersistence(e.sets),
     })),
     skippedBlocks: draft.skippedBlocks ?? draft.session.skippedBlocks,
+    metconResults: draft.session.metconResults,
   };
 }
 
 export function PhoneApp() {
   return (
-    <ActiveTimerProvider>
-      <PhoneAppInner />
-    </ActiveTimerProvider>
+    <NetworkProvider>
+      <ActiveTimerProvider>
+        <PhoneAppInner />
+      </ActiveTimerProvider>
+    </NetworkProvider>
   );
 }
 
 function PhoneAppInner() {
   const { user, profileReady } = useAuth();
+  const { isOnline } = useNetwork();
   const { preferences } = usePreferences();
   const { active: timerActive } = useActiveTimer();
   const breakpoint = useBreakpoint();
@@ -129,6 +168,13 @@ function PhoneAppInner() {
     }
     setActiveWorkout(loadActiveWorkout(user.id));
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user || !isOnline) return;
+    void processSyncQueue(user.id).then((result) => {
+      if (result.processed > 0) setRefreshKey((k) => k + 1);
+    });
+  }, [user?.id, isOnline]);
 
   const persistDraft = (draft: ActiveWorkoutDraft | null) => {
     if (!user) return;
@@ -159,9 +205,10 @@ function PhoneAppInner() {
   const goTrackPlanDay = async (planDayId: string, planId?: string) => {
     runWithReplaceDraftConfirm(() => {
       void (async () => {
+        if (!user) return;
         setTrackLoading(true);
         try {
-          const day = await fetchPlanDayForTracking(planDayId);
+          const day = await fetchPlanDayForTrackingCached(user.id, planDayId);
           if (!day) return;
           setRoute({
             kind: "tracking",
@@ -178,14 +225,19 @@ function PhoneAppInner() {
     });
   };
 
-  const goCustomTrack = () => {
+  const goTurboTrackingSetup = () => {
     runWithReplaceDraftConfirm(() => {
-      setRoute({
-        kind: "tracking",
-        session: startCustomSession(),
-        startedAt: Date.now(),
-        tags: [],
-      });
+      setRoute({ kind: "turboTrackingSetup" });
+    });
+  };
+
+  const startTurboTracking = (session: Workout) => {
+    setRoute({
+      kind: "tracking",
+      session: normalizeWorkout(JSON.parse(JSON.stringify(session)) as Workout),
+      startedAt: Date.now(),
+      tags: [TURBO_TRACKING_TAG],
+      turboTracking: true,
     });
   };
 
@@ -200,6 +252,7 @@ function PhoneAppInner() {
       startedAt: activeWorkout.startedAt,
       tags: activeWorkout.tags,
       planId: activeWorkout.planId,
+      turboTracking: activeWorkout.turboTracking,
     });
   };
 
@@ -209,7 +262,6 @@ function PhoneAppInner() {
   const goSessionEdit = (sessionId: string) => setRoute({ kind: "sessionEdit", sessionId });
   const goPlanDetail = (planId: string) => setRoute({ kind: "planDetail", planId });
   const goSettings = () => setRoute({ kind: "settings" });
-  const goProfile = () => setRoute({ kind: "profile" });
   const goStats = () => setRoute({ kind: "stats" });
   const goCalculator = () => setRoute({ kind: "calculator" });
   const goBodyTracker = () => {
@@ -226,19 +278,21 @@ function PhoneAppInner() {
 
   const handleSaveWorkout = async (payload: FinishPayload) => {
     if (!user) return;
-    await saveSession(user.id, {
-      planDayId: payload.planDayId,
-      name: payload.name,
-      tags: payload.tags,
-      durationMin: payload.durationMin,
-      volumeKg: payload.volumeKg,
-      setCount: payload.setCount,
-      skippedBlocks: payload.skippedBlocks,
-      exercises: payload.exercises,
-    });
-    if (payload.planId) {
-      await advancePlan(payload.planId);
-    }
+    await saveSession(
+      user.id,
+      {
+        planDayId: payload.planDayId,
+        name: payload.name,
+        tags: payload.tags,
+        durationMin: payload.durationMin,
+        volumeKg: payload.volumeKg,
+        setCount: payload.setCount,
+        skippedBlocks: payload.skippedBlocks,
+        metconResults: payload.metconResults,
+        exercises: payload.exercises,
+      },
+      { advancePlanId: payload.planId },
+    );
     persistDraft(null);
     setRefreshKey((k) => k + 1);
     close("history");
@@ -267,13 +321,14 @@ function PhoneAppInner() {
   };
 
   const handleAdvancePlan = async (planId: string) => {
-    await advancePlan(planId);
+    if (!user) return;
+    await advancePlan(user.id, planId);
     setRefreshKey((k) => k + 1);
   };
 
   const handleTab = (t: Tab) => {
     if (t === "ai-plan") {
-      goAITrainingPlanWizard();
+      if (isOnline) goAITrainingPlanWizard();
       return;
     }
     if (timerActive && tab === "timer" && t !== "timer") {
@@ -301,10 +356,19 @@ function PhoneAppInner() {
         planDayId={route.planDayId}
         tags={route.tags}
         planId={route.planId}
+        turboTracking={route.turboTracking}
         onPause={handlePauseFromTrack}
         onDiscard={handleDiscardWorkout}
         onSaveTimerSession={handleSaveTimerSession}
         onFinish={handleSaveWorkout}
+      />
+    );
+    showNav = false;
+  } else if (route?.kind === "turboTrackingSetup") {
+    body = (
+      <TurboTrackingSetupScreen
+        onBack={() => close("home")}
+        onStart={(workout) => startTurboTracking(workout)}
       />
     );
     showNav = false;
@@ -371,7 +435,7 @@ function PhoneAppInner() {
     body = <SettingsScreen onBack={() => close("home")} />;
     showNav = false;
   } else if (route?.kind === "profile") {
-    body = <ProfileScreen onBack={() => close("home")} />;
+    body = <ProfileScreen mode="push" onBack={() => close("home")} />;
     showNav = false;
   } else if (route?.kind === "stats") {
     body = <StatsScreen onBack={() => close()} refreshKey={refreshKey} />;
@@ -405,7 +469,6 @@ function PhoneAppInner() {
         refreshKey={refreshKey}
         activeWorkout={activeWorkout}
         onStart={goTrackPlanDay}
-        onStartCustom={goCustomTrack}
         onResumeActive={resumeActiveWorkout}
         onSaveActive={handleSaveFromDraft}
         onDiscardActive={handleDiscardWorkout}
@@ -413,7 +476,11 @@ function PhoneAppInner() {
         onAdvancePlan={handleAdvancePlan}
         onOpenTimer={() => setTab("timer")}
         onOpenSettings={goSettings}
-        onOpenProfile={goProfile}
+        onOpenProfile={() => setTab("profile")}
+        onOpenHistory={() => {
+          setRoute(null);
+          setTab("history");
+        }}
         onOpenStats={goStats}
         onOpenCalculator={goCalculator}
         onOpenBodyTracker={goBodyTracker}
@@ -434,6 +501,8 @@ function PhoneAppInner() {
     );
   } else if (tab === "timer") {
     body = <TimerScreen onSaveSession={handleSaveTimerSession} />;
+  } else if (tab === "profile") {
+    body = <ProfileScreen mode="tab" onBack={() => setTab("home")} />;
   } else {
     body = (
       <HistoryScreen refreshKey={refreshKey} onOpenSession={goSessionDetail} onOpenStats={goStats} />
@@ -460,17 +529,23 @@ function PhoneAppInner() {
           display: "flex",
           flexDirection: "column",
           position: "relative",
-          ...(showNav
-            ? navPlacement === "bottom"
-              ? { paddingBottom: floatNavContentInset("bottom") }
-              : { paddingLeft: floatNavContentInset("left") }
+          ...(showNav && navPlacement === "left"
+            ? { paddingLeft: floatNavContentInset("left") }
             : {}),
         }}
       >
+        {showNav && <OfflineBanner />}
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>{body}</div>
       </div>
+      {showNav && navPlacement === "bottom" && <FloatNavContentFade />}
       {showNav && (
-        <FloatNav tab={tab} onTab={handleTab} timerActive={timerActive} placement={navPlacement} />
+        <FloatNav
+          tab={tab}
+          onTab={handleTab}
+          onTurboTracking={goTurboTrackingSetup}
+          timerActive={timerActive}
+          placement={navPlacement}
+        />
       )}
       <TimerLeaveSheet
         open={!!pendingTab}

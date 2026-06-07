@@ -19,6 +19,11 @@ export type SetField = "reps" | "kg" | "durationSec" | "distanceM";
 
 export const KG_STEP = 1.25;
 
+export function roundToKgStep(kg: number): number {
+  if (kg <= 0) return 0;
+  return clampKg(Math.round(kg / KG_STEP) * KG_STEP);
+}
+
 export function clampKg(kg: number): number {
   return Math.max(0, +Math.max(0, kg).toFixed(2));
 }
@@ -152,7 +157,7 @@ export function applySetField(
   metric: ExerciseMetric,
 ): TemplateSet {
   const spec = getMetricSpec(metric);
-  if (field === "kg") return { ...set, kg: clampKg(value) };
+  if (field === "kg") return { ...set, kg: roundToKgStep(value) };
   if (field === "reps") return { ...set, reps: Math.max(1, Math.round(value)) };
   if (field === "durationSec") {
     return { ...set, durationSec: Math.max(TIME_STEP_SEC, Math.round(value)) };
@@ -173,7 +178,7 @@ export function bumpSetField(
   metric: ExerciseMetric,
 ): TemplateSet {
   const spec = getMetricSpec(metric);
-  if (field === "kg") return { ...set, kg: clampKg(set.kg + delta * KG_STEP) };
+  if (field === "kg") return { ...set, kg: roundToKgStep(set.kg + delta * KG_STEP) };
   if (field === "reps") return { ...set, reps: Math.max(1, set.reps + delta) };
   if (field === "durationSec") {
     const cur = getSetDurationSec(set, metric);
@@ -187,6 +192,41 @@ export function bumpSetField(
     return { ...set, reps: Math.max(TIME_STEP_SEC, set.reps + delta * TIME_STEP_SEC) };
   }
   return set;
+}
+
+type CarryTrackedSet = SetLike & { done: boolean; suggested?: boolean };
+
+/** Copy logged metrics from set `fromIndex` to the next set (same exercise). Skips warm-up sources. */
+export function carrySetValuesToNext<T extends CarryTrackedSet>(
+  sets: readonly T[],
+  fromIndex: number,
+  metric: ExerciseMetric,
+): T[] | null {
+  const nextIndex = fromIndex + 1;
+  if (fromIndex < 0 || nextIndex >= sets.length) return null;
+
+  const fromSet = sets[fromIndex];
+  const toSet = sets[nextIndex];
+  if (fromSet.warmUp || toSet.done) return null;
+
+  const spec = getMetricSpec(metric);
+  const updates: Partial<T> = {};
+
+  if (spec.showKg) updates.kg = fromSet.kg;
+  if (spec.showReps) updates.reps = fromSet.reps;
+  if (spec.showTime) {
+    const duration = getSetDurationSec(fromSet, metric);
+    updates.durationSec = duration;
+    if (metric === "time") updates.reps = duration;
+  }
+  if (spec.showDistance) updates.distanceM = getSetDistanceM(fromSet, metric);
+
+  const next: T = { ...toSet, ...updates };
+  delete (next as { suggested?: boolean }).suggested;
+
+  const result = sets.slice() as T[];
+  result[nextIndex] = next;
+  return result;
 }
 
 export function buildUniformTemplateSets(

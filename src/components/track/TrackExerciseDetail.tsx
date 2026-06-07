@@ -44,9 +44,14 @@ export function TrackExerciseDetail({
         }}
       >
         <div style={{ justifySelf: "start" }}>
-          <MButton onClick={onBack} variant="secondary" size="icon" aria-label="Zur Übersicht">
-            <Icon name="chevL" size={18} stroke={2.2} />
-          </MButton>
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Zur Übersicht"
+            style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex", padding: 0 }}
+          >
+            <Icon name="chevL" size={24} stroke={2.2} />
+          </button>
         </div>
         <div
           style={{

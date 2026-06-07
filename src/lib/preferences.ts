@@ -95,6 +95,8 @@ export interface UserPreferences {
   timerSounds: boolean;
   defaultSets: number;
   defaultReps: number;
+  weightIncrementUpperKg: number;
+  weightIncrementLowerKg: number;
   timerDefaults: Record<TimerMode, TimerCfg>;
   gender: "male" | "female" | "other" | null;
   onboarded: boolean;
@@ -121,6 +123,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   timerSounds: true,
   defaultSets: 3,
   defaultReps: 10,
+  weightIncrementUpperKg: 2.5,
+  weightIncrementLowerKg: 5,
   timerDefaults: cloneTimerDefaults(),
   gender: null,
   onboarded: false,
@@ -163,6 +167,14 @@ export function mergePreferences(raw: Json | null | undefined): UserPreferences 
       typeof obj.defaultSets === "number" ? obj.defaultSets : DEFAULT_PREFERENCES.defaultSets,
     defaultReps:
       typeof obj.defaultReps === "number" ? obj.defaultReps : DEFAULT_PREFERENCES.defaultReps,
+    weightIncrementUpperKg:
+      typeof obj.weightIncrementUpperKg === "number"
+        ? obj.weightIncrementUpperKg
+        : DEFAULT_PREFERENCES.weightIncrementUpperKg,
+    weightIncrementLowerKg:
+      typeof obj.weightIncrementLowerKg === "number"
+        ? obj.weightIncrementLowerKg
+        : DEFAULT_PREFERENCES.weightIncrementLowerKg,
     timerDefaults: mergeTimerDefaults(obj.timerDefaults),
     gender:
       obj.gender === "male" || obj.gender === "female" || obj.gender === "other"
@@ -205,6 +217,8 @@ export function preferencesToJson(prefs: UserPreferences): Json {
     timerSounds: prefs.timerSounds,
     defaultSets: prefs.defaultSets,
     defaultReps: prefs.defaultReps,
+    weightIncrementUpperKg: prefs.weightIncrementUpperKg,
+    weightIncrementLowerKg: prefs.weightIncrementLowerKg,
     timerDefaults: JSON.parse(JSON.stringify(prefs.timerDefaults)),
     gender: prefs.gender,
     onboarded: prefs.onboarded,

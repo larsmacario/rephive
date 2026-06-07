@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { brandButtonStyle, M } from "../theme";
 import type { LibraryExercise } from "../data";
-import { fmt, useWorkout, type Workout } from "../lib/engine";
+import { fmt, useWorkout, type Workout, type WorkoutSet } from "../lib/engine";
 
 import { useExercises } from "../lib/db";
+import { useAuth } from "../lib/auth";
+import { useAutopilotPrefill } from "../lib/useAutopilotPrefill";
+import { computeNextTarget, inferExerciseBlockFormat, inferTargetRepRange, isWorkingSetPr, resolveWeightIncrement } from "../lib/progressionEngine";
 import { usePreferences } from "../lib/preferences";
 import { useRestTimerSounds } from "../lib/useTimerSounds";
 import { contentMaxWidth, useBreakpoint } from "../lib/responsive";
@@ -19,12 +22,15 @@ import {
 import { setVolumeKg } from "../lib/exerciseCatalog";
 import { PlanBlockSection } from "../components/PlanBlockSection";
 import { Icon } from "../components/Icon";
+import { ExerciseListRow, ExerciseListRowDumbbellIcon } from "../components/ExerciseListRow";
 import { MStat } from "../components/widgets";
 import { WorkoutFinishSheet } from "../components/WorkoutFinishSheet";
 import { ExercisePickerSheet } from "../components/ExercisePickerSheet";
 import { ExerciseHistorySheet } from "../components/ExerciseHistorySheet";
+import { ExerciseDetailSheet } from "../components/ExerciseDetailSheet";
 import { ExerciseVideoSheet } from "../components/ExerciseVideoSheet";
 import { resolveExerciseVideoUrl } from "../lib/youtube";
+import { resolveLibraryExercise } from "../lib/resolveLibraryExercise";
 import { OneRmCalculatorSheet } from "../components/OneRmCalculatorSheet";
 import { getOneRmPrefillFromExercise } from "../lib/oneRepMax";
 import { SupersetBlock } from "../components/SupersetBlock";
@@ -39,7 +45,23 @@ import { TrackExerciseDetail } from "../components/track/TrackExerciseDetail";
 import { TrackExerciseSlide } from "../components/track/TrackExerciseSlide";
 import { TrackExerciseNoteSheet } from "../components/track/TrackExerciseNoteSheet";
 import { IntervalTimerSheet } from "../components/IntervalTimerSheet";
+import { MetconBlockView } from "../components/track/MetconBlockView";
+import { FrictionTurboView } from "../components/track/FrictionTurboView";
+import { TurboWorkoutCompleteView } from "../components/track/TurboWorkoutCompleteView";
+import { ExerciseSetEditSheet } from "../components/track/ExerciseSetEditSheet";
+import { TrackAutopilotBootOverlay } from "../components/track/TrackAutopilotBootOverlay";
 import type { SaveSessionInput } from "../lib/db";
+import type { PlanDayBlock } from "../data";
+import {
+  configFromPlanDayBlock,
+  formatAmrapResult,
+  formatMetconBlockBadge,
+  formatMetconSessionResult,
+  isMetconFormat,
+} from "../lib/metcon";
+import { isWorkoutTurboEligible, findNextTurboTarget } from "../lib/frictionTurbo";
+import { TURBO_TRACKING_TAG } from "../lib/turboTracking";
+import { isOwnerLabsVisible, useOwnerLabs } from "../lib/ownerLabs";
 
 export interface TrackScreenProps {
   session: Workout;
@@ -47,6 +69,7 @@ export interface TrackScreenProps {
   planDayId?: string;
   tags: string[];
   planId?: string;
+  turboTracking?: boolean;
   onPause: (snapshot: ActiveWorkoutSnapshot) => void;
   onDiscard: () => void;
   onSaveTimerSession: (input: SaveSessionInput) => Promise<void>;
@@ -59,21 +82,30 @@ export interface TrackScreenProps {
     planDayId?: string;
     planId?: string;
     skippedBlocks?: TrainingBlockType[];
+    metconResults?: Record<string, import("../lib/metcon").MetconSessionResult>;
     exercises: {
       name: string;
       note?: string;
       blockType?: TrainingBlockType;
       supersetId?: string;
+      catalogExerciseId?: string;
+      blockFormat?: import("../lib/planBlocks").BlockFormat;
+      blockId?: string;
+      perceivedEffort?: import("../lib/progressionEngine").PerceivedEffort;
       metric?: import("../lib/exerciseCatalog").ExerciseMetric;
-      sets: { reps: number; kg: number; done: boolean }[];
+      sets: WorkoutSet[];
     }[];
   }) => void | Promise<void>;
 }
 
-type TrackView = "overview" | "exercise";
+type TrackView = "overview" | "exercise" | "turbo" | "metcon" | "complete";
 
-export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPause, onDiscard, onSaveTimerSession, onFinish }: TrackScreenProps) {
+export function TrackScreen({ session, startedAt, planDayId, tags, planId, turboTracking = false, onPause, onDiscard, onSaveTimerSession, onFinish }: TrackScreenProps) {
   const isCustom = !planDayId;
+  const { user, profile } = useAuth();
+  const { flags: labFlags } = useOwnerLabs(profile);
+  const turboLabOn = isOwnerLabsVisible(profile) && labFlags.frictionKillerTurbo;
+  const [setEditSheetExerciseId, setSetEditSheetExerciseId] = useState<string | null>(null);
   const breakpoint = useBreakpoint();
   const maxW = contentMaxWidth(breakpoint);
   const { preferences, updatePreferences } = usePreferences();
@@ -96,6 +128,8 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
   const [oneRmOpen, setOneRmOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
   const [menuTarget, setMenuTarget] = useState<Exercise | null>(null);
+  const [menuVariant, setMenuVariant] = useState<"full" | "actions">("full");
+  const [guideExercise, setGuideExercise] = useState<LibraryExercise | null>(null);
   const [noteTarget, setNoteTarget] = useState<Exercise | null>(null);
   const [timerSheetOpen, setTimerSheetOpen] = useState(false);
   const [timerMounted, setTimerMounted] = useState(false);
@@ -107,12 +141,93 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
     () => filterExercisesForSession(W.wo.exercises, enabledBlocks, skippedBlocks),
     [W.wo.exercises, enabledBlocks, skippedBlocks],
   );
-  const pagerExercises = visibleExercises;
+  const pagerExercises = useMemo(
+    () => visibleExercises.filter((e) => e.blockType !== "metcon"),
+    [visibleExercises],
+  );
+  const turboEligible = useMemo(() => isWorkoutTurboEligible(pagerExercises), [pagerExercises]);
+  const useTurboTrack = turboEligible && (turboTracking || turboLabOn);
+  const metconBlock = useMemo(
+    () => W.wo.blocks?.find((b) => b.blockType === "metcon"),
+    [W.wo.blocks],
+  );
+  const metconExercises = useMemo(
+    () => visibleExercises.filter((e) => e.blockType === "metcon"),
+    [visibleExercises],
+  );
+  const metconComplete = Boolean(metconBlock && W.wo.metconResults?.[metconBlock.id]);
 
   const visibleDoneSets = visibleExercises.reduce((a, e) => a + e.sets.filter((s) => s.done).length, 0);
   const visibleTotalSets = visibleExercises.reduce((a, e) => a + e.sets.length, 0);
   const pct = visibleTotalSets ? Math.round((visibleDoneSets / visibleTotalSets) * 100) : 0;
   const exLibrary = library ?? [];
+
+  const { loading: prefillLoading, prefills } = useAutopilotPrefill(
+    user?.id,
+    W.wo.exercises,
+    preferences,
+    exLibrary,
+  );
+  const needsAutopilot = Boolean(user?.id && W.wo.exercises.length > 0);
+  const prefillAppliedRef = useRef(false);
+  const prevPrefillLoadingRef = useRef(false);
+  const initialBootDoneRef = useRef(false);
+  const [autopilotReady, setAutopilotReady] = useState(false);
+  const [exerciseInsights, setExerciseInsights] = useState<
+    Record<string, { hint?: string | null; progressionNote?: string; trendLabel?: string | null; plateaued?: boolean; plateauReason?: string }>
+  >({});
+  const [prToast, setPrToast] = useState<string | null>(null);
+  const turboAutoStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (!prToast) return;
+    const id = window.setTimeout(() => setPrToast(null), 3500);
+    return () => window.clearTimeout(id);
+  }, [prToast]);
+
+  useEffect(() => {
+    if (prevPrefillLoadingRef.current === false && prefillLoading) {
+      prefillAppliedRef.current = false;
+      if (!initialBootDoneRef.current) {
+        setAutopilotReady(false);
+      }
+    }
+    prevPrefillLoadingRef.current = prefillLoading;
+  }, [prefillLoading]);
+
+  useEffect(() => {
+    if (!needsAutopilot) {
+      setAutopilotReady(true);
+      initialBootDoneRef.current = true;
+      return;
+    }
+    if (prefillLoading) return;
+    if (prefillAppliedRef.current) {
+      setAutopilotReady(true);
+      return;
+    }
+
+    const insights: typeof exerciseInsights = {};
+    for (const [exerciseId, prefill] of prefills) {
+      const exercise = W.wo.exercises.find((e) => e.id === exerciseId);
+      if (!exercise || exercise.sets.some((s) => s.done || s.suggested)) continue;
+      W.applyExercisePrefill(exerciseId, prefill.suggestions);
+      insights[exerciseId] = {
+        hint: prefill.hint,
+        progressionNote: prefill.progressionNote,
+        trendLabel: prefill.trendLabel,
+        plateaued: prefill.plateaued,
+        plateauReason: prefill.plateauReason,
+      };
+    }
+    if (Object.keys(insights).length > 0) {
+      setExerciseInsights((prev) => ({ ...prev, ...insights }));
+    }
+    prefillAppliedRef.current = true;
+    initialBootDoneRef.current = true;
+    setAutopilotReady(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsAutopilot, prefillLoading, prefills]);
 
   const activeExercise = pagerExercises[activeExerciseIndex] ?? null;
 
@@ -120,6 +235,20 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
     () => getOneRmPrefillFromExercise(activeExercise),
     [activeExercise],
   );
+
+  useEffect(() => {
+    if (!autopilotReady) return;
+    if (useTurboTrack && !turboAutoStartedRef.current) {
+      turboAutoStartedRef.current = true;
+      setView("turbo");
+    }
+  }, [autopilotReady, useTurboTrack]);
+
+  useEffect(() => {
+    if (view === "complete" && findNextTurboTarget(pagerExercises)) {
+      setView(useTurboTrack ? "turbo" : "overview");
+    }
+  }, [view, pagerExercises, useTurboTrack]);
 
   useEffect(() => {
     const tick = () => setElapsedSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
@@ -135,14 +264,34 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
     if (view === "exercise" && pagerExercises.length === 0) {
       setView("overview");
     }
+    if (view === "turbo" && pagerExercises.length === 0) {
+      setView("overview");
+    }
   }, [pagerExercises.length, activeExerciseIndex, view]);
 
   const openExerciseAt = (exId: string) => {
+    if (useTurboTrack) {
+      openTurboTrack();
+      return;
+    }
     const idx = pagerExercises.findIndex((e) => e.id === exId);
     if (idx < 0) return;
     setActiveExerciseIndex(idx);
     setView("exercise");
   };
+
+  const openSetEditSheet = (exId: string) => {
+    setSetEditSheetExerciseId(exId);
+  };
+
+  const openTurboTrack = () => {
+    setView("turbo");
+  };
+
+  const setEditSheetExercise = useMemo(
+    () => (setEditSheetExerciseId ? pagerExercises.find((e) => e.id === setEditSheetExerciseId) ?? null : null),
+    [setEditSheetExerciseId, pagerExercises],
+  );
 
   const addExerciseFromPicker = (name: string, note?: string) => {
     const id = W.addExercise(name, note, undefined, undefined, pickerTargetBlock ?? undefined);
@@ -185,9 +334,18 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
     );
   };
 
-  const isBlockComplete = (exercises: Exercise[]) =>
-    exercises.length > 0 &&
-    exercises.every((ex) => ex.sets.length > 0 && ex.sets.every((s) => s.done));
+  const isBlockComplete = (block: TrainingBlockType, exercises: Exercise[]) => {
+    if (block === "metcon") {
+      return metconComplete;
+    }
+    return (
+      exercises.length > 0 &&
+      exercises.every((ex) => ex.sets.length > 0 && ex.sets.every((s) => s.done))
+    );
+  };
+
+  const setsForPersistence = (sets: WorkoutSet[]): WorkoutSet[] =>
+    sets.map(({ suggested: _suggested, ...rest }) => rest);
 
   const buildFinishPayload = () => {
     const volumeInVisible = visibleExercises.reduce(
@@ -197,22 +355,45 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
     );
     return {
       name: W.wo.name,
-      tags: isCustom ? ["Individuell"] : tags,
+      tags: turboTracking || isCustom ? [TURBO_TRACKING_TAG] : tags,
       durationMin: Math.max(1, Math.round(elapsedSec / 60)),
       volumeKg: volumeInVisible,
       setCount: visibleDoneSets,
       planDayId,
       planId,
       skippedBlocks,
+      metconResults: W.wo.metconResults,
       exercises: W.wo.exercises.map((e) => ({
         name: e.name,
         note: e.note,
         blockType: e.blockType,
+        blockFormat: e.blockFormat ?? inferExerciseBlockFormat(e),
+        blockId: e.blockId,
         supersetId: e.supersetId,
+        catalogExerciseId: e.catalogExerciseId,
+        perceivedEffort: e.perceivedEffort,
         metric: e.metric,
-        sets: e.sets,
+        sets: setsForPersistence(e.sets),
       })),
     };
+  };
+
+  const applyDeloadForExercise = (exercise: Exercise) => {
+    const prefill = prefills.get(exercise.id);
+    const muscleGroup = exLibrary.find((x) => x.id === exercise.catalogExerciseId)?.group;
+    const { min, max } = inferTargetRepRange(exercise.sets);
+    const suggestions = computeNextTarget({
+      lastPerformance: prefill?.history[0] ?? null,
+      planSets: exercise.sets,
+      format: inferExerciseBlockFormat(exercise),
+      metric: exercise.metric,
+      targetRepsMin: min,
+      targetRepsMax: max,
+      weightIncrementKg: resolveWeightIncrement(muscleGroup, preferences),
+      muscleGroup,
+      applyDeload: true,
+    });
+    W.applyExercisePrefill(exercise.id, suggestions);
   };
 
   const handleToggleSet = (exId: string, si: number) => {
@@ -239,6 +420,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
       planDayId,
       tags,
       planId,
+      turboTracking,
       enabledBlocks,
       skippedBlocks,
     });
@@ -254,6 +436,11 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
         }
         updatePreferences({ exerciseFeedback: nextFeedback });
       }
+      const prExercise = visibleExercises.find((ex) => {
+        const prefill = prefills.get(ex.id);
+        return prefill && isWorkingSetPr(ex.sets, prefill.history, ex.metric);
+      });
+      if (prExercise) setPrToast(`Neuer PR bei ${prExercise.name}`);
       await onFinish(buildFinishPayload());
     } finally {
       setFinishing(false);
@@ -281,9 +468,80 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
     setRemoveTarget(null);
   };
 
+  const handleMetconComplete = (roundsCompleted: number, durationSec: number) => {
+    if (!metconBlock) return;
+    const format = isMetconFormat(metconBlock.format) ? metconBlock.format : "amrap";
+    const label =
+      format === "amrap"
+        ? formatAmrapResult(roundsCompleted, durationSec)
+        : format === "emom"
+          ? `${roundsCompleted} Runden EMOM`
+          : `${roundsCompleted} Runden Circuit`;
+    W.setMetconResult(metconBlock.id, {
+      format,
+      roundsCompleted,
+      durationSec,
+      label,
+    });
+  };
+
+  const metconHistoryHint = useMemo(() => {
+    const first = metconExercises[0];
+    if (!first) return null;
+    return exerciseInsights[first.id]?.hint ?? prefills.get(first.id)?.hint ?? null;
+  }, [metconExercises, exerciseInsights, prefills]);
+
+  const renderMetconOverview = (block: PlanDayBlock, blockExercises: Exercise[]) => {
+    const cfg = configFromPlanDayBlock(block);
+    const badge = cfg ? formatMetconBlockBadge(cfg) : "MetCon";
+    const result = W.wo.metconResults?.[block.id];
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: 0.8,
+            color: "#f97316",
+            textTransform: "uppercase",
+          }}
+        >
+          {badge}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {blockExercises.map((ex) => (
+            <ExerciseListRow
+              key={ex.id}
+              title={ex.name}
+              subtitle={ex.sets[0]?.reps ? `${ex.sets[0].reps} Wdh.` : undefined}
+              leading={<ExerciseListRowDumbbellIcon />}
+              background="panel"
+            />
+          ))}
+        </div>
+        {result ? (
+          <div style={{ fontSize: 12, color: M.brand, fontWeight: 600 }}>
+            {formatMetconSessionResult(result)}
+          </div>
+        ) : (
+          <MButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            fullWidth
+            onClick={() => setView("metcon")}
+            style={{ fontFamily: M.disp, letterSpacing: 0.4, marginTop: 4 }}
+          >
+            MetCon starten
+          </MButton>
+        )}
+      </div>
+    );
+  };
+
   const renderOverviewSegmentList = (exerciseList: Exercise[], indexOffset = 0) => {
     let runningIndex = indexOffset;
-    return segmentExercises(exerciseList).map((seg) => {
+    const segments = segmentExercises(exerciseList).map((seg) => {
       const renderRow = (ex: Exercise) => {
         const idx = runningIndex;
         runningIndex += 1;
@@ -296,7 +554,10 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
             doneSets={done}
             totalSets={ex.sets.length}
             onOpen={() => openExerciseAt(ex.id)}
-            onOpenMenu={() => setMenuTarget(ex)}
+            onOpenMenu={() => {
+              setMenuVariant("full");
+              setMenuTarget(ex);
+            }}
           />
         );
       };
@@ -307,35 +568,61 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
 
       return (
         <SupersetBlock key={seg.exercises.map((e) => e.id).join("-")} showLabel={false}>
-          <div style={{ padding: "8px 0 4px", fontSize: 13, fontWeight: 600, color: M.fg }}>
+          <div style={{ padding: "0 0 2px", fontSize: 13, fontWeight: 600, color: M.fg }}>
             Supersatz
             <span style={{ color: M.mut, fontWeight: 500, marginLeft: 6 }}>
               · {seg.exercises.length} Übungen
             </span>
           </div>
-          {(seg.exercises as Exercise[]).map((ex) => renderRow(ex))}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {(seg.exercises as Exercise[]).map((ex) => renderRow(ex))}
+          </div>
         </SupersetBlock>
       );
     });
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {segments}
+      </div>
+    );
   };
 
-  const exerciseSlides = pagerExercises.map((ex) => (
-    <TrackExerciseSlide
-      key={ex.id}
-      exercise={ex}
-      restSeconds={preferences.restSeconds}
-      onBumpSet={(si, field, delta) => W.editSet(ex.id, si, field, delta)}
-      onSetValue={(si, field, value) => W.setSetValue(ex.id, si, field, value)}
-      onToggleSet={(si) => handleToggleSet(ex.id, si)}
-      onRemoveSet={(si) => W.removeSet(ex.id, si)}
-      onAddSet={() => W.addSet(ex.id)}
-      onWarmUpChange={(enabled) => W.toggleSetWarmUp(ex.id, enabled)}
-      onOpenHistory={() => setHistoryExercise(ex.name)}
-      onOpenNotes={() => setNoteTarget(ex)}
-    />
-  ));
+  const hasAutopilotPrefills = Object.keys(exerciseInsights).length > 0;
+
+  const exerciseSlides = pagerExercises.map((ex) => {
+    const insight = exerciseInsights[ex.id];
+    return (
+      <TrackExerciseSlide
+        key={ex.id}
+        exercise={ex}
+        restSeconds={preferences.restSeconds}
+        historyHint={insight?.hint ?? undefined}
+        trendLabel={insight?.trendLabel ?? undefined}
+        progressionBadge={insight?.progressionNote}
+        plateaued={insight?.plateaued}
+        plateauReason={insight?.plateauReason}
+        onApplyDeload={() => applyDeloadForExercise(ex)}
+        onConfirmAllSuggested={() => W.confirmAllSuggested(ex.id)}
+        onPerceivedEffort={(effort) => W.setPerceivedEffort(ex.id, effort)}
+        onBumpSet={(si, field, delta) => W.editSet(ex.id, si, field, delta)}
+        onSetValue={(si, field, value) => W.setSetValue(ex.id, si, field, value)}
+        onToggleSet={(si) => handleToggleSet(ex.id, si)}
+        onRemoveSet={(si) => W.removeSet(ex.id, si)}
+        onAddSet={() => W.addSet(ex.id)}
+        onWarmUpChange={(enabled) => W.toggleSetWarmUp(ex.id, enabled)}
+        onOpenHistory={() => setHistoryExercise(ex.name)}
+        onOpenNotes={() => setNoteTarget(ex)}
+        onOpenMenu={() => {
+          setMenuVariant("full");
+          setMenuTarget(ex);
+        }}
+      />
+    );
+  });
 
   const menuVideoUrl = menuTarget ? resolveExerciseVideoUrl(menuTarget, exLibrary) : null;
+  const menuGuideExercise = menuTarget ? resolveLibraryExercise(menuTarget, exLibrary) : null;
 
   return (
     <div
@@ -350,6 +637,34 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
         position: "relative",
       }}
     >
+      {!autopilotReady ? (
+        <TrackAutopilotBootOverlay />
+      ) : (
+        <>
+      {prToast ? (
+        <div
+          role="status"
+          style={{
+            position: "absolute",
+            top: 12,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 30,
+            padding: "10px 16px",
+            borderRadius: 999,
+            background: M.brandSoft,
+            border: "1px solid " + M.brandBorder,
+            color: M.brand,
+            fontSize: 13,
+            fontWeight: 700,
+            fontFamily: M.disp,
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+          }}
+        >
+          {prToast}
+        </div>
+      ) : null}
       {view === "overview" ? (
         <>
           <TrackOverviewHeader
@@ -365,25 +680,11 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
               <MStat label="VOLUMEN" value={`${(W.volume / 1000).toFixed(1)}t`} />
               <MStat label="FORTSCHRITT" value={`${pct}%`} />
             </div>
-            <div
-              style={{
-                height: 5,
-                borderRadius: 3,
-                background: "rgba(255,255,255,.08)",
-                marginTop: 12,
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  width: pct + "%",
-                  height: "100%",
-                  background: M.brand,
-                  borderRadius: 3,
-                  transition: "width .3s",
-                }}
-              />
-            </div>
+            {hasAutopilotPrefills ? (
+              <div style={{ fontSize: 12, color: M.mut, marginTop: 10, lineHeight: 1.4 }}>
+                Auto-Pilot: Vorschläge aus deiner Historie — tippe ✓ zum Bestätigen.
+              </div>
+            ) : null}
           </div>
           <div
             style={{
@@ -439,12 +740,16 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
                   ).map(({ block, exercises: blockExercises }, blockIdx, arr) => {
                     const indexOffset = arr
                       .slice(0, blockIdx)
-                      .reduce((sum, item) => sum + item.exercises.length, 0);
+                      .reduce(
+                        (sum, item) =>
+                          sum + (item.block === "metcon" ? 0 : item.exercises.length),
+                        0,
+                      );
                     return (
                       <PlanBlockSection
                         key={block}
                         block={block}
-                        complete={isBlockComplete(blockExercises)}
+                        complete={isBlockComplete(block, blockExercises)}
                         blockIndex={BLOCK_ORDER.indexOf(block) + 1}
                         headerAction={
                           <MButton
@@ -462,30 +767,49 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
                         }
                       >
                         <div>
-                          {blockExercises.length > 0 ? (
+                          {block === "metcon" && metconBlock && blockExercises.length > 0 ? (
+                            renderMetconOverview(metconBlock, blockExercises)
+                          ) : blockExercises.length > 0 ? (
                             renderOverviewSegmentList(blockExercises, indexOffset)
                           ) : (
                             <div style={{ fontSize: 12, color: M.mut, fontWeight: 500, padding: "4px 2px 12px" }}>
                               Noch keine Übungen
                             </div>
                           )}
-                          <MButton
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            fullWidth
-                            onClick={() => openExercisePicker(block)}
-                            style={{
-                              marginTop: 8,
-                              border: "1.5px dashed " + M.line,
-                              color: M.fg,
-                              fontFamily: M.disp,
-                              letterSpacing: 0.3,
-                              fontSize: 12,
-                            }}
-                          >
-                            <Icon name="plus" size={14} stroke={2.6} /> Übung hinzufügen
-                          </MButton>
+                          {block !== "metcon" ? (
+                            <MButton
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              fullWidth
+                              onClick={() => openExercisePicker(block)}
+                              style={{
+                                marginTop: 8,
+                                border: "1.5px dashed " + M.line,
+                                color: M.fg,
+                                fontFamily: M.disp,
+                                letterSpacing: 0.3,
+                                fontSize: 12,
+                              }}
+                            >
+                              <Icon name="plus" size={14} stroke={2.6} /> Übung hinzufügen
+                            </MButton>
+                          ) : metconComplete ? (
+                            <MButton
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              fullWidth
+                              onClick={() => setView("metcon")}
+                              style={{
+                                marginTop: 8,
+                                color: M.mut,
+                                fontSize: 12,
+                              }}
+                            >
+                              MetCon erneut ansehen
+                            </MButton>
+                          ) : null}
                         </div>
                       </PlanBlockSection>
                     );
@@ -523,6 +847,51 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
             </div>
           </div>
         </>
+      ) : view === "metcon" && metconBlock ? (
+        <MetconBlockView
+          block={metconBlock}
+          exercises={metconExercises}
+          historyHint={metconHistoryHint}
+          onBack={() => setView("overview")}
+          onComplete={handleMetconComplete}
+        />
+      ) : view === "turbo" && useTurboTrack ? (
+        <FrictionTurboView
+          exercises={pagerExercises}
+          elapsedSec={elapsedSec}
+          onBack={() => setView("overview")}
+          onBumpSet={(exId, si, field, delta) => W.editSet(exId, si, field, delta)}
+          onSetValues={(exId, si, kg, reps) => {
+            W.setSetValue(exId, si, "kg", kg);
+            W.setSetValue(exId, si, "reps", reps);
+          }}
+          onToggleSet={handleToggleSet}
+          onAddSet={(exId) => W.addSet(exId)}
+          onRemoveSet={(exId, si) => W.removeSet(exId, si)}
+          onOpenExerciseMenu={(exId) => {
+            const ex = pagerExercises.find((e) => e.id === exId);
+            if (ex) {
+              setMenuVariant("actions");
+              setMenuTarget(ex);
+            }
+          }}
+          onOpenHistory={(exId) => {
+            const ex = pagerExercises.find((e) => e.id === exId);
+            if (ex) setHistoryExercise(ex.name);
+          }}
+          onOpenNotes={(exId) => {
+            const ex = pagerExercises.find((e) => e.id === exId);
+            if (ex) setNoteTarget(ex);
+          }}
+          onAllSetsDone={() => setView("complete")}
+        />
+      ) : view === "complete" && useTurboTrack ? (
+        <TurboWorkoutCompleteView
+          exercises={pagerExercises}
+          sessionName={W.wo.name}
+          elapsedSec={elapsedSec}
+          onBack={() => setView("overview")}
+        />
       ) : (
         <TrackExerciseDetail
           elapsedSec={elapsedSec}
@@ -537,11 +906,13 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
 
       <div
         style={{
-          margin: "0 18px 12px",
+          flexShrink: 0,
+          padding: "10px 18px 14px",
+          borderTop: "1px solid " + M.line2,
+          background: M.bg,
           display: "flex",
           flexDirection: "column",
           gap: 10,
-          flexShrink: 0,
         }}
       >
         {W.restActive ? (
@@ -594,7 +965,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
             <Icon name="plus" size={14} stroke={2.4} /> Übungen hinzufügen
           </MButton>
         ) : null}
-        {view === "overview" ? (
+        {view === "overview" || view === "complete" ? (
           <MButton
             type="button"
             variant="primary"
@@ -644,6 +1015,12 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
         onClose={() => setHistoryExercise(null)}
         exerciseName={historyExercise}
       />
+      <ExerciseDetailSheet
+        open={!!guideExercise}
+        exercise={guideExercise}
+        onClose={() => setGuideExercise(null)}
+        onEdit={() => {}}
+      />
       <ExerciseVideoSheet
         open={!!videoExercise}
         exerciseName={videoExercise?.name ?? ""}
@@ -660,16 +1037,28 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
       <TrackExerciseMenuSheet
         open={!!menuTarget}
         exerciseName={menuTarget?.name ?? ""}
+        variant={menuVariant}
         hasVideo={Boolean(menuVideoUrl)}
         showSupersetAction={isCustom && Boolean(menuTarget && pagerExercises.findIndex((e) => e.id === menuTarget.id) > 0)}
         linkedToPrevious={menuTarget ? isLinkedWithPrevious(W.wo.exercises, menuTarget.id) : false}
-        onClose={() => setMenuTarget(null)}
+        onClose={() => {
+          setMenuTarget(null);
+          setMenuVariant("full");
+        }}
         onVideo={
           menuTarget && menuVideoUrl
             ? () => setVideoExercise({ name: menuTarget.name, youtubeUrl: menuVideoUrl })
             : undefined
         }
         onHistory={() => menuTarget && setHistoryExercise(menuTarget.name)}
+        onEditSets={
+          menuTarget && (menuVariant === "actions" || isCustom)
+            ? () => openSetEditSheet(menuTarget.id)
+            : undefined
+        }
+        onGuide={
+          menuGuideExercise ? () => setGuideExercise(menuGuideExercise) : undefined
+        }
         onRemove={() => menuTarget && setRemoveTarget({ id: menuTarget.id, name: menuTarget.name })}
         onToggleSuperset={
           menuTarget
@@ -689,6 +1078,37 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
         note={noteTarget?.note ?? ""}
         onClose={() => setNoteTarget(null)}
         onSave={(note) => noteTarget && W.setExerciseNote(noteTarget.id, note)}
+      />
+      <ExerciseSetEditSheet
+        open={Boolean(setEditSheetExercise)}
+        exercise={setEditSheetExercise}
+        historyHint={
+          setEditSheetExercise
+            ? exerciseInsights[setEditSheetExercise.id]?.hint ??
+              prefills.get(setEditSheetExercise.id)?.hint ??
+              undefined
+            : undefined
+        }
+        hintSuggested={Boolean(
+          setEditSheetExercise?.sets.some((s) => s.suggested && !s.done) &&
+            Boolean(
+              exerciseInsights[setEditSheetExercise.id]?.hint ??
+                prefills.get(setEditSheetExercise.id)?.hint,
+            ),
+        )}
+        onClose={() => setSetEditSheetExerciseId(null)}
+        onBumpSet={(si, field, delta) =>
+          setEditSheetExercise && W.editSet(setEditSheetExercise.id, si, field, delta)
+        }
+        onSetValue={(si, field, value) =>
+          setEditSheetExercise && W.setSetValue(setEditSheetExercise.id, si, field, value)
+        }
+        onToggleSet={(si) => setEditSheetExercise && handleToggleSet(setEditSheetExercise.id, si)}
+        onRemoveSet={(si) => setEditSheetExercise && W.removeSet(setEditSheetExercise.id, si)}
+        onAddSet={() => setEditSheetExercise && W.addSet(setEditSheetExercise.id)}
+        onWarmUpChange={(enabled) =>
+          setEditSheetExercise && W.toggleSetWarmUp(setEditSheetExercise.id, enabled)
+        }
       />
       <ConfirmSheet
         open={!!removeTarget}
@@ -710,6 +1130,8 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, onPau
           onSaveSession={onSaveTimerSession}
         />
       ) : null}
+        </>
+      )}
     </div>
   );
 }

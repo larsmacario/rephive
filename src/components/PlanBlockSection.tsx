@@ -113,14 +113,19 @@ export function PlanBlockSection({
     </>
   );
 
+  const headerRowStyle: CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: "0 0 10px",
+  };
+
   return (
     <section
       style={{
-        borderRadius: 14,
-        border: `1px solid ${M.line2}`,
-        background: skipped ? "rgba(255,255,255,.01)" : M.card,
-        opacity: skipped ? 0.55 : 1,
-        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
         flexShrink: 0,
         ...style,
       }}
@@ -130,14 +135,9 @@ export function PlanBlockSection({
           type="button"
           onClick={onToggleCollapse}
           style={{
+            ...headerRowStyle,
             width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            padding: "10px 12px",
             border: "none",
-            borderBottom: collapsed ? "none" : `1px solid ${M.line2}`,
             background: "transparent",
             cursor: "pointer",
             textAlign: "left",
@@ -148,20 +148,14 @@ export function PlanBlockSection({
           {headerInner}
         </button>
       ) : (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            padding: "10px 12px",
-            borderBottom: `1px solid ${M.line2}`,
-          }}
-        >
-          {headerInner}
-        </div>
+        <div style={headerRowStyle}>{headerInner}</div>
       )}
-      {!collapsed && <div style={{ padding: "8px 10px 10px" }}>{children}</div>}
+      {!collapsed && (
+        <>
+          <div style={{ height: 1, background: M.line2, flexShrink: 0 }} />
+          <div style={{ paddingTop: 10 }}>{children}</div>
+        </>
+      )}
     </section>
   );
 }

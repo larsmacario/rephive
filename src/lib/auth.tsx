@@ -12,6 +12,8 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import type { Tables } from "./database.types";
 import { clearActiveWorkout } from "./activeWorkout";
+import { clearLocalDataForUser } from "./offline/localDb";
+import { removeAvatar as removeAvatarStorage, uploadAvatar as uploadAvatarStorage } from "./avatar";
 
 type Profile = Tables<"profiles">;
 
@@ -36,6 +38,8 @@ interface AuthContextValue {
   updateBirthDate: (birthDate: string | null) => Promise<{ error: string | null }>;
   updateEmail: (email: string) => Promise<{ error: string | null }>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ error: string | null }>;
+  updateAvatar: (blob: Blob) => Promise<{ error: string | null }>;
+  removeAvatar: () => Promise<{ error: string | null }>;
   deleteAccount: () => Promise<{ error: string | null }>;
   refreshProfile: () => Promise<void>;
 }
@@ -124,9 +128,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    const userId = user?.id;
     await supabase.auth.signOut();
     setProfile(null);
-  }, []);
+    if (userId) await clearLocalDataForUser(userId);
+  }, [user?.id]);
 
   const requestPasswordReset = useCallback(async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email);
@@ -220,6 +226,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) await loadProfile(user.id, { silent: true });
   }, [user, loadProfile]);
 
+  const updateAvatar = useCallback(
+    async (blob: Blob) => {
+      if (!user) return { error: "Nicht angemeldet." };
+      try {
+        await uploadAvatarStorage(user.id, blob);
+        await loadProfile(user.id);
+        return { error: null };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Profilbild konnte nicht gespeichert werden.";
+        return { error: message };
+      }
+    },
+    [user, loadProfile],
+  );
+
+  const removeAvatar = useCallback(async () => {
+    if (!user) return { error: "Nicht angemeldet." };
+    try {
+      await removeAvatarStorage(user.id);
+      await loadProfile(user.id);
+      return { error: null };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Profilbild konnte nicht entfernt werden.";
+      return { error: message };
+    }
+  }, [user, loadProfile]);
+
   const deleteAccount = useCallback(async () => {
     if (!user) return { error: "Nicht angemeldet." };
 
@@ -239,6 +272,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     clearActiveWorkout(user.id);
+    await clearLocalDataForUser(user.id);
     await supabase.auth.signOut();
     setProfile(null);
     return { error: null };
@@ -261,6 +295,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateBirthDate,
       updateEmail,
       changePassword,
+      updateAvatar,
+      removeAvatar,
       deleteAccount,
       refreshProfile,
     }),
@@ -280,6 +316,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateBirthDate,
       updateEmail,
       changePassword,
+      updateAvatar,
+      removeAvatar,
       deleteAccount,
       refreshProfile,
     ],

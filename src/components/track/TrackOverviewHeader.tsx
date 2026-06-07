@@ -1,6 +1,5 @@
 import { M } from "../../theme";
 import { Icon } from "../Icon";
-import { MButton } from "../MButton";
 
 export interface TrackOverviewHeaderProps {
   elapsedSec: number;
@@ -35,9 +34,14 @@ export function TrackOverviewHeader({
         }}
       >
         <div style={{ justifySelf: "start" }}>
-          <MButton onClick={onPause} variant="secondary" size="icon" aria-label="Workout pausieren">
-            <Icon name="chevD" size={18} stroke={2.2} />
-          </MButton>
+          <button
+            type="button"
+            onClick={onPause}
+            aria-label="Workout pausieren"
+            style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex", padding: 0 }}
+          >
+            <Icon name="chevD" size={24} stroke={2.2} />
+          </button>
         </div>
         <div
           style={{

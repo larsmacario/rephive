@@ -1,12 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { M } from "../theme";
 import { useAuth } from "../lib/auth";
 import { Icon } from "../components/Icon";
 import { usePreferences } from "../lib/preferences";
 import { MButton } from "../components/MButton";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
+import { floatNavContentInset } from "../components/FloatNav";
+import { UserAvatar } from "../components/UserAvatar";
+import { AvatarCropSheet } from "../components/AvatarCropSheet";
+import { AvatarActionSheet } from "../components/AvatarActionSheet";
+import { ConfirmSheet } from "../components/ConfirmSheet";
 export interface ProfileScreenProps {
   onBack: () => void;
+  mode?: "push" | "tab";
 }
 
 type EditableField = "displayName" | "gender" | "birthDate" | "email";
@@ -73,9 +79,21 @@ function capitalizeFirst(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-export function ProfileScreen({ onBack }: ProfileScreenProps) {
-  const { user, profile, signOut, deleteAccount, updateDisplayName, updateBirthDate, updateEmail, changePassword } = useAuth();
+export function ProfileScreen({ onBack, mode = "push" }: ProfileScreenProps) {
+  const {
+    user,
+    profile,
+    signOut,
+    deleteAccount,
+    updateDisplayName,
+    updateBirthDate,
+    updateEmail,
+    changePassword,
+    updateAvatar,
+    removeAvatar,
+  } = useAuth();
   const { preferences, updatePreferences } = usePreferences();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [displayName, setDisplayName] = useState(profile?.display_name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
@@ -95,6 +113,12 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
   const [busyPassword, setBusyPassword] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [busyDelete, setBusyDelete] = useState(false);
+  const [avatarActionOpen, setAvatarActionOpen] = useState(false);
+  const [cropSheetOpen, setCropSheetOpen] = useState(false);
+  const [removeAvatarOpen, setRemoveAvatarOpen] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [busyAvatar, setBusyAvatar] = useState(false);
+  const [avatarCacheKey, setAvatarCacheKey] = useState(0);
 
   useEffect(() => {
     setDisplayName(profile?.display_name ?? "");
@@ -111,6 +135,12 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
   useEffect(() => {
     setGender(preferences.gender);
   }, [preferences.gender]);
+
+  useEffect(() => {
+    return () => {
+      if (selectedImageUrl) URL.revokeObjectURL(selectedImageUrl);
+    };
+  }, [selectedImageUrl]);
 
   const clearFeedback = () => {
     setError(null);
@@ -197,7 +227,68 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
     setDeleteAccountOpen(false);
   };
 
-  const initial = (displayName || profile?.display_name || "A").charAt(0).toUpperCase();
+  const avatarName = displayName || profile?.display_name || "Athlet";
+  const avatarPath = profile?.avatar_path ?? null;
+
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarPress = () => {
+    clearFeedback();
+    if (avatarPath) {
+      setAvatarActionOpen(true);
+      return;
+    }
+    openFilePicker();
+  };
+
+  const handleFileSelected = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      setError("Bitte wähle eine Bilddatei.");
+      return;
+    }
+    if (selectedImageUrl) URL.revokeObjectURL(selectedImageUrl);
+    const url = URL.createObjectURL(file);
+    setSelectedImageUrl(url);
+    setCropSheetOpen(true);
+  };
+
+  const closeCropSheet = () => {
+    setCropSheetOpen(false);
+    if (selectedImageUrl) {
+      URL.revokeObjectURL(selectedImageUrl);
+      setSelectedImageUrl(null);
+    }
+  };
+
+  const handleAvatarSave = async (blob: Blob) => {
+    clearFeedback();
+    setBusyAvatar(true);
+    const { error: err } = await updateAvatar(blob);
+    setBusyAvatar(false);
+    if (err) {
+      setError(err);
+      return;
+    }
+    setAvatarCacheKey((k) => k + 1);
+    closeCropSheet();
+    setInfo("Profilbild gespeichert.");
+  };
+
+  const handleRemoveAvatar = async () => {
+    clearFeedback();
+    setBusyAvatar(true);
+    const { error: err } = await removeAvatar();
+    setBusyAvatar(false);
+    setRemoveAvatarOpen(false);
+    if (err) {
+      setError(err);
+      return;
+    }
+    setAvatarCacheKey((k) => k + 1);
+    setInfo("Profilbild entfernt.");
+  };
 
   const profileRows = useMemo(
     () => [
@@ -235,31 +326,39 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
           justifyContent: "space-between",
         }}
       >
-        <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
+        <MButton
+          onClick={onBack}
+          variant="ghost"
+          size="icon"
+          aria-label="Zurück"
+          style={mode === "tab" ? { visibility: "hidden", pointerEvents: "none" } : undefined}
+        >
           <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
         </MButton>
         <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>PROFIL</span>
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 16,
-            background: M.accSoft,
-            border: "1px solid " + M.line,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontFamily: M.disp,
-            fontWeight: 700,
-            color: M.acc,
-            fontSize: 15,
-          }}
-        >
-          {initial}
-        </div>
+        <div aria-hidden style={{ width: 40, flexShrink: 0 }} />
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 22px 24px" }}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) handleFileSelected(file);
+        }}
+      />
+
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          padding: `0 22px ${mode === "tab" ? floatNavContentInset("bottom") : "24px"}`,
+        }}
+      >
         {error && (
           <div
             style={{
@@ -290,6 +389,39 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
             {info}
           </div>
         )}
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 22,
+            paddingTop: 4,
+          }}
+        >
+          <UserAvatar
+            size={96}
+            displayName={avatarName}
+            avatarPath={avatarPath}
+            cacheKey={avatarCacheKey}
+            onClick={handleAvatarPress}
+          />
+          <button
+            type="button"
+            onClick={handleAvatarPress}
+            style={{
+              background: "none",
+              border: "none",
+              color: M.mut,
+              fontSize: 13,
+              cursor: "pointer",
+              padding: "4px 8px",
+            }}
+          >
+            Profilbild ändern
+          </button>
+        </div>
 
         <div style={{ marginBottom: 18 }}>
           <div
@@ -583,7 +715,7 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
           <>
             <p style={{ margin: "0 0 10px" }}>Folgende Daten werden unwiderruflich gelöscht:</p>
             <ul style={{ margin: 0, paddingLeft: 18 }}>
-              <li>Profil (Anzeigename, Geburtsdatum, Einstellungen)</li>
+              <li>Profil (Anzeigename, Geburtsdatum, Profilbild, Einstellungen)</li>
               <li>Trainingspläne und eigene Workouts</li>
               <li>Trainingshistorie (Sessions inkl. Timer-Läufe)</li>
               <li>Eigene Übungen im Katalog</li>
@@ -600,6 +732,31 @@ export function ProfileScreen({ onBack }: ProfileScreenProps) {
         busy={busyDelete}
         onCancel={() => setDeleteAccountOpen(false)}
         onConfirm={handleDeleteAccount}
+      />
+
+      <AvatarActionSheet
+        open={avatarActionOpen}
+        onClose={() => setAvatarActionOpen(false)}
+        onChoosePhoto={openFilePicker}
+        onRemovePhoto={() => setRemoveAvatarOpen(true)}
+      />
+
+      <AvatarCropSheet
+        open={cropSheetOpen}
+        imageSrc={selectedImageUrl}
+        busy={busyAvatar}
+        onClose={closeCropSheet}
+        onSave={handleAvatarSave}
+      />
+
+      <ConfirmSheet
+        open={removeAvatarOpen}
+        title="Profilbild entfernen?"
+        message="Dein Profilbild wird gelöscht. Stattdessen wird wieder der Anfangsbuchstabe deines Namens angezeigt."
+        confirmLabel="Entfernen"
+        icon="trash"
+        onCancel={() => setRemoveAvatarOpen(false)}
+        onConfirm={() => void handleRemoveAvatar()}
       />
     </div>
   );

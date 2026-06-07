@@ -11,6 +11,7 @@ import {
 } from "../lib/activeWorkout";
 import { fmtUp } from "../lib/engine";
 import { useActivePlan, useHomeStats, useWeeklyVolume, useBodyMeasurements } from "../lib/db";
+import { useNetwork } from "../lib/offline/networkStatus";
 import { useBreakpoint } from "../lib/responsive";
 import { Icon } from "../components/Icon";
 import { usePreferences } from "../lib/preferences";
@@ -18,11 +19,11 @@ import { WorkoutFinishSheet } from "../components/WorkoutFinishSheet";
 import { ConfirmSheet } from "../components/ConfirmSheet";
 import { MStat } from "../components/widgets";
 import { MButton } from "../components/MButton";
-import { FLOAT_NAV_SCROLL_BOTTOM_GAP } from "../components/FloatNav";
+import { floatNavContentInset } from "../components/FloatNav";
+import { UserAvatar } from "../components/UserAvatar";
 
 export interface HomeScreenProps {
   onStart: (planDayId: string, planId?: string) => void;
-  onStartCustom: () => void;
   activeWorkout?: ActiveWorkoutDraft | null;
   onResumeActive: () => void;
   onSaveActive: (draft: ActiveWorkoutDraft) => void | Promise<void>;
@@ -32,6 +33,7 @@ export interface HomeScreenProps {
   onOpenTimer: () => void;
   onOpenSettings: () => void;
   onOpenProfile: () => void;
+  onOpenHistory: () => void;
   onOpenStats: () => void;
   onOpenCalculator: () => void;
   onOpenBodyTracker: () => void;
@@ -62,7 +64,6 @@ function getUpcomingDays(plan: LibraryPlan, count: number): { day: PlanDay; dayN
 
 export function HomeScreen({
   onStart,
-  onStartCustom,
   activeWorkout,
   onResumeActive,
   onSaveActive,
@@ -72,6 +73,7 @@ export function HomeScreen({
   onOpenTimer,
   onOpenSettings,
   onOpenProfile,
+  onOpenHistory,
   onOpenStats,
   onOpenCalculator,
   onOpenBodyTracker,
@@ -86,7 +88,8 @@ export function HomeScreen({
   const { preferences, updatePreferences } = usePreferences();
   const breakpoint = useBreakpoint();
   const isDesktop = breakpoint === "desktop";
-  const { data: activePlan, loading: planLoading, reload: reloadPlan } = useActivePlan();
+  const { isOnline } = useNetwork();
+  const { data: activePlan, loading: planLoading, reload: reloadPlan, isStale: planStale } = useActivePlan();
   const { data: week, reload: reloadWeek } = useWeeklyVolume();
   const { data: stats, reload: reloadStats } = useHomeStats();
   const { data: measurements, reload: reloadMeasurements } = useBodyMeasurements(refreshKey);
@@ -120,7 +123,6 @@ export function HomeScreen({
   }, [measurements]);
 
   const displayName = profile?.display_name ?? "Athlet";
-  const initial = displayName.charAt(0).toUpperCase();
   const todayLabel = useMemo(
     () =>
       new Date().toLocaleDateString("de-DE", {
@@ -194,6 +196,7 @@ export function HomeScreen({
       title: "KONTO",
       items: [
         { label: "Profil", onClick: () => runFromMenu(onOpenProfile) },
+        { label: "Verlauf", onClick: () => runFromMenu(onOpenHistory) },
         { label: "Übungen", onClick: () => onOpenExercises && runFromMenu(onOpenExercises) },
         { label: "Statistik", onClick: () => runFromMenu(onOpenStats) },
         { label: "Einstellungen", onClick: () => runFromMenu(onOpenSettings) },
@@ -201,7 +204,7 @@ export function HomeScreen({
     },
     {
       title: "UEBERBLICK",
-      items: [{ label: "Ueber mich", onClick: () => runFromMenu(onOpenAbout) }],
+      items: [{ label: "Ueber rephive", onClick: () => runFromMenu(onOpenAbout) }],
     },
     {
       title: "HILFE",
@@ -277,7 +280,7 @@ export function HomeScreen({
       </div>
     ) : null;
 
-  const todayCard = planLoading ? (
+  const todayCard = planLoading && !activePlan ? (
     <div style={{ marginTop: 14, color: M.mut, fontSize: 14 }}>Plan wird geladen…</div>
   ) : !activePlan || !currentDay ? (
     <div
@@ -473,31 +476,6 @@ export function HomeScreen({
     height: "auto",
   };
 
-  const customTrainingLink = (
-    <MButton onClick={onStartCustom} variant="secondary" size="md" fullWidth style={homeCardLinkStyle}>
-      <div
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 10,
-          background: M.brandSoft,
-          color: M.brand,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flex: "0 0 auto",
-        }}
-      >
-        <Icon name="flame" size={18} stroke={2} />
-      </div>
-      <div style={{ flex: 1 }}>
-        <div style={{ color: M.fg, fontWeight: 600, fontSize: 14 }}>Individuelles Training</div>
-        <div style={{ color: M.mut, fontSize: 12, marginTop: 1 }}>Frei trainieren · ohne Plan</div>
-      </div>
-      <Icon name="chevR" size={16} color={M.mut2} stroke={2.2} />
-    </MButton>
-  );
-
   const timerLink = (
     <MButton onClick={onOpenTimer} variant="secondary" size="md" fullWidth style={homeCardLinkStyle}>
       <div
@@ -578,7 +556,14 @@ export function HomeScreen({
   );
 
   const aiTrainingPlanLink = (
-    <MButton onClick={onOpenAITrainingPlan} variant="secondary" size="md" fullWidth style={homeCardLinkStyle}>
+    <MButton
+      onClick={onOpenAITrainingPlan}
+      variant="secondary"
+      size="md"
+      fullWidth
+      disabled={!isOnline}
+      style={homeCardLinkStyle}
+    >
       <div
         style={{
           width: 40,
@@ -597,7 +582,7 @@ export function HomeScreen({
       <div style={{ flex: 1 }}>
         <div style={{ color: M.fg, fontWeight: 600, fontSize: 14 }}>KI Trainingsplan</div>
         <div style={{ color: M.mut, fontSize: 12, marginTop: 1 }}>
-          Individuellen Plan mit KI erstellen
+          {isOnline ? "Individuellen Plan mit KI erstellen" : "Nur mit Internetverbindung"}
         </div>
       </div>
       <Icon name="chevR" size={16} color={M.mut2} stroke={2.2} />
@@ -610,13 +595,18 @@ export function HomeScreen({
         flex: 1,
         minHeight: 0,
         overflowY: "auto",
-        padding: `4px 22px ${FLOAT_NAV_SCROLL_BOTTOM_GAP}px`,
+        padding: `4px 22px ${floatNavContentInset("bottom")}`,
         position: "relative",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative" }}>
         <div>
-          <div style={{ fontSize: 13, color: M.mut, fontWeight: 600 }}>{todayLabel}</div>
+          <div style={{ fontSize: 13, color: M.mut, fontWeight: 600 }}>
+            {todayLabel}
+            {planStale && !isOnline && (
+              <span style={{ marginLeft: 8, fontSize: 11, color: M.mut2 }}>· Offline</span>
+            )}
+          </div>
           <div
             style={{
               fontFamily: M.disp,
@@ -634,9 +624,14 @@ export function HomeScreen({
           onClick={() => setMenuOpen((o) => !o)}
           variant="secondary"
           size="icon"
-          style={{ width: 36, height: 36, borderRadius: 18, background: M.card, border: "1px solid " + M.brandBorder, fontFamily: M.disp, fontWeight: 700, color: M.fg, fontSize: 15 }}
+          style={{ width: 48, height: 48, borderRadius: 24, background: M.card, border: "1px solid " + M.brandBorder, padding: 0, overflow: "hidden", flexShrink: 0 }}
         >
-          {initial}
+          <UserAvatar
+            size={48}
+            displayName={displayName}
+            avatarPath={profile?.avatar_path}
+            style={{ border: "none" }}
+          />
         </MButton>
       </div>
       <AnimatePresence>
@@ -812,7 +807,6 @@ export function HomeScreen({
             <div>
               <div style={{ fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>SCHNELLZUGRIFF</div>
               {aiTrainingPlanLink}
-              {customTrainingLink}
               {timerLink}
               {calculatorLink}
               {bodyTrackerLink}
@@ -848,7 +842,6 @@ export function HomeScreen({
             SCHNELLZUGRIFF
           </div>
           {aiTrainingPlanLink}
-          {customTrainingLink}
           {timerLink}
           {calculatorLink}
           {bodyTrackerLink}

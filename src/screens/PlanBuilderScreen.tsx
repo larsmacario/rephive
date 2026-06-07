@@ -3,7 +3,7 @@ import { M } from "../theme";
 import { useAuth } from "../lib/auth";
 import { usePreferences } from "../lib/preferences";
 import { createPlan, updatePlan, useExercises, usePlan } from "../lib/db";
-import type { LibraryExercise } from "../data";
+import type { LibraryExercise, PlanDayBlock } from "../data";
 import { planDayDisplayName } from "../data";
 import {
   buildUniformTemplateSets,
@@ -13,17 +13,31 @@ import {
   type SetMode,
   type TemplateSet,
 } from "../lib/exerciseSets";
+import type { ExerciseMetric } from "../lib/exerciseCatalog";
 import {
+  BLOCK_ORDER,
   BLOCK_LABELS,
+  BUILDER_DEFAULT_ENABLED_BLOCKS,
   DEFAULT_ENABLED_BLOCKS,
   disabledBlocks,
   type TrainingBlockType,
 } from "../lib/planBlocks";
+import {
+  configFromPlanDayBlock,
+  formatMetconExerciseNote,
+  isBodyweightEquipment,
+  metconConfigToBlockInput,
+  metconConfigToPlanDayBlock,
+  normalizeMetconExercise,
+  type MetconConfig,
+  type MetconExerciseLike,
+} from "../lib/metcon";
 import { Icon } from "../components/Icon";
 import { ExerciseSetConfigurator } from "../components/ExerciseSetConfigurator";
 import { ExercisePickerSheet } from "../components/ExercisePickerSheet";
 import { ConfirmSheet } from "../components/ConfirmSheet";
 import { BottomSheet } from "../components/BottomSheet";
+import { MetconConfigSheet } from "../components/MetconConfigSheet";
 import { PlanDaySlide } from "../components/PlanDaySlide";
 import { MButton } from "../components/MButton";
 import { HorizontalSlidePager } from "../components/HorizontalSlidePager";
@@ -33,12 +47,14 @@ interface BuilderExercise extends LibraryExercise {
   setMode: SetMode;
   setRows: TemplateSet[];
   catalogExerciseId?: string;
+  displayNote?: string;
 }
 
 interface BuilderDay {
   id: string;
   name: string;
   enabledBlocks: TrainingBlockType[];
+  metconConfig: MetconConfig | null;
   exercises: BuilderExercise[];
 }
 
@@ -46,9 +62,19 @@ function createEmptyDay(index: number): BuilderDay {
   return {
     id: crypto.randomUUID(),
     name: `Tag ${index + 1}`,
-    enabledBlocks: [...DEFAULT_ENABLED_BLOCKS],
+    enabledBlocks: [...BUILDER_DEFAULT_ENABLED_BLOCKS],
+    metconConfig: null,
     exercises: [],
   };
+}
+
+function builderBlocksForDay(day: BuilderDay): PlanDayBlock[] {
+  if (!day.enabledBlocks.includes("metcon") || !day.metconConfig) return [];
+  return [metconConfigToPlanDayBlock(day.metconConfig)];
+}
+
+function restoreableDisabledBlocks(enabled: TrainingBlockType[]): TrainingBlockType[] {
+  return disabledBlocks(DEFAULT_ENABLED_BLOCKS, enabled).filter((b) => b !== "metcon");
 }
 
 export interface PlanBuilderScreenProps {
@@ -71,6 +97,8 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
   const [pickerTargetBlock, setPickerTargetBlock] = useState<TrainingBlockType | null>(null);
   const [removeBlockConfirm, setRemoveBlockConfirm] = useState<TrainingBlockType | null>(null);
   const [configExerciseId, setConfigExerciseId] = useState<string | null>(null);
+  const [metconSheetOpen, setMetconSheetOpen] = useState(false);
+  const [metconSheetDayIndex, setMetconSheetDayIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeDayIndex, setActiveDayIndex] = useState(0);
@@ -83,30 +111,35 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
     if (!isEditing || !existingPlan || initialized) return;
     setName(existingPlan.name);
     setDays(
-      existingPlan.days.map((d) => ({
-        id: d.id,
-        name: d.name,
-        enabledBlocks: d.enabledBlocks,
-        exercises: d.exercises.map((e) => ({
-          id: e.id,
-          blockType: e.blockType,
-          catalogExerciseId: e.catalogExerciseId ?? undefined,
-          name: e.name,
-          category: "strength" as const,
-          group: e.note?.split(" · ")[0] ?? "",
-          equip: e.note?.split(" · ")[1] ?? "",
-          userId: null,
-          metric: e.metric,
-          setMode: "uniform" as const,
-          setRows: e.sets.map((s) => ({
-            reps: s.reps,
-            kg: s.kg,
-            ...(s.durationSec != null ? { durationSec: s.durationSec } : {}),
-            ...(s.distanceM != null ? { distanceM: s.distanceM } : {}),
-            ...(s.warmUp ? { warmUp: true } : {}),
+      existingPlan.days.map((d) => {
+        const metconBlock = d.blocks?.find((b) => b.blockType === "metcon");
+        return {
+          id: d.id,
+          name: d.name,
+          enabledBlocks: d.enabledBlocks,
+          metconConfig: metconBlock ? configFromPlanDayBlock(metconBlock) : null,
+          exercises: d.exercises.map((e) => ({
+            id: e.id,
+            blockType: e.blockType,
+            catalogExerciseId: e.catalogExerciseId ?? undefined,
+            name: e.name,
+            category: "strength" as const,
+            group: e.note?.split(" · ")[0] ?? "",
+            equip: e.note?.split(" · ")[1] ?? "",
+            userId: null,
+            metric: e.metric,
+            displayNote: e.blockType === "metcon" ? e.note : undefined,
+            setMode: "uniform" as const,
+            setRows: e.sets.map((s) => ({
+              reps: s.reps,
+              kg: s.kg,
+              ...(s.durationSec != null ? { durationSec: s.durationSec } : {}),
+              ...(s.distanceM != null ? { distanceM: s.distanceM } : {}),
+              ...(s.warmUp ? { warmUp: true } : {}),
+            })),
           })),
-        })),
-      })),
+        };
+      }),
     );
     setInitialized(true);
   }, [isEditing, existingPlan, initialized]);
@@ -116,10 +149,12 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
     setDays([createEmptyDay(0)]);
   }, [isEditing, days.length, initialized]);
 
+  const updateDayAt = (index: number, updater: (day: BuilderDay) => BuilderDay) => {
+    setDays((prev) => prev.map((day, i) => (i === index ? updater(day) : day)));
+  };
+
   const updateActiveDay = (updater: (day: BuilderDay) => BuilderDay) => {
-    setDays((prev) =>
-      prev.map((day, index) => (index === activeDayIndex ? updater(day) : day)),
-    );
+    updateDayAt(activeDayIndex, updater);
   };
 
   const addDay = () => {
@@ -135,8 +170,43 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
     setExercisePickerOpen(true);
   };
 
+  const openMetconSheet = (dayIndex: number) => {
+    setMetconSheetDayIndex(dayIndex);
+    setMetconSheetOpen(true);
+  };
+
+  const confirmMetconConfig = (config: MetconConfig) => {
+    if (metconSheetDayIndex == null) return;
+    updateDayAt(metconSheetDayIndex, (day) => {
+      const nextEnabled: TrainingBlockType[] = day.enabledBlocks.includes("metcon")
+        ? day.enabledBlocks
+        : ([...day.enabledBlocks, "metcon"] as TrainingBlockType[]).sort(
+            (a, b) => BLOCK_ORDER.indexOf(a) - BLOCK_ORDER.indexOf(b),
+          );
+      return {
+        ...day,
+        metconConfig: config,
+        enabledBlocks: nextEnabled,
+      };
+    });
+    setMetconSheetDayIndex(null);
+  };
+
   const addExercise = (ex: LibraryExercise) => {
     const block = pickerTargetBlock ?? "strength";
+    const targetReps = preferences.defaultReps ?? 10;
+    const isMetcon = block === "metcon";
+    const bodyweight = isBodyweightEquipment(ex.equip);
+    const metric: ExerciseMetric = isMetcon && bodyweight ? "reps" : ex.metric;
+    const setRows: TemplateSet[] = isMetcon
+      ? [{ reps: targetReps, kg: 0 }]
+      : buildUniformTemplateSets(
+          preferences.defaultSets,
+          defaultSetValue(metric, targetReps),
+          0,
+          metric,
+        );
+
     updateActiveDay((day) => ({
       ...day,
       exercises: [
@@ -150,15 +220,11 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
           group: ex.group,
           equip: ex.equip,
           userId: ex.userId,
-          metric: ex.metric,
+          metric,
           youtubeUrl: ex.youtubeUrl,
+          displayNote: isMetcon ? formatMetconExerciseNote(targetReps) : undefined,
           setMode: "uniform" as const,
-          setRows: buildUniformTemplateSets(
-            preferences.defaultSets,
-            defaultSetValue(ex.metric, preferences.defaultReps),
-            0,
-            ex.metric,
-          ),
+          setRows,
         },
       ],
     }));
@@ -169,7 +235,17 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
   const updateExerciseSets = (id: string, setMode: SetMode, setRows: TemplateSet[]) => {
     updateActiveDay((day) => ({
       ...day,
-      exercises: day.exercises.map((x) => (x.id === id ? { ...x, setMode, setRows } : x)),
+      exercises: day.exercises.map((x) => {
+        if (x.id !== id) return x;
+        const cappedRows = x.blockType === "metcon" ? setRows.slice(0, 1) : setRows;
+        const reps = cappedRows[0]?.reps ?? 10;
+        return {
+          ...x,
+          setMode: x.blockType === "metcon" ? "uniform" : setMode,
+          setRows: cappedRows,
+          displayNote: x.blockType === "metcon" ? formatMetconExerciseNote(reps) : x.displayNote,
+        };
+      }),
     }));
   };
 
@@ -185,18 +261,10 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
     updateActiveDay((day) => ({
       ...day,
       enabledBlocks: day.enabledBlocks.filter((b) => b !== block),
+      metconConfig: block === "metcon" ? null : day.metconConfig,
       exercises: day.exercises.filter((e) => e.blockType !== block),
     }));
     setRemoveBlockConfirm(null);
-  };
-
-  const restoreBlock = (block: TrainingBlockType) => {
-    updateActiveDay((day) => ({
-      ...day,
-      enabledBlocks: [...day.enabledBlocks, block].sort(
-        (a, b) => DEFAULT_ENABLED_BLOCKS.indexOf(a) - DEFAULT_ENABLED_BLOCKS.indexOf(b),
-      ),
-    }));
   };
 
   const removeDay = (id: string) => {
@@ -214,6 +282,14 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
     });
   };
 
+  const exerciseNoteForSave = (x: BuilderExercise): string => {
+    if (x.blockType === "metcon") {
+      const reps = x.setRows[0]?.reps ?? 10;
+      return x.displayNote ?? formatMetconExerciseNote(reps);
+    }
+    return `${x.group} · ${x.equip}`;
+  };
+
   const handleSave = async () => {
     if (!user || days.length === 0) return;
     setSaving(true);
@@ -225,22 +301,54 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
       const payload = {
         name: name.trim() || "Neuer Trainingsplan",
         sub,
-        days: days.map((d, i) => ({
-          name: d.name.trim() || `Tag ${i + 1}`,
-          enabledBlocks: d.enabledBlocks,
-          exercises: d.exercises.map((x) => ({
-            name: x.name,
-            note: `${x.group} · ${x.equip}`,
-            blockType: x.blockType,
-            catalogExerciseId: x.catalogExerciseId ?? null,
-            metric: x.metric,
-            sets: x.setRows.map((s, index) => serializeTemplateSet(s, index, { done: false })),
-          })),
-        })),
+        days: days.map((d, i) => {
+          const blockConfigs =
+            d.metconConfig && d.enabledBlocks.includes("metcon")
+              ? [metconConfigToBlockInput(d.metconConfig)]
+              : [];
+
+          const exercises = d.exercises.map((x) => {
+            if (x.blockType === "metcon") {
+              const metconLike: MetconExerciseLike = {
+                metric: x.metric,
+                equipment: x.equip,
+                note: exerciseNoteForSave(x),
+                blockType: "metcon",
+                sets: x.setRows.map((s) => ({ reps: s.reps, kg: s.kg })),
+              };
+              normalizeMetconExercise(metconLike);
+              return {
+                name: x.name,
+                note: metconLike.note ?? exerciseNoteForSave(x),
+                blockType: x.blockType,
+                catalogExerciseId: x.catalogExerciseId ?? null,
+                metric: (metconLike.metric ?? x.metric) as ExerciseMetric,
+                sets: (metconLike.sets ?? x.setRows).map((s, index) =>
+                  serializeTemplateSet({ reps: s.reps ?? 0, kg: s.kg ?? 0 }, index, { done: false }),
+                ),
+              };
+            }
+            return {
+              name: x.name,
+              note: exerciseNoteForSave(x),
+              blockType: x.blockType,
+              catalogExerciseId: x.catalogExerciseId ?? null,
+              metric: x.metric,
+              sets: x.setRows.map((s, index) => serializeTemplateSet(s, index, { done: false })),
+            };
+          });
+
+          return {
+            name: d.name.trim() || `Tag ${i + 1}`,
+            enabledBlocks: d.enabledBlocks,
+            blockConfigs,
+            exercises,
+          };
+        }),
       };
 
       if (isEditing && planId) {
-        await updatePlan(planId, payload);
+        await updatePlan(user.id, planId, payload);
       } else {
         await createPlan(user.id, { ...payload, activate: true });
       }
@@ -252,7 +360,9 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
     }
   };
 
-  if (isEditing && (planLoading || !initialized)) {
+  const metconSheetDay = metconSheetDayIndex != null ? (days[metconSheetDayIndex] ?? null) : activeDay;
+
+  if (isEditing && ((planLoading && !existingPlan) || !initialized)) {
     return (
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: M.mut, fontSize: 14 }}>
         Plan wird geladen…
@@ -287,16 +397,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
         <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>
           {isEditing ? "PLAN BEARBEITEN" : "NEUER PLAN"}
         </span>
-        <MButton
-          disabled={saving || days.length === 0}
-          onClick={handleSave}
-          variant="ghost"
-          size="sm"
-          loading={saving}
-          style={{ fontFamily: M.disp, color: M.fg, letterSpacing: 0.4 }}
-        >
-          Speichern
-        </MButton>
+        <div style={{ width: 32 }} aria-hidden />
       </div>
 
       {error && <div style={{ padding: "0 22px 8px", color: "#ff8a8a", fontSize: 13 }}>{error}</div>}
@@ -342,8 +443,10 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
               flex: 1,
               minHeight: 0,
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
+              gap: 10,
             }}
           >
             <MButton
@@ -358,6 +461,17 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
               }}
             >
               <Icon name="plus" size={16} stroke={2.6} /> Tag hinzufügen
+            </MButton>
+            <MButton
+              disabled={saving || days.length === 0}
+              onClick={handleSave}
+              variant="primary"
+              size="md"
+              fullWidth
+              loading={saving}
+              style={{ maxWidth: 320 }}
+            >
+              Speichern
             </MButton>
           </div>
         ) : (
@@ -387,10 +501,14 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
                     isCurrent={false}
                     isActive={activeDayIndex === index}
                     enabledBlocks={day.enabledBlocks}
+                    blocks={builderBlocksForDay(day)}
                     exercises={day.exercises.map((e) => ({
                       id: e.id,
                       name: e.name,
-                      note: `${e.group} · ${e.equip}`,
+                      note:
+                        e.blockType === "metcon"
+                          ? (e.displayNote ?? exerciseNoteForSave(e))
+                          : `${e.group} · ${e.equip}`,
                       blockType: e.blockType,
                       metric: e.metric,
                       sets: e.setRows.map((s) => ({ ...s, done: false })),
@@ -400,15 +518,29 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
                     editableName
                     nameValue={day.name}
                     onNameChange={(value) =>
-                      setDays((prev) =>
-                        prev.map((d, i) => (i === index ? { ...d, name: value } : d)),
-                      )
+                      setDays((prev) => prev.map((d, i) => (i === index ? { ...d, name: value } : d)))
                     }
                     onExerciseClick={(exerciseId) => setConfigExerciseId(exerciseId)}
                     onAddExerciseToBlock={(block) => openExercisePicker(block)}
                     onRemoveBlock={(block) => setRemoveBlockConfirm(block)}
-                    disabledBlocks={disabledBlocks(DEFAULT_ENABLED_BLOCKS, day.enabledBlocks)}
-                    onRestoreBlock={(block) => restoreBlock(block)}
+                    disabledBlocks={restoreableDisabledBlocks(day.enabledBlocks)}
+                    onRestoreBlock={(block) => {
+                      if (block === "metcon") {
+                        openMetconSheet(index);
+                      } else {
+                        updateDayAt(index, (d) => ({
+                          ...d,
+                          enabledBlocks: [...d.enabledBlocks, block].sort(
+                            (a, b) => BLOCK_ORDER.indexOf(a) - BLOCK_ORDER.indexOf(b),
+                          ),
+                        }));
+                      }
+                    }}
+                    optionalMetconLink={{
+                      visible: !day.enabledBlocks.includes("metcon"),
+                      onAdd: () => openMetconSheet(index),
+                    }}
+                    onMetconSettings={() => openMetconSheet(index)}
                     actions={
                       <MButton
                         type="button"
@@ -442,6 +574,17 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
             >
               <Icon name="plus" size={16} stroke={2.6} /> Tag hinzufügen
             </MButton>
+            <MButton
+              disabled={saving || days.length === 0}
+              onClick={handleSave}
+              variant="primary"
+              size="md"
+              fullWidth
+              loading={saving}
+              style={{ flexShrink: 0, marginTop: 8 }}
+            >
+              Speichern
+            </MButton>
           </>
         )}
       </div>
@@ -457,6 +600,16 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
         loading={exercisesLoading}
         allowCreate
         onLibraryChange={() => reloadExercises()}
+      />
+
+      <MetconConfigSheet
+        open={metconSheetOpen}
+        initialConfig={metconSheetDay?.metconConfig}
+        onClose={() => {
+          setMetconSheetOpen(false);
+          setMetconSheetDayIndex(null);
+        }}
+        onConfirm={confirmMetconConfig}
       />
 
       <ConfirmSheet
@@ -483,13 +636,21 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
           <>
             <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 22, marginBottom: 4 }}>{configExercise.name}</div>
             <div style={{ color: M.mut, fontSize: 12, marginBottom: 12 }}>
-              {configExercise.group} · {configExercise.equip} · {formatSetSummary(configExercise.setRows, configExercise.metric)}
+              {configExercise.blockType === "metcon"
+                ? (configExercise.displayNote ?? formatSetSummary(configExercise.setRows, configExercise.metric))
+                : `${configExercise.group} · ${configExercise.equip} · ${formatSetSummary(configExercise.setRows, configExercise.metric)}`}
             </div>
+            {configExercise.blockType === "metcon" && (
+              <div style={{ color: M.mut2, fontSize: 12, marginBottom: 10, fontWeight: 600 }}>
+                Ziel-Wdh. pro Runde
+              </div>
+            )}
             <ExerciseSetConfigurator
               variant="template"
               setMode={configExercise.setMode}
               sets={configExercise.setRows}
               metric={configExercise.metric}
+              maxSets={configExercise.blockType === "metcon" ? 1 : undefined}
               onChange={(setMode, setRows) =>
                 updateExerciseSets(configExercise.id, setMode, setRows as TemplateSet[])
               }

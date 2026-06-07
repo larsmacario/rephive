@@ -1,16 +1,19 @@
 import type { CSSProperties, ReactNode } from "react";
-import type { PlanDayExercise } from "../data";
-import { M } from "../theme";
-import { formatSetSummary, isUniform } from "../lib/exerciseSets";
+import type { PlanDayBlock, PlanDayExercise } from "../data";
+import { M, EXERCISE_ROW, exerciseRowEllipsis } from "../theme";
+import { formatSetSummary } from "../lib/exerciseSets";
 import { groupExercisesByBlock, BLOCK_LABELS, type TrainingBlockType } from "../lib/planBlocks";
+import { configFromPlanDayBlock, formatMetconBlockBadge } from "../lib/metcon";
 import { segmentExercises } from "../lib/superset";
 import { Icon } from "./Icon";
 import { MButton } from "./MButton";
+import { ExerciseListRow, ExerciseListRowDumbbellIcon } from "./ExerciseListRow";
 import { PlanBlockSection } from "./PlanBlockSection";
 import { SupersetBlock } from "./SupersetBlock";
 
 export interface PlanDayExercisePreviewProps {
   exercises: PlanDayExercise[];
+  blocks?: PlanDayBlock[];
   enabledBlocks?: TrainingBlockType[];
   skippedBlocks?: TrainingBlockType[];
   flat?: boolean;
@@ -21,6 +24,8 @@ export interface PlanDayExercisePreviewProps {
   onRemoveBlock?: (block: TrainingBlockType) => void;
   disabledBlocks?: TrainingBlockType[];
   onRestoreBlock?: (block: TrainingBlockType) => void;
+  optionalMetconLink?: { visible: boolean; onAdd: () => void };
+  onMetconSettings?: () => void;
 }
 
 function ExerciseList({
@@ -39,99 +44,39 @@ function ExerciseList({
       {segments.map((seg) => {
         const renderEx = (ex: PlanDayExercise) => {
           const summary = formatSetSummary(ex.sets, ex.metric);
-          const uniform = isUniform(ex.sets);
           const clickable = Boolean(onExerciseClick);
-          const inner = (
-            <div
-              style={{
-                padding: flat ? "11px 12px" : "10px 12px",
-                borderRadius: flat ? 10 : 12,
-                background: flat ? "rgba(255,255,255,.02)" : M.panel,
-                border: "1px solid " + M.line2,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: clickable ? "pointer" : undefined,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "flex-start", gap: flat ? 0 : 10 }}>
-                {!flat && (
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 8,
-                      background: M.accSoft,
-                      color: M.acc,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flex: "0 0 auto",
-                    }}
-                  >
-                    <Icon name="dumbbell" size={16} stroke={2} />
-                  </div>
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: M.fg }}>{ex.name}</div>
-                      {ex.note && (
-                        <div style={{ color: M.mut, fontSize: 12, marginTop: 2, fontWeight: 500 }}>{ex.note}</div>
-                      )}
-                    </div>
-                    <span style={{ color: M.mut2, flex: "0 0 auto", fontSize: 12.5, paddingTop: 1 }}>{summary}</span>
-                  </div>
-                </div>
-              </div>
-              {!uniform && (
-                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4, paddingLeft: flat ? 0 : 42 }}>
-                  {ex.sets.map((s, si) => (
-                    <div
-                      key={si}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        padding: flat ? "2px 0" : "4px 8px",
-                        borderRadius: flat ? 0 : 8,
-                        background: flat ? "transparent" : M.accSoft,
-                        fontSize: 12,
-                        color: M.mut,
-                      }}
-                    >
-                      <span>Satz {si + 1}</span>
-                      <span style={{ fontFamily: M.disp, fontWeight: 700, color: M.fg }}>
-                        {s.kg} kg × {s.reps}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+          return (
+            <ExerciseListRow
+              key={ex.id}
+              title={ex.name}
+              leading={flat ? undefined : <ExerciseListRowDumbbellIcon />}
+              trailing={
+                <span
+                  style={{
+                    color: M.mut2,
+                    flex: "0 0 auto",
+                    fontSize: EXERCISE_ROW.metaSize,
+                    fontWeight: 500,
+                    maxWidth: "42%",
+                    ...exerciseRowEllipsis,
+                  }}
+                >
+                  {summary}
+                </span>
+              }
+              onClick={clickable ? () => onExerciseClick?.(ex.id) : undefined}
+              background={flat ? "transparent" : "panel"}
+              borderRadius={flat ? 10 : undefined}
+              style={
+                flat
+                  ? {
+                      background: "rgba(255,255,255,.02)",
+                      border: "1px solid " + M.line2,
+                    }
+                  : undefined
+              }
+            />
           );
-
-          if (clickable) {
-            return (
-              <button
-                key={ex.id}
-                type="button"
-                onClick={() => onExerciseClick?.(ex.id)}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  padding: 0,
-                  border: "none",
-                  background: "transparent",
-                  textAlign: "left",
-                  font: "inherit",
-                  color: "inherit",
-                }}
-              >
-                {inner}
-              </button>
-            );
-          }
-
-          return <div key={ex.id}>{inner}</div>;
         };
 
         if (seg.kind === "single") return renderEx(seg.exercise);
@@ -147,6 +92,7 @@ function ExerciseList({
 
 export function PlanDayExercisePreview({
   exercises,
+  blocks = [],
   enabledBlocks,
   skippedBlocks = [],
   flat = false,
@@ -157,16 +103,19 @@ export function PlanDayExercisePreview({
   onRemoveBlock,
   disabledBlocks = [],
   onRestoreBlock,
+  optionalMetconLink,
+  onMetconSettings,
 }: PlanDayExercisePreviewProps) {
   const skippedSet = new Set(skippedBlocks);
   const groups = groupExercisesByBlock(exercises, enabledBlocks);
+  const metconBlockDef = blocks.find((b) => b.blockType === "metcon");
 
   if (groups.length === 0 && exercises.length > 0) {
     return <ExerciseList exercises={exercises} flat={flat} onExerciseClick={onExerciseClick} />;
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       {groups.map(({ block, exercises: blockExercises }) => {
         const skipped = skippedSet.has(block);
         if (!showEmptyBlocks && blockExercises.length === 0 && !skipped) return null;
@@ -176,20 +125,59 @@ export function PlanDayExercisePreview({
             block={block}
             skipped={skipped}
             headerAction={
-              builderMode && onRemoveBlock ? (
-                <MButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRemoveBlock(block)}
-                  style={{ color: M.mut2, fontSize: 11, padding: "4px 8px" }}
-                >
-                  Entfernen
-                </MButton>
+              builderMode && (onRemoveBlock || (block === "metcon" && onMetconSettings)) ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  {block === "metcon" && onMetconSettings ? (
+                    <MButton
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={onMetconSettings}
+                      style={{ color: M.mut, fontSize: 11, padding: "4px 8px" }}
+                    >
+                      Einstellungen
+                    </MButton>
+                  ) : null}
+                  {onRemoveBlock ? (
+                    <MButton
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onRemoveBlock(block)}
+                      style={{ color: M.mut2, fontSize: 11, padding: "4px 8px" }}
+                    >
+                      Entfernen
+                    </MButton>
+                  ) : null}
+                </div>
               ) : undefined
             }
           >
-            {blockExercises.length > 0 ? (
+            {block === "metcon" && metconBlockDef ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: 0.6,
+                    color: "#f97316",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {(() => {
+                    const cfg = configFromPlanDayBlock(metconBlockDef);
+                    return cfg ? formatMetconBlockBadge(cfg) : "MetCon";
+                  })()}
+                </div>
+                {blockExercises.length > 0 ? (
+                  <ExerciseList exercises={blockExercises} flat={flat} onExerciseClick={onExerciseClick} />
+                ) : (
+                  <div style={{ fontSize: 12, color: M.mut, fontWeight: 500, padding: "4px 2px" }}>
+                    Noch keine Übungen
+                  </div>
+                )}
+              </div>
+            ) : blockExercises.length > 0 ? (
               <ExerciseList exercises={blockExercises} flat={flat} onExerciseClick={onExerciseClick} />
             ) : (
               <div style={{ fontSize: 12, color: M.mut, fontWeight: 500, padding: "4px 2px" }}>
@@ -218,6 +206,29 @@ export function PlanDayExercisePreview({
           </PlanBlockSection>
         );
       })}
+      {builderMode && optionalMetconLink?.visible && (
+        <button
+          type="button"
+          onClick={optionalMetconLink.onAdd}
+          style={{
+            marginTop: 4,
+            padding: "6px 2px",
+            border: "none",
+            background: "transparent",
+            color: M.mut,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+            textAlign: "left",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <Icon name="plus" size={14} stroke={2.4} color={M.mut} />
+          MetCon hinzufügen
+        </button>
+      )}
       {builderMode && disabledBlocks.length > 0 && onRestoreBlock && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
           <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut2, fontWeight: 700 }}>ENTFERNT</div>
@@ -250,6 +261,7 @@ export interface PlanDayAccordionProps {
   label: string;
   isCurrent?: boolean;
   exercises?: PlanDayExercise[];
+  blocks?: PlanDayBlock[];
   enabledBlocks?: TrainingBlockType[];
   expanded: boolean;
   onToggle?: (dayId: string) => void;
@@ -264,6 +276,7 @@ export function PlanDayAccordion({
   label,
   isCurrent = false,
   exercises = [],
+  blocks = [],
   enabledBlocks,
   expanded,
   onToggle,
@@ -384,6 +397,7 @@ export function PlanDayAccordion({
         >
           <PlanDayExercisePreview
             exercises={exercises}
+            blocks={blocks}
             enabledBlocks={enabledBlocks}
             showEmptyBlocks
           />

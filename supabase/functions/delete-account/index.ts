@@ -12,8 +12,8 @@ const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-async function deleteUserBodyPhotos(userId: string): Promise<void> {
-  const { data, error } = await adminClient.storage.from("body-photos").list(userId, { limit: 1000 });
+async function deleteUserStorageFolder(bucket: string, userId: string): Promise<void> {
+  const { data, error } = await adminClient.storage.from(bucket).list(userId, { limit: 1000 });
   if (error) throw error;
   if (!data?.length) return;
 
@@ -21,9 +21,17 @@ async function deleteUserBodyPhotos(userId: string): Promise<void> {
   const chunkSize = 100;
   for (let i = 0; i < paths.length; i += chunkSize) {
     const chunk = paths.slice(i, i + chunkSize);
-    const { error: removeError } = await adminClient.storage.from("body-photos").remove(chunk);
+    const { error: removeError } = await adminClient.storage.from(bucket).remove(chunk);
     if (removeError) throw removeError;
   }
+}
+
+async function deleteUserBodyPhotos(userId: string): Promise<void> {
+  await deleteUserStorageFolder("body-photos", userId);
+}
+
+async function deleteUserAvatars(userId: string): Promise<void> {
+  await deleteUserStorageFolder("avatars", userId);
 }
 
 serve(async (req) => {
@@ -62,12 +70,13 @@ serve(async (req) => {
 
   try {
     await deleteUserBodyPhotos(userId);
+    await deleteUserAvatars(userId);
   } catch (err) {
     console.error("Storage-Löschung fehlgeschlagen:", err);
     return new Response(
       JSON.stringify({
         error: "storage_delete_failed",
-        message: "Fortschrittsfotos konnten nicht gelöscht werden. Bitte später erneut versuchen.",
+        message: "Nutzerdaten im Storage konnten nicht gelöscht werden. Bitte später erneut versuchen.",
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

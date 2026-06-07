@@ -1,18 +1,19 @@
 # Aktueller Stand
 
 ## Letzte Änderungen
-- **4-Bausteine-System live:** Migration `20260607120000_plan_training_blocks.sql` (remote), Edge Function `generate-training-plan` deployed (`blocks[]`, Altersbänder, `birthDate`).
-- **TrackScreen (Plan):** Scroll-Fix (innerer Wrapper, kein Flex-Shrink), Bausteine einklappbar (Default: nur erster Block offen), Fortschritts-Badge wie bei Übungen, Übungen pro Baustein hinzufügen, Session-Skip unverändert.
-- **UI PlanBlockSection:** Keine linken Akzent-Ränder; `BLOCK_GUIDE_HINTS` statt Minutenangaben.
-- **Coaching entfernt** (später neu): Migration `20260608120000_remove_coaching.sql`, Edge `send-coaching-invite` weg.
+- **TurboTrack Voice (Labs):** Push-to-talk in `FrictionTurboView` (`usePushToTalk` + `useVoiceSetLog`); native iOS via `@capgo/capacitor-speech-recognition`, Web-Fallback `webkitSpeechRecognition`; Bereinigung STT-Fehler (`voiceTranscriptCleanup`: Kino→Kilo, €→Kilo); Parser mit DE-Zahlwörtern, `20x10`, `mal`-Notation (`voiceSetParser`).
+- **Voice-UX:** Preview-Box oben für erkannten Text; kein Text/Fehler unter Voice-Button; kein Auto-Pilot-Fallback für kg/reps (nur echte Parser-Werte).
 
 ## Fokus
-- TestFlight / manueller E2E: KI-Plan mit 4 Bausteinen, Block-Skip beim Finish, Block-Editor, Tracking-Flow.
+- TurboTrack Voice auf echtem iPhone verifizieren (Hold → Preview → Übernehmen).
+- Optional: weitere STT-Homophone in `voiceTranscriptCleanup` ergänzen.
 
 ## Nächste Schritte
-- End-to-End in der App verifizieren (bestehender Plan unter „Kraft“, neuer KI-Plan mit Blocks).
-- Coaching später neu planen und implementieren.
+- Manuell: verschiedene Formulierungen testen („80 Kilo 8“, „Zehn Kilo 20 Wiederholung“, `20x10`).
+- Nach Web-Changes: `npm run build && npx cap sync ios`.
 
 ## Offene Punkte
-- UI: keine colored left borders (`.agents/claude.md`).
+- iPhone-Simulator: Speech oft ohne Mikro-Signal — echtes Gerät für Voice-Tests.
+- YouTube offline nicht gecacht (v1 online-only).
+- Ausstehende Sessions erst nach Sync in History (kein „Ausstehend"-Badge v1).
 - `exercises_backup_20260605` ohne RLS (Backup-Tabelle).

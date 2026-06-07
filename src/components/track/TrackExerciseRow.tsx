@@ -1,4 +1,5 @@
-import { M } from "../../theme";
+import { EXERCISE_ROW, exerciseRowStyle, M } from "../../theme";
+import { ExerciseListRowText } from "../ExerciseListRow";
 import { Icon } from "../Icon";
 
 export interface TrackExerciseRowProps {
@@ -21,16 +22,7 @@ export function TrackExerciseRow({
   const complete = totalSets > 0 && doneSets === totalSets;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "14px 0",
-        borderBottom: "1px solid " + M.line2,
-        flexShrink: 0,
-      }}
-    >
+    <div style={exerciseRowStyle({ background: "panel" })}>
       <button
         type="button"
         onClick={onOpen}
@@ -39,7 +31,7 @@ export function TrackExerciseRow({
           minWidth: 0,
           display: "flex",
           alignItems: "center",
-          gap: 12,
+          gap: EXERCISE_ROW.gap,
           background: "none",
           border: "none",
           padding: 0,
@@ -49,8 +41,8 @@ export function TrackExerciseRow({
       >
         <div
           style={{
-            width: 34,
-            height: 34,
+            width: EXERCISE_ROW.iconSize,
+            height: EXERCISE_ROW.iconSize,
             borderRadius: "50%",
             flex: "0 0 auto",
             display: "flex",
@@ -61,28 +53,15 @@ export function TrackExerciseRow({
             color: complete ? M.brandInk : M.fg,
             fontFamily: M.disp,
             fontWeight: 700,
-            fontSize: 15,
+            fontSize: 14,
           }}
         >
           {complete ? <Icon name="check" size={16} stroke={2.6} /> : index + 1}
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              color: M.fg,
-              fontWeight: 600,
-              fontSize: 16,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {name}
-          </div>
-          <div style={{ color: M.mut, fontSize: 12, marginTop: 2 }}>
-            {doneSets}/{totalSets} Sätze abgeschlossen
-          </div>
-        </div>
+        <ExerciseListRowText
+          title={name}
+          subtitle={`${doneSets}/${totalSets} Sätze abgeschlossen`}
+        />
       </button>
       <button
         type="button"
@@ -97,7 +76,7 @@ export function TrackExerciseRow({
           cursor: "pointer",
           color: M.mut2,
           display: "flex",
-          padding: 8,
+          padding: 4,
           flexShrink: 0,
         }}
       >

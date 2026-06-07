@@ -47,11 +47,11 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
   };
 
   const handleDelete = async () => {
-    if (!plan) return;
+    if (!user || !plan) return;
     setBusy(true);
     setActionError(null);
     try {
-      await deletePlan(plan.id);
+      await deletePlan(user.id, plan.id);
       setDeleteConfirmOpen(false);
       onDeleted();
     } catch (e) {
@@ -61,7 +61,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
     }
   };
 
-  if (loading) {
+  if (loading && !plan) {
     return (
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: M.mut, fontSize: 14 }}>
         Plan wird geladen…
@@ -81,7 +81,6 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
   }
 
   const totalExercises = plan.days.reduce((sum, d) => sum + d.exercises.length, 0);
-  const isAiPlan = plan.summary !== null;
 
   const slideCount = 1 + plan.days.length;
   const tabLabel = (index: number) => {
@@ -154,8 +153,6 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
           </div>
         )}
 
-        {isAiPlan && <OneRmPercentInfoCard style={{ marginTop: 14 }} />}
-
         {plan.summary && (
           <div style={{ marginTop: 18 }}>
             <div style={{ fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>DEINE EMPFEHLUNG</div>
@@ -213,6 +210,8 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
                 Richtwerte basierend auf deinen Angaben — kein medizinischer oder ernährungstherapeutischer Rat.
               </p>
             </PlanAdviceCollapsible>
+
+            <OneRmPercentInfoCard style={{ marginTop: 14 }} />
           </div>
         )}
       </div>
@@ -239,6 +238,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
           isCurrent={isCurrent}
           isActive={activeSlideIndex === dayIndex + 1}
           exercises={day.exercises}
+          blocks={day.blocks}
           enabledBlocks={day.enabledBlocks}
           variant="detail"
         />

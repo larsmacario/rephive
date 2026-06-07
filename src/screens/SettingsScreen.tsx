@@ -8,6 +8,9 @@ import { MStepper, MSwitch } from "../components/widgets";
 import { MButton } from "../components/MButton";
 import { BottomSheet } from "../components/BottomSheet";
 import { AiConsentStep } from "../components/AiConsentStep";
+import { OwnerLabsSection } from "../components/settings/OwnerLabsSection";
+import { useAuth } from "../lib/auth";
+import { isOwnerLabsVisible } from "../lib/ownerLabs";
 
 export interface SettingsScreenProps {
   onBack: () => void;
@@ -73,6 +76,8 @@ function SettingRow({
 }
 
 export function SettingsScreen({ onBack }: SettingsScreenProps) {
+  const { profile } = useAuth();
+  const showOwnerLabs = isOwnerLabsVisible(profile);
   const { preferences, updatePreferences, saving } = usePreferences();
   const [timerMode, setTimerMode] = useState<TimerMode>("emom");
   const [aiConsentSheetOpen, setAiConsentSheetOpen] = useState(false);
@@ -145,10 +150,30 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
               onChange={(v) => updatePreferences({ restSeconds: v })}
             />
           </SettingRow>
-          <SettingRow label="Auto-Pause" hint="Pause automatisch nach Satz starten" last>
+          <SettingRow label="Auto-Pause" hint="Pause automatisch nach Satz starten">
             <MSwitch
               checked={preferences.autoRest}
               onChange={(v) => updatePreferences({ autoRest: v }, true)}
+            />
+          </SettingRow>
+          <SettingRow label="Gewichtssprung Oberkörper" hint="Inkrement bei Double Progression (z. B. Brust, Rücken)">
+            <MStepper
+              value={preferences.weightIncrementUpperKg}
+              min={1}
+              max={10}
+              step={0.5}
+              fmt={(v) => `${v} kg`}
+              onChange={(v) => updatePreferences({ weightIncrementUpperKg: v }, true)}
+            />
+          </SettingRow>
+          <SettingRow label="Gewichtssprung Unterkörper" hint="Inkrement bei Bein- und Hüftübungen" last>
+            <MStepper
+              value={preferences.weightIncrementLowerKg}
+              min={2.5}
+              max={10}
+              step={0.5}
+              fmt={(v) => `${v} kg`}
+              onChange={(v) => updatePreferences({ weightIncrementLowerKg: v }, true)}
             />
           </SettingRow>
         </Section>
@@ -190,6 +215,12 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
             />
           </SettingRow>
         </Section>
+
+        {showOwnerLabs ? (
+          <Section title="LABS">
+            <OwnerLabsSection />
+          </Section>
+        ) : null}
 
         <Section title="INTERVAL-TIMER">
           <div

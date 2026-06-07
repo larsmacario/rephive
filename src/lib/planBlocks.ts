@@ -1,11 +1,53 @@
 export type TrainingBlockType = "warmup" | "skill" | "strength" | "metcon";
 
+export type BlockFormat = "straight_sets" | "superset" | "circuit" | "emom" | "amrap" | "for_time";
+
+export const FORMAT_LABELS: Record<BlockFormat, string> = {
+  straight_sets: "Gerade Sätze",
+  superset: "Supersatz",
+  circuit: "Zirkel",
+  emom: "EMOM",
+  amrap: "AMRAP",
+  for_time: "For Time",
+};
+
+const BLOCK_FORMAT_SET = new Set<string>([
+  "straight_sets",
+  "superset",
+  "circuit",
+  "emom",
+  "amrap",
+  "for_time",
+]);
+
+export function isBlockFormat(value: string): value is BlockFormat {
+  return BLOCK_FORMAT_SET.has(value);
+}
+
+export function normalizeBlockFormat(value?: string | null): BlockFormat {
+  if (value && isBlockFormat(value)) return value;
+  return "straight_sets";
+}
+
+/** Infer block format when persisting plan_day_blocks (no explicit format on exercises yet). */
+export function inferBlockFormatForExercises(
+  blockType: TrainingBlockType,
+  exercises: { supersetId?: string | null }[],
+): BlockFormat {
+  if (exercises.some((e) => e.supersetId)) return "superset";
+  if (blockType === "metcon") return "amrap";
+  return "straight_sets";
+}
+
 export const BLOCK_ORDER: TrainingBlockType[] = ["warmup", "skill", "strength", "metcon"];
 
 export const DEFAULT_ENABLED_BLOCKS: TrainingBlockType[] = [...BLOCK_ORDER];
 
+/** Manual plan builder: MetCon is opt-in via text link. */
+export const BUILDER_DEFAULT_ENABLED_BLOCKS: TrainingBlockType[] = ["warmup", "skill", "strength"];
+
 export const BLOCK_LABELS: Record<TrainingBlockType, string> = {
-  warmup: "Warm-up & Mobilität",
+  warmup: "Warm-up",
   skill: "Skill / Technik",
   strength: "Kraft",
   metcon: "MetCon",
@@ -13,7 +55,7 @@ export const BLOCK_LABELS: Record<TrainingBlockType, string> = {
 
 /** Kurze Anleitung pro Baustein (ohne Zeitvorgaben). */
 export const BLOCK_GUIDE_HINTS: Record<TrainingBlockType, string> = {
-  warmup: "Eintruhen, Gelenke mobilisieren, Puls langsam steigern",
+  warmup: "Leichtes Cardio — Puls langsam steigern",
   skill: "Technik üben — leichte Last, saubere Wiederholungen",
   strength: "Hauptübungen und Assistance, progressive Last",
   metcon: "Kondition abschließen — AMRAP, EMOM oder Circuit",

@@ -8,6 +8,7 @@ export interface ActiveWorkoutDraft {
   planDayId?: string;
   tags: string[];
   planId?: string;
+  turboTracking?: boolean;
   enabledBlocks?: TrainingBlockType[];
   skippedBlocks?: TrainingBlockType[];
   pausedAt: number;
@@ -19,6 +20,7 @@ export interface ActiveWorkoutSnapshot {
   planDayId?: string;
   tags: string[];
   planId?: string;
+  turboTracking?: boolean;
   enabledBlocks?: TrainingBlockType[];
   skippedBlocks?: TrainingBlockType[];
 }

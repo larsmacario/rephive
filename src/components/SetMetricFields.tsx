@@ -23,6 +23,8 @@ export interface SetMetricFieldsProps {
   size?: "md" | "lg";
   /** Breite des Metrik-Blocks (z. B. „80%“ in Track-Karten). */
   areaWidth?: string;
+  /** Gedämpfte Darstellung für Auto-Pilot-Vorschläge. */
+  muted?: boolean;
 }
 
 export function setFieldHeaders(metric: ExerciseMetric = DEFAULT_EXERCISE_METRIC): { key: SetField | "set"; label: string }[] {
@@ -95,6 +97,7 @@ export function SetMetricFields({
   layout = "cells",
   size = "md",
   areaWidth,
+  muted = false,
 }: SetMetricFieldsProps) {
   const spec = getMetricSpec(metric);
   const isLg = size === "lg";
@@ -130,6 +133,7 @@ export function SetMetricFields({
       labelOnTop={labelOnTop}
       fontSize={compact ? 17 : isLg ? 28 : 18}
       minWidth={fieldMinWidth(field, compact)}
+      muted={muted}
     />
   );
 
