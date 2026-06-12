@@ -7,20 +7,20 @@ import { MStepper } from "../components/widgets";
 import { ExercisePickerSheet } from "../components/ExercisePickerSheet";
 import { SwipeRevealRow } from "../components/SwipeRevealRow";
 import { ExerciseListRowDumbbellIcon, ExerciseListRowText } from "../components/ExerciseListRow";
-import { useExercises, fetchRecentTurboTrackingSessions } from "../lib/db";
+import { useExercises, fetchRecentExpressTrackingSessions } from "../lib/db";
 import { usePreferences } from "../lib/preferences";
 import {
-  buildTurboTrackingWorkout,
-  extractTurboTemplatesFromSession,
-  groupTurboTemplatesByMuscleGroup,
-  libraryExercisesToTurboTemplates,
-  turboImportSkipMessage,
-  type TurboTrackingExerciseTemplate,
-} from "../lib/turboTracking";
+  buildExpressTrackingWorkout,
+  extractExpressTemplatesFromSession,
+  groupExpressTemplatesByMuscleGroup,
+  libraryExercisesToExpressTemplates,
+  expressImportSkipMessage,
+  type ExpressTrackingExerciseTemplate,
+} from "../lib/expressTracking";
 import type { Workout } from "../lib/engine";
 import type { LibraryExercise } from "../data";
 
-export interface TurboTrackingSetupScreenProps {
+export interface ExpressTrackingSetupScreenProps {
   onBack: () => void;
   onStart: (workout: Workout, skipMessage?: string | null) => void;
 }
@@ -35,14 +35,14 @@ function formatSessionDate(iso: string): string {
   });
 }
 
-export function TurboTrackingSetupScreen({ onBack, onStart }: TurboTrackingSetupScreenProps) {
+export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingSetupScreenProps) {
   const { preferences } = usePreferences();
   const { data: library, loading: libraryLoading, reload: reloadExercises } = useExercises();
   const [step, setStep] = useState<SetupStep>("source");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [manualTemplates, setManualTemplates] = useState<TurboTrackingExerciseTemplate[] | null>(null);
+  const [manualTemplates, setManualTemplates] = useState<ExpressTrackingExerciseTemplate[] | null>(null);
   const [setCount, setSetCount] = useState(preferences.defaultSets);
   const [skipMessage, setSkipMessage] = useState<string | null>(null);
   const [openSwipeRowId, setOpenSwipeRowId] = useState<string | null>(null);
@@ -50,7 +50,7 @@ export function TurboTrackingSetupScreen({ onBack, onStart }: TurboTrackingSetup
   useEffect(() => {
     let cancelled = false;
     setHistoryLoading(true);
-    fetchRecentTurboTrackingSessions(12)
+    fetchRecentExpressTrackingSessions(12)
       .then((rows) => {
         if (!cancelled) setHistory(rows);
       })
@@ -67,13 +67,13 @@ export function TurboTrackingSetupScreen({ onBack, onStart }: TurboTrackingSetup
 
   const activeTemplates = manualTemplates ?? [];
 
-  const templateKey = (template: TurboTrackingExerciseTemplate) =>
+  const templateKey = (template: ExpressTrackingExerciseTemplate) =>
     template.catalogExerciseId ?? template.name.trim().toLowerCase();
 
-  const mergeTurboTemplates = (
-    base: TurboTrackingExerciseTemplate[],
-    incoming: TurboTrackingExerciseTemplate[],
-  ): TurboTrackingExerciseTemplate[] => {
+  const mergeExpressTemplates = (
+    base: ExpressTrackingExerciseTemplate[],
+    incoming: ExpressTrackingExerciseTemplate[],
+  ): ExpressTrackingExerciseTemplate[] => {
     const seen = new Set(base.map(templateKey));
     const merged = [...base];
     for (const template of incoming) {
@@ -91,20 +91,20 @@ export function TurboTrackingSetupScreen({ onBack, onStart }: TurboTrackingSetup
   );
 
   const templatesByMuscleGroup = useMemo(
-    () => groupTurboTemplatesByMuscleGroup(activeTemplates, libraryById),
+    () => groupExpressTemplatesByMuscleGroup(activeTemplates, libraryById),
     [activeTemplates, libraryById],
   );
 
   const goToSetsFromSession = (session: HistoryEntry) => {
-    const imported = extractTurboTemplatesFromSession(session);
-    setSkipMessage(turboImportSkipMessage(imported));
+    const imported = extractExpressTemplatesFromSession(session);
+    setSkipMessage(expressImportSkipMessage(imported));
     if (imported.templates.length === 0) return;
     setManualTemplates(imported.templates);
     setStep("sets");
   };
 
   const goToSetsFromManual = (exercises: LibraryExercise[]) => {
-    const templates = libraryExercisesToTurboTemplates(exercises);
+    const templates = libraryExercisesToExpressTemplates(exercises);
     if (templates.length === 0) return;
     setManualTemplates(templates);
     setSkipMessage(null);
@@ -112,20 +112,20 @@ export function TurboTrackingSetupScreen({ onBack, onStart }: TurboTrackingSetup
   };
 
   const appendTemplatesFromPicker = (exercises: LibraryExercise[]) => {
-    const templates = libraryExercisesToTurboTemplates(exercises);
+    const templates = libraryExercisesToExpressTemplates(exercises);
     if (templates.length === 0) return;
-    setManualTemplates((prev) => mergeTurboTemplates(prev ?? [], templates));
+    setManualTemplates((prev) => mergeExpressTemplates(prev ?? [], templates));
     setPickerOpen(false);
   };
 
-  const removeTemplate = (template: TurboTrackingExerciseTemplate) => {
+  const removeTemplate = (template: ExpressTrackingExerciseTemplate) => {
     const key = templateKey(template);
     setManualTemplates((prev) => (prev ?? []).filter((item) => templateKey(item) !== key));
   };
 
   const handleStart = () => {
     if (activeTemplates.length === 0) return;
-    const workout = buildTurboTrackingWorkout({
+    const workout = buildExpressTrackingWorkout({
       templates: activeTemplates,
       setCount,
       defaultReps: preferences.defaultReps,
@@ -143,7 +143,7 @@ export function TurboTrackingSetupScreen({ onBack, onStart }: TurboTrackingSetup
             <Icon name="chevL" size={22} stroke={2.2} color={M.mut} />
           </MButton>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 24, color: M.fg }}>TurboTracking</div>
+            <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 24, color: M.fg }}>ExpressTracking</div>
             <div style={{ fontSize: 12, color: M.mut, marginTop: 2 }}>Schritt {stepIndex} von 2</div>
           </div>
         </div>
@@ -153,7 +153,7 @@ export function TurboTrackingSetupScreen({ onBack, onStart }: TurboTrackingSetup
         {step === "source" ? (
           <>
             <div style={{ fontSize: 14, color: M.mut, lineHeight: 1.45, marginBottom: 16 }}>
-              Wiederhole ein früheres TurboTracking-Workout oder wähle Übungen aus der Bibliothek.
+              Wiederhole ein früheres ExpressTracking-Workout oder wähle Übungen aus der Bibliothek.
             </div>
 
             {historyLoading ? (
@@ -161,7 +161,7 @@ export function TurboTrackingSetupScreen({ onBack, onStart }: TurboTrackingSetup
             ) : history.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
                 {history.map((session) => {
-                  const imported = extractTurboTemplatesFromSession(session);
+                  const imported = extractExpressTemplatesFromSession(session);
                   const eligible = imported.templates.length;
                   return (
                     <button
@@ -206,7 +206,7 @@ export function TurboTrackingSetupScreen({ onBack, onStart }: TurboTrackingSetup
                   textAlign: "center",
                 }}
               >
-                Noch kein TurboTracking in der Vergangenheit — wähle Übungen aus der Bibliothek.
+                Noch kein ExpressTracking in der Vergangenheit — wähle Übungen aus der Bibliothek.
               </div>
             )}
 
@@ -385,7 +385,7 @@ export function TurboTrackingSetupScreen({ onBack, onStart }: TurboTrackingSetup
         onSelect={() => {}}
         onSelectMultiple={step === "sets" ? appendTemplatesFromPicker : goToSetsFromManual}
         mode="multi"
-        turboTrackingOnly
+        expressTrackingOnly
         library={library ?? []}
         loading={libraryLoading}
         title={step === "sets" ? "Übungen hinzufügen" : "Übungen wählen"}

@@ -8,7 +8,7 @@ export interface ActiveWorkoutDraft {
   planDayId?: string;
   tags: string[];
   planId?: string;
-  turboTracking?: boolean;
+  expressTracking?: boolean;
   enabledBlocks?: TrainingBlockType[];
   skippedBlocks?: TrainingBlockType[];
   pausedAt: number;
@@ -20,7 +20,7 @@ export interface ActiveWorkoutSnapshot {
   planDayId?: string;
   tags: string[];
   planId?: string;
-  turboTracking?: boolean;
+  expressTracking?: boolean;
   enabledBlocks?: TrainingBlockType[];
   skippedBlocks?: TrainingBlockType[];
 }
@@ -39,8 +39,11 @@ export function loadActiveWorkout(userId: string): ActiveWorkoutDraft | null {
   try {
     const raw = localStorage.getItem(storageKey(userId));
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as ActiveWorkoutDraft;
+    const parsed = JSON.parse(raw) as ActiveWorkoutDraft & { turboTracking?: boolean };
     if (!parsed.session || typeof parsed.startedAt !== "number") return null;
+    if (parsed.turboTracking && !parsed.expressTracking) {
+      parsed.expressTracking = parsed.turboTracking;
+    }
     return parsed;
   } catch {
     return null;

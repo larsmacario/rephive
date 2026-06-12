@@ -7,7 +7,7 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 ## Tech-Stack
 - **Web-App**: Vite + React 18 + TypeScript, Supabase (Auth + PostgreSQL + Storage + Edge Functions, RLS), Inline-Style-Theme (kein CSS-Framework); `react-easy-crop` für Profilbild-Crop.
 - **Landingpage** (`rephive-landingpage`): Next.js 16 App Router, Deployment **rephive.app**; Marketing + Legal; USP **Auto-Pilot** (Hero-Mock `AutopilotTrackBody`, Feature #01, SEO).
-- **iOS-App**: Capacitor 8 (WKWebView) — dieselbe Vite/React-App aus `dist/`; Xcode-Projekt unter `ios/`; nach Web-Changes: `npm run build && npx cap sync ios`. `ios/App/App/Info.plist`: Foto-Privacy-Strings für Body Tracker; **Mikrofon + Speech Recognition** für Turbo-Voice (Labs); kein `NSAllowsArbitraryLoads` (Standard-ATS für Supabase, rephive.app, YouTube).
+- **iOS-App**: Capacitor 8 (WKWebView) — dieselbe Vite/React-App aus `dist/`; Xcode-Projekt unter `ios/`; nach Web-Changes: `npm run build && npx cap sync ios`. `ios/App/App/Info.plist`: Foto-Privacy-Strings für Body Tracker; Mikrofon/Speech-Strings (Voice derzeit deaktiviert); kein `NSAllowsArbitraryLoads` (Standard-ATS für Supabase, rephive.app, YouTube).
 - Google Fonts: Saira Condensed (Display), Archivo (Body).
 - PWA-Manifest vorhanden; `vite.config.ts` nutzt `base: "./"` für Capacitor.
 - **Offline:** `dexie` (IndexedDB), `@capacitor/network`; kein Service Worker (Phase 5 optional).
@@ -52,10 +52,11 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 - `src/lib/db.ts` — `fetchExercisePerformanceByRef` (ein Roundtrip für Last + History)
 - `src/components/track/TrackAutopilotBootOverlay.tsx` — Ladezustand vor erstem Tracking
 - `src/components/ExerciseListRow.tsx` + `EXERCISE_ROW` in `theme.ts` — einheitliche 56px-Listenzeilen
-- `src/screens/TurboTrackingSetupScreen.tsx` + `src/lib/turboTracking.ts` — TurboTracking-Wizard (Quelle → Sätze → Track)
-- `src/components/track/FrictionTurboView.tsx` — Turbo-Tracking-UI (primärer Track-Modus); **Voice PTT** (Labs): Halten → Sprechen → Preview → Übernehmen
-- `src/hooks/useVoiceSetLog.ts` + `src/hooks/usePushToTalk.ts` — Speech (Capacitor native / Web API), Hold-to-talk-Geste
-- `src/lib/voiceSetParser.ts` + `src/lib/voiceTranscriptCleanup.ts` — DE-Gym-Utterances parsen, STT-Fehler bereinigen (Kino/€)
+- `src/screens/ExpressTrackingSetupScreen.tsx` + `src/lib/expressTracking.ts` — ExpressTracking-Wizard (Quelle → Sätze → Track)
+- `src/components/track/ExpressTrackingView.tsx` — Express-Tracking-UI (primärer Track-Modus); Voice pausiert (`EXPRESS_VOICE_ENABLED = false`)
+- `src/lib/expressTrackingFlow.ts` — Express-Track-Flow (nächster Satz, Fortschritt, Eligibility)
+- `src/hooks/useVoiceSetLog.ts` + `src/hooks/usePushToTalk.ts` — Speech (Capacitor native / Web API), derzeit ungenutzt in UI
+- `src/lib/voiceSetParser.ts` + `src/lib/voiceTranscriptCleanup.ts` — DE-Gym-Utterances parsen, STT-Fehler bereinigen (für späteres Voice-Re-Enable)
 - `@capgo/capacitor-speech-recognition` — natives iOS Speech (SPM in `ios/App/CapApp-SPM/Package.swift`)
 - `src/components/PlanBlockSection.tsx` — Baustein-Karte (neutral, optional collapsible, Fortschritts-Badge im Track)
 - `src/components/PlanDayAccordion.tsx` — Plan-Tage mit Block-Gruppierung; Builder-Modus (Baustein hinzufügen/entfernen)
@@ -79,7 +80,7 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 - `src/components/MuscleGroupSelect.tsx` — Muskelgruppen-Dropdown (Filter + Formular); `MuscleGroupFilterChips` entfernt
 - `src/PhoneApp.tsx` — Tab-/Push-Router (tracking, builder, workoutDetail, planDetail, sessionDetail, sessionEdit, planBuilder, settings, profile, calculator, bodyTracker)
 
-- `src/components/FloatNav.tsx` — 5-Slot-Glas-Nav (Start · KI Plan · Plus/TurboTracking · Pläne · Profil): unten Mobile/Tablet, links Desktop; zentraler FAB startet TurboTracking-Setup; `FloatNavContentFade` dimmt scrollenden Content; `floatNavContentInset()` / `FLOAT_NAV_FAB_OVERHANG` (FAB_SIZE − LIFT) für Scroll-Clearance; `FLOAT_NAV_BOTTOM_OFFSET_CSS` iOS-synchron halten
+- `src/components/FloatNav.tsx` — 5-Slot-Glas-Nav (Start · KI Plan · Plus/ExpressTracking · Pläne · Profil): unten Mobile/Tablet, links Desktop; zentraler FAB startet ExpressTracking-Setup; `FloatNavContentFade` dimmt scrollenden Content; `floatNavContentInset()` / `FLOAT_NAV_FAB_OVERHANG` (FAB_SIZE − LIFT) für Scroll-Clearance; `FLOAT_NAV_BOTTOM_OFFSET_CSS` iOS-synchron halten
 - `src/components/PhoneShell.tsx` — App-Shell mit Safe-Area; `reserveBottomSafeArea` wenn Bottom-Nav aktiv
 - `src/App.tsx` — Auth-Gate + ResponsiveProvider
 
@@ -88,13 +89,13 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 - MButton-Tast-Feedback: visuell-first (`buttonPressStyle` in `theme.ts`); native Vibration nur Primary-CTAs; `prefers-reduced-motion` ohne Transform/Glow-Pulse.
 - Bewusst KEIN Phone-Mockup — nur das App-UI.
 - Keine Browser-Dialogs (`alert`/`confirm`): Löschen über `DeleteConfirmDialog` (Bottom-Sheet, 1–2 Schritte); sonstige Bestätigungen über `ConfirmSheet`; Hinweise/Fehler über `AlertSheet`.
-- Breakpoints: Mobil <768, Tablet 768–1023, Desktop ≥1024; Nav: FloatNav unten (Mobile/Tablet) bzw. links (Desktop). Haupttabs: home, plans, profile (+ timer/history programmatisch); Verlauf über Home-Menü; TurboTracking über Nav-FAB (nicht mehr Home-Karte).
+- Breakpoints: Mobil <768, Tablet 768–1023, Desktop ≥1024; Nav: FloatNav unten (Mobile/Tablet) bzw. links (Desktop). Haupttabs: home, plans, profile (+ timer/history programmatisch); Verlauf über Home-Menü; ExpressTracking über Nav-FAB (nicht mehr Home-Karte).
 - Übungs-Katalog: Tabelle `exercises` (globale Seeds + eigene). Erreichbar über Sidepanel „Übungen“. Plan-Übungen in `plan_day_exercises` mit optionalem `catalog_exercise_id`.
 - 1RM-Rechner: Home → Route `calculator` / `CalculatorScreen`; aktives Workout → Icon oben rechts → `OneRmCalculatorSheet` mit Prefill aus offener Übung.
 - Übungs-Messung: `metric_type` u.a. `weight_reps`, `time`, `distance_time` (Cardio: ZEIT / M·km); Volumen nur bei Kraft-Metrics; KI setzt Cardiogeräte auf `time`/`distance_time`, Kraft auf `weight_reps`.
 - Satz-JSON: `{ reps, kg, done?, durationSec?, distanceM?, warmUp?, perceivedEffort? }` — `warmUp` nur S1, optional, rein visuell (zählt ins Volumen); `perceivedEffort` (Leicht/Passt/Schwer) gespeichert, Engine-Nutzung noch offen.
 - **Auto-Pilot:** Beim Tracken werden Sätze aus letzter Session vorgeschlagen (bestätigen/anpassen); Progression über `progressionEngine`; Gewichtssprünge in Settings (Ober-/Unterkörper). Boot-Overlay in TrackScreen bis Prefills angewendet.
-- **TurboTracking:** Standard-Track für eligible Workouts (Setup-Wizard → Turbo-View); kein Wechsel klassisch/Turbo mehr in der UI. **Voice-Logging (Labs):** Owner-Labs-Toggle; PTT-Button; Werte nur aus Parser (kein Auto-Pilot-Fallback).
+- **ExpressTracking:** Standard-Track für eligible Workouts (Setup-Wizard → Express-View); kein Wechsel klassisch/Express in der UI. Voice-Logging pausiert (Code bleibt für späteres Re-Enable).
 - Passwort-Reset per E-Mail-Token (OTP), nicht per Link.
 - Nutzer-Preferences in `profiles.preferences` (JSONB); u.a. `timerSounds`, `restSeconds`, `autoRest`, Timer-Defaults; **Profil** als FloatNav-Tab; Settings/Stats/Verlauf/Übungen weiter über Home-Sidepanel (Push-Routes). Rechtliches im Panel: externe Links zu rephive.app (`/impressum`, `/datenschutz`, `/agb`); Über rephive und Support als In-App-Routes. Hilfe-Menü v1: nur Support (kein FAQ/Feature-Anfrage-Platzhalter).
 - Legal/Support-URLs Web-App: `VITE_LEGAL_BASE_URL` (Default `https://rephive.app`).

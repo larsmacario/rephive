@@ -1,5 +1,5 @@
 import type { Exercise } from "../../lib/engine";
-import { formatTurboSetDisplay } from "../../lib/frictionTurbo";
+import { formatExpressSetDisplay } from "../../lib/expressTrackingFlow";
 import { setVolumeKg } from "../../lib/exerciseCatalog";
 import { EXERCISE_ROW, M } from "../../theme";
 import { ExerciseListRow } from "../ExerciseListRow";
@@ -7,7 +7,7 @@ import { Icon } from "../Icon";
 import { MButton } from "../MButton";
 import { MStat } from "../widgets";
 
-export interface TurboWorkoutCompleteViewProps {
+export interface ExpressWorkoutCompleteViewProps {
   exercises: Exercise[];
   sessionName: string;
   elapsedSec: number;
@@ -27,7 +27,7 @@ function summarizeExerciseSets(ex: Exercise): string {
   const uniform =
     doneSets.length === ex.sets.length &&
     doneSets.every((s) => s.kg === sample.kg && s.reps === sample.reps);
-  if (uniform) return `${doneSets.length}× ${formatTurboSetDisplay(sample.kg, sample.reps)}`;
+  if (uniform) return `${doneSets.length}× ${formatExpressSetDisplay(sample.kg, sample.reps)}`;
   return `${doneSets.length} Sätze geloggt`;
 }
 
@@ -51,12 +51,12 @@ function CompleteLeadingIcon() {
   );
 }
 
-export function TurboWorkoutCompleteView({
+export function ExpressWorkoutCompleteView({
   exercises,
   sessionName,
   elapsedSec,
   onBack,
-}: TurboWorkoutCompleteViewProps) {
+}: ExpressWorkoutCompleteViewProps) {
   const doneSets = exercises.reduce((a, e) => a + e.sets.filter((s) => s.done).length, 0);
   const totalSets = exercises.reduce((a, e) => a + e.sets.length, 0);
   const volumeKg = exercises.reduce(

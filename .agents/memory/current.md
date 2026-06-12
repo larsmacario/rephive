@@ -1,19 +1,19 @@
 # Aktueller Stand
 
 ## Letzte Änderungen
-- **TurboTrack Voice (Labs):** Push-to-talk in `FrictionTurboView` (`usePushToTalk` + `useVoiceSetLog`); native iOS via `@capgo/capacitor-speech-recognition`, Web-Fallback `webkitSpeechRecognition`; Bereinigung STT-Fehler (`voiceTranscriptCleanup`: Kino→Kilo, €→Kilo); Parser mit DE-Zahlwörtern, `20x10`, `mal`-Notation (`voiceSetParser`).
-- **Voice-UX:** Preview-Box oben für erkannten Text; kein Text/Fehler unter Voice-Button; kein Auto-Pilot-Fallback für kg/reps (nur echte Parser-Werte).
+- **TurboTracking → ExpressTracking:** Vollständige Umbenennung (Domain, UI, Routes, FAB); neuer Session-Tag `ExpressTracking`, Legacy `TurboTracking` + `Individuell` weiter erkannt.
+- **Voice pausiert:** PTT-UI aus `ExpressTrackingView` entfernt; Code (`useVoiceSetLog`, Parser, Tests) bleibt; Re-Enable über `EXPRESS_VOICE_ENABLED` in `expressTracking.ts`.
 
 ## Fokus
-- TurboTrack Voice auf echtem iPhone verifizieren (Hold → Preview → Übernehmen).
-- Optional: weitere STT-Homophone in `voiceTranscriptCleanup` ergänzen.
+- ExpressTracking-Flow manuell testen (FAB → Setup → Track → Confirm ohne Voice).
+- Alte TurboTracking-Sessions in Setup „Wiederholen“-Liste prüfen.
 
 ## Nächste Schritte
-- Manuell: verschiedene Formulierungen testen („80 Kilo 8“, „Zehn Kilo 20 Wiederholung“, `20x10`).
 - Nach Web-Changes: `npm run build && npx cap sync ios`.
+- Voice erst reaktivieren, wenn STT auf echtem iPhone/AirPods zuverlässig (aktuell fehlerhaft).
 
 ## Offene Punkte
-- iPhone-Simulator: Speech oft ohne Mikro-Signal — echtes Gerät für Voice-Tests.
+- Voice-Logging: iPhone + AirPods-Test fehlgeschlagen — Feature bewusst aus UI.
 - YouTube offline nicht gecacht (v1 online-only).
 - Ausstehende Sessions erst nach Sync in History (kein „Ausstehend"-Badge v1).
 - `exercises_backup_20260605` ohne RLS (Backup-Tabelle).

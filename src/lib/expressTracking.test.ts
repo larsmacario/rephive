@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { SessionExercise } from "../data";
 import {
-  buildTurboTrackingWorkout,
-  extractTurboTemplatesFromSession,
-  groupTurboTemplatesByMuscleGroup,
-  isTurboTrackingExercise,
-  sessionExercisesToTurboTemplates,
-} from "./turboTracking";
+  buildExpressTrackingWorkout,
+  extractExpressTemplatesFromSession,
+  groupExpressTemplatesByMuscleGroup,
+  isExpressTrackingExercise,
+  isExpressTrackingSessionTag,
+  sessionExercisesToExpressTemplates,
+} from "./expressTracking";
 
 function sessionExercise(overrides: Partial<SessionExercise> & Pick<SessionExercise, "name">): SessionExercise {
   return {
@@ -17,24 +18,33 @@ function sessionExercise(overrides: Partial<SessionExercise> & Pick<SessionExerc
   };
 }
 
-describe("isTurboTrackingExercise", () => {
-  it("accepts straight_sets weight_reps", () => {
-    expect(isTurboTrackingExercise({ metric: "weight_reps", blockFormat: "straight_sets" })).toBe(true);
-  });
-
-  it("rejects metcon and supersets", () => {
-    expect(isTurboTrackingExercise({ blockType: "metcon", metric: "weight_reps" })).toBe(false);
-    expect(isTurboTrackingExercise({ supersetId: "s1", metric: "weight_reps" })).toBe(false);
-  });
-
-  it("rejects amrap format", () => {
-    expect(isTurboTrackingExercise({ metric: "weight_reps", blockFormat: "amrap" })).toBe(false);
+describe("isExpressTrackingSessionTag", () => {
+  it("accepts current and legacy tags", () => {
+    expect(isExpressTrackingSessionTag(["ExpressTracking"])).toBe(true);
+    expect(isExpressTrackingSessionTag(["TurboTracking"])).toBe(true);
+    expect(isExpressTrackingSessionTag(["Individuell"])).toBe(true);
+    expect(isExpressTrackingSessionTag(["Plan"])).toBe(false);
   });
 });
 
-describe("sessionExercisesToTurboTemplates", () => {
+describe("isExpressTrackingExercise", () => {
+  it("accepts straight_sets weight_reps", () => {
+    expect(isExpressTrackingExercise({ metric: "weight_reps", blockFormat: "straight_sets" })).toBe(true);
+  });
+
+  it("rejects metcon and supersets", () => {
+    expect(isExpressTrackingExercise({ blockType: "metcon", metric: "weight_reps" })).toBe(false);
+    expect(isExpressTrackingExercise({ supersetId: "s1", metric: "weight_reps" })).toBe(false);
+  });
+
+  it("rejects amrap format", () => {
+    expect(isExpressTrackingExercise({ metric: "weight_reps", blockFormat: "amrap" })).toBe(false);
+  });
+});
+
+describe("sessionExercisesToExpressTemplates", () => {
   it("maps eligible exercises and skips others", () => {
-    const result = sessionExercisesToTurboTemplates([
+    const result = sessionExercisesToExpressTemplates([
       sessionExercise({ name: "Bankdrücken", catalogExerciseId: "c1" }),
       sessionExercise({ name: "MetCon", blockType: "metcon" }),
       sessionExercise({ name: "A", supersetId: "s1" }),
@@ -50,13 +60,13 @@ describe("sessionExercisesToTurboTemplates", () => {
   });
 });
 
-describe("buildTurboTrackingWorkout", () => {
+describe("buildExpressTrackingWorkout", () => {
   it("builds uniform sets for all templates", () => {
-    const wo = buildTurboTrackingWorkout({
+    const wo = buildExpressTrackingWorkout({
       templates: [{ name: "Kniebeuge", templateKg: 100, templateReps: 5 }],
       setCount: 4,
     });
-    expect(wo.name).toBe("TurboTracking");
+    expect(wo.name).toBe("ExpressTracking");
     expect(wo.exercises).toHaveLength(1);
     expect(wo.exercises[0]?.sets).toHaveLength(4);
     expect(wo.exercises[0]?.sets[0]?.kg).toBe(100);
@@ -65,7 +75,7 @@ describe("buildTurboTrackingWorkout", () => {
   });
 });
 
-describe("groupTurboTemplatesByMuscleGroup", () => {
+describe("groupExpressTemplatesByMuscleGroup", () => {
   it("groups templates by muscle group in catalog order", () => {
     const libraryById = new Map([
       [
@@ -82,7 +92,7 @@ describe("groupTurboTemplatesByMuscleGroup", () => {
       ],
     ]);
 
-    const grouped = groupTurboTemplatesByMuscleGroup(
+    const grouped = groupExpressTemplatesByMuscleGroup(
       [
         { name: "Trizepsdrücken", group: "Trizeps" },
         { name: "Bankdrücken", catalogExerciseId: "c1" },
@@ -96,9 +106,9 @@ describe("groupTurboTemplatesByMuscleGroup", () => {
   });
 });
 
-describe("extractTurboTemplatesFromSession", () => {
+describe("extractExpressTemplatesFromSession", () => {
   it("ignores timer sessions", () => {
-    const result = extractTurboTemplatesFromSession({
+    const result = extractExpressTemplatesFromSession({
       id: "1",
       day: "Mo",
       date: "1.1.",

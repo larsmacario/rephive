@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { normalizeWorkout, startPlanDaySession } from "./data";
 import type { Workout } from "./lib/engine";
-import { TURBO_TRACKING_TAG } from "./lib/turboTracking";
+import { EXPRESS_TRACKING_TAG } from "./lib/expressTracking";
 import {
   type ActiveWorkoutDraft,
   type ActiveWorkoutSnapshot,
@@ -53,7 +53,7 @@ import { ActiveTimerProvider, useActiveTimer } from "./lib/activeTimer";
 import { usePreferences } from "./lib/preferences";
 import { OnboardingWizard } from "./screens/OnboardingWizard";
 import { AITrainingPlanWizard } from "./screens/AITrainingPlanWizard";
-import { TurboTrackingSetupScreen } from "./screens/TurboTrackingSetupScreen";
+import { ExpressTrackingSetupScreen } from "./screens/ExpressTrackingSetupScreen";
 type Route =
   | {
       kind: "tracking";
@@ -62,9 +62,9 @@ type Route =
       startedAt: number;
       tags: string[];
       planId?: string;
-      turboTracking?: boolean;
+      expressTracking?: boolean;
     }
-  | { kind: "turboTrackingSetup" }
+  | { kind: "expressTrackingSetup" }
   | { kind: "planBuilder"; planId?: string }
   | { kind: "exercises" }
   | { kind: "sessionDetail"; sessionId: string }
@@ -113,7 +113,7 @@ function buildPayloadFromDraft(draft: ActiveWorkoutDraft): FinishPayload {
   const isCustom = !draft.planDayId;
   return {
     name: draft.session.name,
-    tags: draft.turboTracking ? [TURBO_TRACKING_TAG] : isCustom ? [TURBO_TRACKING_TAG] : draft.tags,
+    tags: draft.expressTracking ? [EXPRESS_TRACKING_TAG] : isCustom ? [EXPRESS_TRACKING_TAG] : draft.tags,
     durationMin: Math.max(1, Math.round(getActiveDurationSec(draft.startedAt) / 60)),
     volumeKg,
     setCount: doneSets,
@@ -225,19 +225,19 @@ function PhoneAppInner() {
     });
   };
 
-  const goTurboTrackingSetup = () => {
+  const goExpressTrackingSetup = () => {
     runWithReplaceDraftConfirm(() => {
-      setRoute({ kind: "turboTrackingSetup" });
+      setRoute({ kind: "expressTrackingSetup" });
     });
   };
 
-  const startTurboTracking = (session: Workout) => {
+  const startExpressTracking = (session: Workout) => {
     setRoute({
       kind: "tracking",
       session: normalizeWorkout(JSON.parse(JSON.stringify(session)) as Workout),
       startedAt: Date.now(),
-      tags: [TURBO_TRACKING_TAG],
-      turboTracking: true,
+      tags: [EXPRESS_TRACKING_TAG],
+      expressTracking: true,
     });
   };
 
@@ -252,7 +252,7 @@ function PhoneAppInner() {
       startedAt: activeWorkout.startedAt,
       tags: activeWorkout.tags,
       planId: activeWorkout.planId,
-      turboTracking: activeWorkout.turboTracking,
+      expressTracking: activeWorkout.expressTracking,
     });
   };
 
@@ -356,7 +356,7 @@ function PhoneAppInner() {
         planDayId={route.planDayId}
         tags={route.tags}
         planId={route.planId}
-        turboTracking={route.turboTracking}
+        expressTracking={route.expressTracking}
         onPause={handlePauseFromTrack}
         onDiscard={handleDiscardWorkout}
         onSaveTimerSession={handleSaveTimerSession}
@@ -364,11 +364,11 @@ function PhoneAppInner() {
       />
     );
     showNav = false;
-  } else if (route?.kind === "turboTrackingSetup") {
+  } else if (route?.kind === "expressTrackingSetup") {
     body = (
-      <TurboTrackingSetupScreen
+      <ExpressTrackingSetupScreen
         onBack={() => close("home")}
-        onStart={(workout) => startTurboTracking(workout)}
+        onStart={(workout) => startExpressTracking(workout)}
       />
     );
     showNav = false;
@@ -542,7 +542,7 @@ function PhoneAppInner() {
         <FloatNav
           tab={tab}
           onTab={handleTab}
-          onTurboTracking={goTurboTrackingSetup}
+          onExpressTracking={goExpressTrackingSetup}
           timerActive={timerActive}
           placement={navPlacement}
         />

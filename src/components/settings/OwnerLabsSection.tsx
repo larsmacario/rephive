@@ -30,9 +30,9 @@ export function OwnerLabsSection() {
         }}
       >
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: M.fg, fontWeight: 600, fontSize: 15 }}>Friction-Killer (Turbo Track)</div>
+          <div style={{ color: M.fg, fontWeight: 600, fontSize: 15 }}>Friction-Killer (Express Tracking)</div>
           <div style={{ color: M.mut, fontSize: 12, marginTop: 3, lineHeight: 1.45 }}>
-            Experiment · nur auf diesem Gerät. Ein Satz, Riesen-Confirm, optional Voice.
+            Experiment · nur auf diesem Gerät. Ein Satz, Riesen-Confirm, schnelle Overrides.
           </div>
         </div>
         <MSwitch
@@ -46,14 +46,14 @@ export function OwnerLabsSection() {
         <div style={{ color: M.mut, fontSize: 12, lineHeight: 1.5 }}>
           Session A: klassischer Track — Zeit/Taps pro Satz notieren.
           <br />
-          Session B: Turbo an — Ziel: ≤3 s und ≤2 Taps bei Auto-Pilot-Prefill.
+          Session B: Express an — Ziel: ≤3 s und ≤2 Taps bei Auto-Pilot-Prefill.
         </div>
       </div>
 
       {metricsLog.length > 0 ? (
         <div style={{ paddingTop: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: M.mut, marginBottom: 8 }}>
-            LETZTE TURBO-SESSIONS
+            LETZTE EXPRESS-SESSIONS
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {metricsLog.slice(0, 5).map((entry, i) => (

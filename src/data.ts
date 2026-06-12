@@ -183,7 +183,7 @@ export const startPlanDaySession = (
   });
 
 export const CUSTOM_SESSION_NAME = "Individuelles Training";
-export const TURBO_TRACKING_SESSION_NAME = "TurboTracking";
+export const EXPRESS_TRACKING_SESSION_NAME = "ExpressTracking";
 
 /** Ensures every exercise has metric (e.g. drafts from older app versions). */
 export function normalizeWorkout(session: Workout): Workout {
@@ -197,7 +197,7 @@ export function normalizeWorkout(session: Workout): Workout {
   };
 }
 
-/** @deprecated Use startTurboTrackingSession via setup wizard. */
+/** @deprecated Use ExpressTracking setup wizard. */
 export const startCustomSession = (): Workout => ({
   name: CUSTOM_SESSION_NAME,
   sub: "",

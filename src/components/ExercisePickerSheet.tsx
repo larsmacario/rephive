@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LibraryExercise } from "../data";
 import { normalizeMuscleGroup, metricShort } from "../lib/exerciseCatalog";
-import { isTurboTrackingLibraryExercise } from "../lib/turboTracking";
+import { isExpressTrackingLibraryExercise } from "../lib/expressTracking";
 import { BottomSheet } from "./BottomSheet";
 import { MuscleGroupSelect } from "./MuscleGroupSelect";
 import { M } from "../theme";
@@ -16,7 +16,7 @@ export interface ExercisePickerSheetProps {
   onSelect: (exercise: LibraryExercise) => void;
   onSelectMultiple?: (exercises: LibraryExercise[]) => void;
   mode?: "single" | "multi";
-  turboTrackingOnly?: boolean;
+  expressTrackingOnly?: boolean;
   library: LibraryExercise[];
   loading?: boolean;
   title?: string;
@@ -32,7 +32,7 @@ export function ExercisePickerSheet({
   onSelect,
   onSelectMultiple,
   mode = "single",
-  turboTrackingOnly = false,
+  expressTrackingOnly = false,
   library,
   loading,
   title = "Übungsbibliothek",
@@ -58,12 +58,12 @@ export function ExercisePickerSheet({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return library.filter((ex) => {
-      if (turboTrackingOnly && !isTurboTrackingLibraryExercise(ex)) return false;
+      if (expressTrackingOnly && !isExpressTrackingLibraryExercise(ex)) return false;
       if (groupFilter && normalizeMuscleGroup(ex.group) !== groupFilter) return false;
       if (q && !ex.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [library, query, groupFilter, turboTrackingOnly]);
+  }, [library, query, groupFilter, expressTrackingOnly]);
 
   const toggleMulti = (ex: LibraryExercise) => {
     setSelectedIds((prev) => (prev.includes(ex.id) ? prev.filter((id) => id !== ex.id) : [...prev, ex.id]));

@@ -53,7 +53,7 @@ export function patchOwnerLabFlags(patch: Partial<OwnerLabFlags>): OwnerLabFlags
 }
 
 export interface FrictionSessionMetrics {
-  mode: "turbo" | "classic";
+  mode: "express" | "turbo" | "classic";
   startedAt: string;
   endedAt?: string;
   setsLogged: number;

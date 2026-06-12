@@ -129,7 +129,7 @@ export function AboutScreen({ onBack }: AboutScreenProps) {
           <p style={{ margin: "0 0 12px", fontSize: 15, lineHeight: 1.6, color: M.mut }}>
             Training soll wirken, nicht Zeit fressen. rephive bündelt Plan, Live-Tracking, Timer und Fortschritt
             an einem Ort — ohne jedes Mal neu zu planen. Mit{" "}
-            <strong style={{ color: M.fg }}>TurboTracking</strong> startest du über den Plus-Button in Sekunden:
+            <strong style={{ color: M.fg }}>ExpressTracking</strong> startest du über den Plus-Button in Sekunden:
             letztes Workout wiederholen oder Übungen aus der Bibliothek — auch ohne festen Plan.
           </p>
           <p style={{ margin: "0 0 12px", fontSize: 15, lineHeight: 1.6, color: M.mut }}>

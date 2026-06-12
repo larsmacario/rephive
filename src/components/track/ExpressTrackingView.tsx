@@ -1,25 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Exercise } from "../../lib/engine";
 import {
-  countTurboProgress,
-  findNextTurboExercise,
-  findNextTurboTarget,
-  formatTurboSetDisplay,
-} from "../../lib/frictionTurbo";
+  countExpressProgress,
+  findNextExpressExercise,
+  findNextExpressTarget,
+  formatExpressSetDisplay,
+} from "../../lib/expressTrackingFlow";
 import type { SetField } from "../../lib/exerciseSets";
 import { prefersReducedMotion, triggerTapHaptic } from "../../lib/haptics";
 import {
   appendFrictionMetrics,
   type FrictionSessionMetrics,
 } from "../../lib/ownerLabs";
-import { useVoiceSetLog } from "../../hooks/useVoiceSetLog";
-import { usePushToTalk } from "../../hooks/usePushToTalk";
-import { parseVoiceSetUtterance, type VoiceSetParseResult } from "../../lib/voiceSetParser";
-import { brandButtonStyle, buttonBase, buttonPressStyle, M } from "../../theme";
+import { M } from "../../theme";
 import { MButton } from "../MButton";
 import { Icon } from "../Icon";
 
-export interface FrictionTurboViewProps {
+export interface ExpressTrackingViewProps {
   exercises: Exercise[];
   elapsedSec: number;
   onBack: () => void;
@@ -40,12 +37,12 @@ function fmtElapsed(sec: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-export function FrictionTurboView({
+export function ExpressTrackingView({
   exercises,
   elapsedSec,
   onBack,
   onBumpSet,
-  onSetValues,
+  onSetValues: _onSetValues,
   onToggleSet,
   onAddSet,
   onRemoveSet,
@@ -53,16 +50,16 @@ export function FrictionTurboView({
   onOpenHistory,
   onOpenNotes,
   onAllSetsDone,
-}: FrictionTurboViewProps) {
-  const target = useMemo(() => findNextTurboTarget(exercises), [exercises]);
-  const progress = useMemo(() => countTurboProgress(exercises), [exercises]);
+}: ExpressTrackingViewProps) {
+  const target = useMemo(() => findNextExpressTarget(exercises), [exercises]);
+  const progress = useMemo(() => countExpressProgress(exercises), [exercises]);
   const progressPct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   const exercise = target ? exercises.find((e) => e.id === target.exerciseId) : null;
   const set = exercise && target ? exercise.sets[target.setIndex] : null;
 
   const metricsRef = useRef<FrictionSessionMetrics>({
-    mode: "turbo",
+    mode: "express",
     startedAt: new Date().toISOString(),
     setsLogged: 0,
     tapCount: 0,
@@ -73,13 +70,12 @@ export function FrictionTurboView({
   const prevTargetKey = useRef<string | null>(null);
   const finishedRef = useRef(false);
 
-  const [voicePreview, setVoicePreview] = useState<VoiceSetParseResult | null>(null);
   const [exerciseSwitchFlash, setExerciseSwitchFlash] = useState(false);
   const prevExerciseIdRef = useRef<string | null>(null);
 
   const nextExercise = useMemo(() => {
     if (!target) return null;
-    return findNextTurboExercise(exercises, target.exerciseId);
+    return findNextExpressExercise(exercises, target.exerciseId);
   }, [exercises, target]);
 
   useEffect(() => {
@@ -138,38 +134,6 @@ export function FrictionTurboView({
     recordOverride();
     onBumpSet(target.exerciseId, target.setIndex, field, delta);
   };
-
-  const handleVoiceResult = useCallback(
-    (text: string) => {
-      if (!target) return;
-      setVoicePreview(parseVoiceSetUtterance(text, exercises));
-    },
-    [target, exercises],
-  );
-
-  const applyVoiceAndLog = async () => {
-    if (!target || voicePreview?.kg == null || voicePreview.reps == null) return;
-    recordOverride();
-    onSetValues(target.exerciseId, target.setIndex, voicePreview.kg, voicePreview.reps);
-    setVoicePreview(null);
-    bumpTap();
-    const duration = Math.round(performance.now() - setStartedAt.current);
-    metricsRef.current.setDurationsMs.push(duration);
-    metricsRef.current.setsLogged += 1;
-    await triggerTapHaptic();
-    onToggleSet(target.exerciseId, target.setIndex);
-  };
-
-  const voice = useVoiceSetLog({
-    onResult: handleVoiceResult,
-    contextualStrings: exercise ? [exercise.name] : [],
-  });
-  const ptt = usePushToTalk(
-    () => voice.start(),
-    () => voice.stop(),
-    voice.supported,
-  );
-  const voiceActive = ptt.holding || voice.listening || voice.starting;
 
   if (!target || !set || !exercise) {
     if (onAllSetsDone) {
@@ -309,7 +273,7 @@ export function FrictionTurboView({
               WebkitBoxOrient: "vertical",
               overflow: "hidden",
               animation:
-                exerciseSwitchFlash && !reducedMotion ? "turboExerciseSwitch 0.6s ease" : undefined,
+                exerciseSwitchFlash && !reducedMotion ? "expressExerciseSwitch 0.6s ease" : undefined,
             }}
           >
             {target.exerciseName}
@@ -324,7 +288,7 @@ export function FrictionTurboView({
               marginBottom: 16,
             }}
           >
-            <TurboSetStepButton label="−" onClick={handleRemoveSet} disabled={!canRemoveSet} ariaLabel="Satz entfernen" />
+            <ExpressSetStepButton label="−" onClick={handleRemoveSet} disabled={!canRemoveSet} ariaLabel="Satz entfernen" />
             <span
               style={{
                 fontSize: 13,
@@ -337,7 +301,7 @@ export function FrictionTurboView({
             >
               Satz {target.setIndex + 1} von {target.totalSetsInExercise}
             </span>
-            <TurboSetStepButton label="+" onClick={handleAddSet} ariaLabel="Satz hinzufügen" />
+            <ExpressSetStepButton label="+" onClick={handleAddSet} ariaLabel="Satz hinzufügen" />
           </div>
 
           <div
@@ -352,7 +316,7 @@ export function FrictionTurboView({
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {formatTurboSetDisplay(set.kg, set.reps)}
+            {formatExpressSetDisplay(set.kg, set.reps)}
           </div>
 
           <div
@@ -363,10 +327,10 @@ export function FrictionTurboView({
               marginBottom: 16,
             }}
           >
-            <TurboBumpButton label="kg −" onClick={() => handleBump("kg", -1)} />
-            <TurboBumpButton label="kg +" onClick={() => handleBump("kg", 1)} />
-            <TurboBumpButton label="Wdh −" onClick={() => handleBump("reps", -1)} />
-            <TurboBumpButton label="Wdh +" onClick={() => handleBump("reps", 1)} />
+            <ExpressBumpButton label="kg −" onClick={() => handleBump("kg", -1)} />
+            <ExpressBumpButton label="kg +" onClick={() => handleBump("kg", 1)} />
+            <ExpressBumpButton label="Wdh −" onClick={() => handleBump("reps", -1)} />
+            <ExpressBumpButton label="Wdh +" onClick={() => handleBump("reps", 1)} />
           </div>
 
           <div
@@ -437,7 +401,7 @@ export function FrictionTurboView({
       </div>
 
       <style>{`
-        @keyframes turboExerciseSwitch {
+        @keyframes expressExerciseSwitch {
           0% { transform: scale(1); }
           35% { transform: scale(1.06); }
           100% { transform: scale(1); }
@@ -451,83 +415,9 @@ export function FrictionTurboView({
           flexDirection: "column",
           gap: 10,
           paddingTop: 8,
-          position: "relative",
         }}
       >
-        {voicePreview ? (
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              bottom: "100%",
-              marginBottom: 10,
-              padding: "12px 14px",
-              borderRadius: 14,
-              border: "1px solid " + M.line2,
-              background: M.card,
-              zIndex: 4,
-              boxShadow: "0 -8px 24px rgba(0,0,0,.35)",
-            }}
-          >
-            <div style={{ fontSize: 12, color: M.mut, marginBottom: 6 }}>
-              Erkannt: „{voicePreview.cleaned || voicePreview.raw}"
-            </div>
-            {voicePreview.kg != null && voicePreview.reps != null ? (
-              <div style={{ fontWeight: 700, color: M.fg, marginBottom: 10 }}>
-                {formatTurboSetDisplay(voicePreview.kg, voicePreview.reps)}
-              </div>
-            ) : (
-              <div style={{ fontSize: 13, color: M.mut, marginBottom: 10 }}>Werte nicht erkannt</div>
-            )}
-            <div style={{ display: "flex", gap: 8 }}>
-              <MButton
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setVoicePreview(null)}
-                style={{ flex: 1 }}
-              >
-                Verwerfen
-              </MButton>
-              {voicePreview.kg != null && voicePreview.reps != null ? (
-                <MButton type="button" variant="primary" size="sm" onClick={applyVoiceAndLog} style={{ flex: 1 }}>
-                  Übernehmen und loggen
-                </MButton>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        <button
-          type="button"
-          aria-label="Gedrückt halten für Spracheingabe"
-          aria-pressed={voiceActive}
-          disabled={!voice.supported}
-          onPointerDown={ptt.press}
-          onContextMenu={(e) => e.preventDefault()}
-          style={{
-            ...buttonBase,
-            ...brandButtonStyle(),
-            width: "100%",
-            minHeight: 88,
-            fontSize: 18,
-            fontFamily: M.disp,
-            fontWeight: 800,
-            letterSpacing: 0.4,
-            borderRadius: 16,
-            touchAction: "none",
-            userSelect: "none",
-            WebkitUserSelect: "none",
-            WebkitTouchCallout: "none",
-            ...(voiceActive ? buttonPressStyle("primary", true) : null),
-            ...(!voice.supported ? { opacity: 0.5, cursor: "not-allowed" } : null),
-          }}
-        >
-          {voiceActive ? "Sprich jetzt…" : voice.supported ? "Gedrückt halten · Voice" : "Voice nicht verfügbar"}
-        </button>
-
-        {isSuggested && !voicePreview ? (
+        {isSuggested ? (
           <div style={{ textAlign: "center", fontSize: 12, color: M.brand, fontStyle: "italic" }}>
             Auto-Pilot · ein Tap zum Loggen
           </div>
@@ -535,7 +425,7 @@ export function FrictionTurboView({
 
         <MButton
           type="button"
-          variant="secondary"
+          variant="primary"
           size="md"
           fullWidth
           onClick={handleConfirm}
@@ -548,7 +438,7 @@ export function FrictionTurboView({
   );
 }
 
-function TurboSetStepButton({
+function ExpressSetStepButton({
   label,
   onClick,
   disabled,
@@ -587,7 +477,7 @@ function TurboSetStepButton({
   );
 }
 
-function TurboBumpButton({ label, onClick }: { label: string; onClick: () => void }) {
+function ExpressBumpButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"

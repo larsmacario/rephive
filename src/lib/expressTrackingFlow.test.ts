@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Exercise } from "./engine";
-import { findNextTurboExercise, findNextTurboTarget, isWorkoutTurboEligible } from "./frictionTurbo";
+import { findNextExpressExercise, findNextExpressTarget, isWorkoutExpressEligible } from "./expressTrackingFlow";
 
 function makeExercise(overrides: Partial<Exercise> & Pick<Exercise, "id" | "name">): Exercise {
   return {
@@ -10,10 +10,10 @@ function makeExercise(overrides: Partial<Exercise> & Pick<Exercise, "id" | "name
   };
 }
 
-describe("isWorkoutTurboEligible", () => {
+describe("isWorkoutExpressEligible", () => {
   it("accepts linear weight_reps exercises", () => {
     const list = [makeExercise({ id: "1", name: "Bankdrücken" })];
-    expect(isWorkoutTurboEligible(list)).toBe(true);
+    expect(isWorkoutExpressEligible(list)).toBe(true);
   });
 
   it("rejects supersets", () => {
@@ -21,27 +21,27 @@ describe("isWorkoutTurboEligible", () => {
       makeExercise({ id: "1", name: "A", supersetId: "s1" }),
       makeExercise({ id: "2", name: "B", supersetId: "s1" }),
     ];
-    expect(isWorkoutTurboEligible(list)).toBe(false);
+    expect(isWorkoutExpressEligible(list)).toBe(false);
   });
 
   it("rejects non weight_reps metrics", () => {
     const list = [makeExercise({ id: "1", name: "Lauf", metric: "distance_time" })];
-    expect(isWorkoutTurboEligible(list)).toBe(false);
+    expect(isWorkoutExpressEligible(list)).toBe(false);
   });
 });
 
-describe("findNextTurboExercise", () => {
+describe("findNextExpressExercise", () => {
   it("returns the next exercise in list order", () => {
     const list = [
       makeExercise({ id: "1", name: "Bankdrücken" }),
       makeExercise({ id: "2", name: "Rudern" }),
       makeExercise({ id: "3", name: "Schulterdrücken" }),
     ];
-    expect(findNextTurboExercise(list, "1")).toEqual({
+    expect(findNextExpressExercise(list, "1")).toEqual({
       exerciseId: "2",
       exerciseName: "Rudern",
     });
-    expect(findNextTurboExercise(list, "2")).toEqual({
+    expect(findNextExpressExercise(list, "2")).toEqual({
       exerciseId: "3",
       exerciseName: "Schulterdrücken",
     });
@@ -52,16 +52,16 @@ describe("findNextTurboExercise", () => {
       makeExercise({ id: "1", name: "A" }),
       makeExercise({ id: "2", name: "B" }),
     ];
-    expect(findNextTurboExercise(list, "2")).toBeNull();
+    expect(findNextExpressExercise(list, "2")).toBeNull();
   });
 
   it("returns null for unknown exercise id", () => {
     const list = [makeExercise({ id: "1", name: "A" })];
-    expect(findNextTurboExercise(list, "missing")).toBeNull();
+    expect(findNextExpressExercise(list, "missing")).toBeNull();
   });
 });
 
-describe("findNextTurboTarget", () => {
+describe("findNextExpressTarget", () => {
   it("returns first undone set across exercises", () => {
     const list = [
       makeExercise({
@@ -74,7 +74,7 @@ describe("findNextTurboTarget", () => {
       }),
       makeExercise({ id: "2", name: "B" }),
     ];
-    const t = findNextTurboTarget(list);
+    const t = findNextExpressTarget(list);
     expect(t?.exerciseId).toBe("1");
     expect(t?.setIndex).toBe(1);
   });

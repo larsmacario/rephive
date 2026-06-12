@@ -80,7 +80,7 @@ import {
 } from "./metcon";
 import type { PerceivedEffort } from "./progressionEngine";
 import { isTimerSession } from "./timerSession";
-import { isTurboTrackingSessionTag } from "./turboTracking";
+import { isExpressTrackingSessionTag } from "./expressTracking";
 import { useAuth } from "./auth";
 
 type DbSession = Tables<"sessions">;
@@ -2166,7 +2166,7 @@ export async function fetchRecentSessionsWithExercises(limit = 10): Promise<Hist
   return sessions.filter((s): s is HistoryEntry => s !== null);
 }
 
-export async function fetchRecentTurboTrackingSessions(limit = 10): Promise<HistoryEntry[]> {
+export async function fetchRecentExpressTrackingSessions(limit = 10): Promise<HistoryEntry[]> {
   const fetchLimit = Math.max(limit * 4, 20);
   const { data: sessionRows, error } = await supabase
     .from("sessions")
@@ -2179,7 +2179,7 @@ export async function fetchRecentTurboTrackingSessions(limit = 10): Promise<Hist
   const candidateIds = sessionRows
     .filter((row) => {
       const tags = row.tags ?? [];
-      return isTurboTrackingSessionTag(tags) && !isTimerSession(tags);
+      return isExpressTrackingSessionTag(tags) && !isTimerSession(tags);
     })
     .slice(0, limit)
     .map((row) => row.id);

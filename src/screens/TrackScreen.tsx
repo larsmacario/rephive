@@ -46,8 +46,8 @@ import { TrackExerciseSlide } from "../components/track/TrackExerciseSlide";
 import { TrackExerciseNoteSheet } from "../components/track/TrackExerciseNoteSheet";
 import { IntervalTimerSheet } from "../components/IntervalTimerSheet";
 import { MetconBlockView } from "../components/track/MetconBlockView";
-import { FrictionTurboView } from "../components/track/FrictionTurboView";
-import { TurboWorkoutCompleteView } from "../components/track/TurboWorkoutCompleteView";
+import { ExpressTrackingView } from "../components/track/ExpressTrackingView";
+import { ExpressWorkoutCompleteView } from "../components/track/ExpressWorkoutCompleteView";
 import { ExerciseSetEditSheet } from "../components/track/ExerciseSetEditSheet";
 import { TrackAutopilotBootOverlay } from "../components/track/TrackAutopilotBootOverlay";
 import type { SaveSessionInput } from "../lib/db";
@@ -59,8 +59,8 @@ import {
   formatMetconSessionResult,
   isMetconFormat,
 } from "../lib/metcon";
-import { isWorkoutTurboEligible, findNextTurboTarget } from "../lib/frictionTurbo";
-import { TURBO_TRACKING_TAG } from "../lib/turboTracking";
+import { isWorkoutExpressEligible, findNextExpressTarget } from "../lib/expressTrackingFlow";
+import { EXPRESS_TRACKING_TAG } from "../lib/expressTracking";
 import { isOwnerLabsVisible, useOwnerLabs } from "../lib/ownerLabs";
 
 export interface TrackScreenProps {
@@ -69,7 +69,7 @@ export interface TrackScreenProps {
   planDayId?: string;
   tags: string[];
   planId?: string;
-  turboTracking?: boolean;
+  expressTracking?: boolean;
   onPause: (snapshot: ActiveWorkoutSnapshot) => void;
   onDiscard: () => void;
   onSaveTimerSession: (input: SaveSessionInput) => Promise<void>;
@@ -98,13 +98,13 @@ export interface TrackScreenProps {
   }) => void | Promise<void>;
 }
 
-type TrackView = "overview" | "exercise" | "turbo" | "metcon" | "complete";
+type TrackView = "overview" | "exercise" | "express" | "metcon" | "complete";
 
-export function TrackScreen({ session, startedAt, planDayId, tags, planId, turboTracking = false, onPause, onDiscard, onSaveTimerSession, onFinish }: TrackScreenProps) {
+export function TrackScreen({ session, startedAt, planDayId, tags, planId, expressTracking = false, onPause, onDiscard, onSaveTimerSession, onFinish }: TrackScreenProps) {
   const isCustom = !planDayId;
   const { user, profile } = useAuth();
   const { flags: labFlags } = useOwnerLabs(profile);
-  const turboLabOn = isOwnerLabsVisible(profile) && labFlags.frictionKillerTurbo;
+  const expressLabOn = isOwnerLabsVisible(profile) && labFlags.frictionKillerTurbo;
   const [setEditSheetExerciseId, setSetEditSheetExerciseId] = useState<string | null>(null);
   const breakpoint = useBreakpoint();
   const maxW = contentMaxWidth(breakpoint);
@@ -145,8 +145,8 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, turbo
     () => visibleExercises.filter((e) => e.blockType !== "metcon"),
     [visibleExercises],
   );
-  const turboEligible = useMemo(() => isWorkoutTurboEligible(pagerExercises), [pagerExercises]);
-  const useTurboTrack = turboEligible && (turboTracking || turboLabOn);
+  const expressEligible = useMemo(() => isWorkoutExpressEligible(pagerExercises), [pagerExercises]);
+  const useExpressTrack = expressEligible && (expressTracking || expressLabOn);
   const metconBlock = useMemo(
     () => W.wo.blocks?.find((b) => b.blockType === "metcon"),
     [W.wo.blocks],
@@ -177,7 +177,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, turbo
     Record<string, { hint?: string | null; progressionNote?: string; trendLabel?: string | null; plateaued?: boolean; plateauReason?: string }>
   >({});
   const [prToast, setPrToast] = useState<string | null>(null);
-  const turboAutoStartedRef = useRef(false);
+  const expressAutoStartedRef = useRef(false);
 
   useEffect(() => {
     if (!prToast) return;
@@ -238,17 +238,17 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, turbo
 
   useEffect(() => {
     if (!autopilotReady) return;
-    if (useTurboTrack && !turboAutoStartedRef.current) {
-      turboAutoStartedRef.current = true;
-      setView("turbo");
+    if (useExpressTrack && !expressAutoStartedRef.current) {
+      expressAutoStartedRef.current = true;
+      setView("express");
     }
-  }, [autopilotReady, useTurboTrack]);
+  }, [autopilotReady, useExpressTrack]);
 
   useEffect(() => {
-    if (view === "complete" && findNextTurboTarget(pagerExercises)) {
-      setView(useTurboTrack ? "turbo" : "overview");
+    if (view === "complete" && findNextExpressTarget(pagerExercises)) {
+      setView(useExpressTrack ? "express" : "overview");
     }
-  }, [view, pagerExercises, useTurboTrack]);
+  }, [view, pagerExercises, useExpressTrack]);
 
   useEffect(() => {
     const tick = () => setElapsedSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
@@ -264,14 +264,14 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, turbo
     if (view === "exercise" && pagerExercises.length === 0) {
       setView("overview");
     }
-    if (view === "turbo" && pagerExercises.length === 0) {
+    if (view === "express" && pagerExercises.length === 0) {
       setView("overview");
     }
   }, [pagerExercises.length, activeExerciseIndex, view]);
 
   const openExerciseAt = (exId: string) => {
-    if (useTurboTrack) {
-      openTurboTrack();
+    if (useExpressTrack) {
+      openExpressTrack();
       return;
     }
     const idx = pagerExercises.findIndex((e) => e.id === exId);
@@ -284,8 +284,8 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, turbo
     setSetEditSheetExerciseId(exId);
   };
 
-  const openTurboTrack = () => {
-    setView("turbo");
+  const openExpressTrack = () => {
+    setView("express");
   };
 
   const setEditSheetExercise = useMemo(
@@ -355,7 +355,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, turbo
     );
     return {
       name: W.wo.name,
-      tags: turboTracking || isCustom ? [TURBO_TRACKING_TAG] : tags,
+      tags: expressTracking || isCustom ? [EXPRESS_TRACKING_TAG] : tags,
       durationMin: Math.max(1, Math.round(elapsedSec / 60)),
       volumeKg: volumeInVisible,
       setCount: visibleDoneSets,
@@ -420,7 +420,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, turbo
       planDayId,
       tags,
       planId,
-      turboTracking,
+      expressTracking,
       enabledBlocks,
       skippedBlocks,
     });
@@ -855,8 +855,8 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, turbo
           onBack={() => setView("overview")}
           onComplete={handleMetconComplete}
         />
-      ) : view === "turbo" && useTurboTrack ? (
-        <FrictionTurboView
+      ) : view === "express" && useExpressTrack ? (
+        <ExpressTrackingView
           exercises={pagerExercises}
           elapsedSec={elapsedSec}
           onBack={() => setView("overview")}
@@ -885,8 +885,8 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, turbo
           }}
           onAllSetsDone={() => setView("complete")}
         />
-      ) : view === "complete" && useTurboTrack ? (
-        <TurboWorkoutCompleteView
+      ) : view === "complete" && useExpressTrack ? (
+        <ExpressWorkoutCompleteView
           exercises={pagerExercises}
           sessionName={W.wo.name}
           elapsedSec={elapsedSec}

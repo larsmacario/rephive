@@ -1,5 +1,5 @@
 import type { HistoryEntry, LibraryExercise, SessionExercise } from "../data";
-import { TURBO_TRACKING_SESSION_NAME } from "../data";
+import { EXPRESS_TRACKING_SESSION_NAME } from "../data";
 import { DEFAULT_EXERCISE_METRIC, MUSCLE_GROUPS, normalizeMuscleGroup } from "./exerciseCatalog";
 import type { Exercise, Workout, WorkoutSet } from "./engine";
 import { buildUniformTrackedSets } from "./exerciseSets";
@@ -8,14 +8,22 @@ import type { TrainingBlockType } from "./planBlocks";
 import type { ExerciseMetric } from "./exerciseCatalog";
 import { isTimerSession } from "./timerSession";
 
-export const TURBO_TRACKING_TAG = "TurboTracking";
-export const LEGACY_TURBO_TRACKING_TAG = "Individuell";
+/** Re-enable voice PTT in ExpressTrackingView when STT is stable on device. */
+export const EXPRESS_VOICE_ENABLED = false;
 
-export function isTurboTrackingSessionTag(tags: string[]): boolean {
-  return tags.includes(TURBO_TRACKING_TAG) || tags.includes(LEGACY_TURBO_TRACKING_TAG);
+export const EXPRESS_TRACKING_TAG = "ExpressTracking";
+export const LEGACY_EXPRESS_TRACKING_TAG_TURBO = "TurboTracking";
+export const LEGACY_EXPRESS_TRACKING_TAG_INDIVIDUELL = "Individuell";
+
+export function isExpressTrackingSessionTag(tags: string[]): boolean {
+  return (
+    tags.includes(EXPRESS_TRACKING_TAG) ||
+    tags.includes(LEGACY_EXPRESS_TRACKING_TAG_TURBO) ||
+    tags.includes(LEGACY_EXPRESS_TRACKING_TAG_INDIVIDUELL)
+  );
 }
 
-export interface TurboTrackingExerciseTemplate {
+export interface ExpressTrackingExerciseTemplate {
   name: string;
   catalogExerciseId?: string;
   group?: string;
@@ -24,8 +32,8 @@ export interface TurboTrackingExerciseTemplate {
   templateReps?: number;
 }
 
-export interface TurboTrackingImportResult {
-  templates: TurboTrackingExerciseTemplate[];
+export interface ExpressTrackingImportResult {
+  templates: ExpressTrackingExerciseTemplate[];
   skippedMetcon: number;
   skippedFormat: number;
   skippedSuperset: number;
@@ -38,7 +46,7 @@ function templateFromWorkingSet(sets: WorkoutSet[]): { kg: number; reps: number 
   return { kg: working.kg ?? 0, reps: Math.max(1, working.reps ?? 10) };
 }
 
-export function isTurboTrackingExercise(ex: {
+export function isExpressTrackingExercise(ex: {
   metric?: ExerciseMetric;
   blockType?: TrainingBlockType;
   blockFormat?: SessionExercise["blockFormat"];
@@ -52,14 +60,14 @@ export function isTurboTrackingExercise(ex: {
   return format === "straight_sets";
 }
 
-export function isTurboTrackingLibraryExercise(ex: LibraryExercise): boolean {
+export function isExpressTrackingLibraryExercise(ex: LibraryExercise): boolean {
   return ex.metric === "weight_reps";
 }
 
-export function sessionExercisesToTurboTemplates(
+export function sessionExercisesToExpressTemplates(
   exercises: SessionExercise[],
-): TurboTrackingImportResult {
-  const templates: TurboTrackingExerciseTemplate[] = [];
+): ExpressTrackingImportResult {
+  const templates: ExpressTrackingExerciseTemplate[] = [];
   let skippedMetcon = 0;
   let skippedFormat = 0;
   let skippedSuperset = 0;
@@ -97,7 +105,7 @@ export function sessionExercisesToTurboTemplates(
   return { templates, skippedMetcon, skippedFormat, skippedSuperset, skippedMetric };
 }
 
-export function extractTurboTemplatesFromSession(session: HistoryEntry): TurboTrackingImportResult {
+export function extractExpressTemplatesFromSession(session: HistoryEntry): ExpressTrackingImportResult {
   if (isTimerSession(session.tags)) {
     return {
       templates: [],
@@ -107,11 +115,13 @@ export function extractTurboTemplatesFromSession(session: HistoryEntry): TurboTr
       skippedMetric: 0,
     };
   }
-  return sessionExercisesToTurboTemplates(session.exercises);
+  return sessionExercisesToExpressTemplates(session.exercises);
 }
 
-export function libraryExercisesToTurboTemplates(exercises: LibraryExercise[]): TurboTrackingExerciseTemplate[] {
-  return exercises.filter(isTurboTrackingLibraryExercise).map((ex) => ({
+export function libraryExercisesToExpressTemplates(
+  exercises: LibraryExercise[],
+): ExpressTrackingExerciseTemplate[] {
+  return exercises.filter(isExpressTrackingLibraryExercise).map((ex) => ({
     name: ex.name,
     catalogExerciseId: ex.id,
     group: ex.group,
@@ -119,8 +129,8 @@ export function libraryExercisesToTurboTemplates(exercises: LibraryExercise[]): 
   }));
 }
 
-export function resolveTurboTemplateMuscleGroup(
-  template: TurboTrackingExerciseTemplate,
+export function resolveExpressTemplateMuscleGroup(
+  template: ExpressTrackingExerciseTemplate,
   libraryById: ReadonlyMap<string, LibraryExercise>,
 ): string {
   if (template.group) return normalizeMuscleGroup(template.group);
@@ -133,19 +143,19 @@ export function resolveTurboTemplateMuscleGroup(
   return "Sonstige";
 }
 
-export function groupTurboTemplatesByMuscleGroup(
-  templates: TurboTrackingExerciseTemplate[],
+export function groupExpressTemplatesByMuscleGroup(
+  templates: ExpressTrackingExerciseTemplate[],
   libraryById: ReadonlyMap<string, LibraryExercise>,
-): { group: string; templates: TurboTrackingExerciseTemplate[] }[] {
-  const buckets = new Map<string, TurboTrackingExerciseTemplate[]>();
+): { group: string; templates: ExpressTrackingExerciseTemplate[] }[] {
+  const buckets = new Map<string, ExpressTrackingExerciseTemplate[]>();
   for (const template of templates) {
-    const group = resolveTurboTemplateMuscleGroup(template, libraryById);
+    const group = resolveExpressTemplateMuscleGroup(template, libraryById);
     const list = buckets.get(group) ?? [];
     list.push(template);
     buckets.set(group, list);
   }
 
-  const ordered: { group: string; templates: TurboTrackingExerciseTemplate[] }[] = [];
+  const ordered: { group: string; templates: ExpressTrackingExerciseTemplate[] }[] = [];
   for (const group of MUSCLE_GROUPS) {
     const groupTemplates = buckets.get(group);
     if (groupTemplates?.length) ordered.push({ group, templates: groupTemplates });
@@ -167,8 +177,8 @@ export function groupTurboTemplatesByMuscleGroup(
   return ordered;
 }
 
-export function buildTurboTrackingWorkout(input: {
-  templates: TurboTrackingExerciseTemplate[];
+export function buildExpressTrackingWorkout(input: {
+  templates: ExpressTrackingExerciseTemplate[];
   setCount: number;
   defaultReps?: number;
 }): Workout {
@@ -190,17 +200,17 @@ export function buildTurboTrackingWorkout(input: {
   });
 
   return {
-    name: TURBO_TRACKING_SESSION_NAME,
+    name: EXPRESS_TRACKING_SESSION_NAME,
     sub: "",
     exercises,
   };
 }
 
-export function countSkippedTurboImport(result: TurboTrackingImportResult): number {
+export function countSkippedExpressImport(result: ExpressTrackingImportResult): number {
   return result.skippedMetcon + result.skippedFormat + result.skippedSuperset + result.skippedMetric;
 }
 
-export function turboImportSkipMessage(result: TurboTrackingImportResult): string | null {
+export function expressImportSkipMessage(result: ExpressTrackingImportResult): string | null {
   const parts: string[] = [];
   if (result.skippedSuperset > 0) {
     parts.push(`${result.skippedSuperset} Supersatz-Übung${result.skippedSuperset === 1 ? "" : "en"}`);

@@ -2,15 +2,15 @@ import { DEFAULT_EXERCISE_METRIC, getMetricSpec } from "./exerciseCatalog";
 import type { Exercise } from "./engine";
 import { segmentExercises } from "./superset";
 
-export interface TurboSetTarget {
+export interface ExpressSetTarget {
   exerciseId: string;
   exerciseName: string;
   setIndex: number;
   totalSetsInExercise: number;
 }
 
-/** Turbo v0: linear weight_reps only, no supersets, no metcon. */
-export function isWorkoutTurboEligible(exercises: Exercise[]): boolean {
+/** Express v0: linear weight_reps only, no supersets, no metcon. */
+export function isWorkoutExpressEligible(exercises: Exercise[]): boolean {
   if (exercises.length === 0) return false;
   for (const ex of exercises) {
     const metric = ex.metric ?? DEFAULT_EXERCISE_METRIC;
@@ -24,23 +24,23 @@ export function isWorkoutTurboEligible(exercises: Exercise[]): boolean {
   return true;
 }
 
-export interface TurboExercisePreview {
+export interface ExpressExercisePreview {
   exerciseId: string;
   exerciseName: string;
 }
 
 /** Next exercise in workout order after `currentExerciseId`, or null if last. */
-export function findNextTurboExercise(
+export function findNextExpressExercise(
   exercises: Exercise[],
   currentExerciseId: string,
-): TurboExercisePreview | null {
+): ExpressExercisePreview | null {
   const idx = exercises.findIndex((e) => e.id === currentExerciseId);
   if (idx < 0 || idx >= exercises.length - 1) return null;
   const next = exercises[idx + 1]!;
   return { exerciseId: next.id, exerciseName: next.name };
 }
 
-export function findNextTurboTarget(exercises: Exercise[]): TurboSetTarget | null {
+export function findNextExpressTarget(exercises: Exercise[]): ExpressSetTarget | null {
   for (const ex of exercises) {
     const undoneIndex = ex.sets.findIndex((s) => !s.done);
     if (undoneIndex >= 0) {
@@ -55,7 +55,7 @@ export function findNextTurboTarget(exercises: Exercise[]): TurboSetTarget | nul
   return null;
 }
 
-export function countTurboProgress(exercises: Exercise[]): { done: number; total: number } {
+export function countExpressProgress(exercises: Exercise[]): { done: number; total: number } {
   let done = 0;
   let total = 0;
   for (const ex of exercises) {
@@ -65,6 +65,6 @@ export function countTurboProgress(exercises: Exercise[]): { done: number; total
   return { done, total };
 }
 
-export function formatTurboSetDisplay(kg: number, reps: number): string {
+export function formatExpressSetDisplay(kg: number, reps: number): string {
   return `${kg} kg × ${reps}`;
 }
