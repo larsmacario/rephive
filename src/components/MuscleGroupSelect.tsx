@@ -88,7 +88,7 @@ export function MuscleGroupSelect(props: MuscleGroupSelectProps) {
     <div style={{ marginBottom: 14 }}>
       {field}
       {legacyHint && (
-        <div style={{ fontSize: 12, color: M.mut2, marginTop: 8 }}>Früher: {legacyHint}</div>
+        <div style={{ fontSize: 13, color: M.mut2, marginTop: 8 }}>Früher: {legacyHint}</div>
       )}
     </div>
   );

@@ -15,6 +15,8 @@ export interface HorizontalSlidePagerProps {
   activeIndex: number;
   onIndexChange: (index: number) => void;
   children: ReactNode[];
+  /** Inhalt zwischen Karussell und Seiten-Punkten (z. B. Track-Metriken). */
+  footerBeforeIndicators?: ReactNode;
   ariaLabel?: string;
   /** Text für Tab-Links und aria-label (Standard: „Tag 1“, „Tag 2“, …) */
   tabLabel?: (index: number, count: number) => string;
@@ -31,6 +33,7 @@ export function HorizontalSlidePager({
   tabLabel = (i) => `Tag ${i + 1}`,
   showIndicators = true,
   indicatorVariant = "tabs",
+  footerBeforeIndicators,
 }: HorizontalSlidePagerProps) {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const axisLockRef = useRef<"x" | "y" | null>(null);
@@ -179,6 +182,8 @@ export function HorizontalSlidePager({
           ))}
         </motion.div>
       </div>
+
+      {footerBeforeIndicators}
 
       {showIndicators && count > 1 && indicatorVariant === "dots" ? (
         <DotIndicators

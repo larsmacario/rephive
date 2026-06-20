@@ -35,7 +35,7 @@ export function PlansScreen({ onOpenBuilder, onOpenPlan, refreshKey = 0 }: Plans
       >
         <div>
           <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 30, lineHeight: 1 }}>Pläne</div>
-          <div style={{ fontSize: 12.5, color: M.mut, marginTop: 3, fontWeight: 600 }}>
+          <div style={{ fontSize: 14, color: M.mut, marginTop: 3, fontWeight: 600 }}>
             {loading && list.length === 0
               ? "…"
               : `${list.length} Trainingspläne · nur einer aktiv${isStale && !isOnline ? " · Offline" : ""}`}
@@ -103,7 +103,7 @@ export function PlansScreen({ onOpenBuilder, onOpenPlan, refreshKey = 0 }: Plans
                   </div>
                   {plan.isActive && <MTag>Aktiv</MTag>}
                 </div>
-                <div style={{ fontSize: 12.5, color: M.mut, marginTop: 5, fontWeight: 600 }}>
+                <div style={{ fontSize: 14, color: M.mut, marginTop: 5, fontWeight: 600 }}>
                   {plan.days.length} Tage · {exerciseCount} Übungen
                 </div>
               </div>

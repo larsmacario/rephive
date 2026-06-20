@@ -74,7 +74,7 @@ export function WarmUpSetToggle({ checked, onChange, layout = "full", size = "md
         aria-label="Satz 1 als Warm-up markieren"
         style={{ width: 16, height: 16, accentColor: M.acc, cursor: "pointer" }}
       />
-      <span style={{ fontSize: 12, fontWeight: 600, color: checked ? M.acc : M.mut }}>S1 als Warm-up</span>
+      <span style={{ fontSize: 13, fontWeight: 600, color: checked ? M.acc : M.mut }}>S1 als Warm-up</span>
     </label>
   );
 }

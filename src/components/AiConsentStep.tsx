@@ -72,21 +72,21 @@ export function AiConsentStep({
           border: "1px solid " + M.line,
         }}
       >
-        <div style={{ fontSize: 11, letterSpacing: 1.4, color: M.mut, fontWeight: 700, marginBottom: 8 }}>
+        <div style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700, marginBottom: 8 }}>
           ANBIETER
         </div>
         <p style={{ color: M.fg, fontSize: 14, margin: "0 0 12px 0", lineHeight: 1.45 }}>
           <strong>Anthropic, PBC</strong> (San Francisco, USA)
         </p>
 
-        <div style={{ fontSize: 11, letterSpacing: 1.4, color: M.mut, fontWeight: 700, marginBottom: 8 }}>
+        <div style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700, marginBottom: 8 }}>
           ZWECK
         </div>
         <p style={{ color: M.fg, fontSize: 14, margin: "0 0 12px 0", lineHeight: 1.45 }}>
           Generierung eines personalisierten Trainingsplans inklusive begleitender Ernährungsempfehlungen.
         </p>
 
-        <div style={{ fontSize: 11, letterSpacing: 1.4, color: M.mut, fontWeight: 700, marginBottom: 8 }}>
+        <div style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700, marginBottom: 8 }}>
           ÜBERMITTELTE DATEN
         </div>
         <ul style={{ margin: 0, paddingLeft: 18, color: M.fg, fontSize: 13.5, lineHeight: 1.5 }}>
@@ -98,7 +98,7 @@ export function AiConsentStep({
         </ul>
       </div>
 
-      <p style={{ color: M.mut2, fontSize: 12, lineHeight: 1.45, margin: 0 }}>
+      <p style={{ color: M.mut2, fontSize: 13, lineHeight: 1.45, margin: 0 }}>
         Es erfolgt keine Weitergabe zu Werbezwecken. Du kannst diese Einwilligung jederzeit in den Einstellungen
         widerrufen. Details in der{" "}
         <button

@@ -70,7 +70,7 @@ export function OfflineBanner() {
             border: "none",
             padding: 0,
             color: M.mut,
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: 600,
             cursor: "pointer",
           }}

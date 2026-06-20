@@ -26,6 +26,7 @@ export interface SyncHandlers {
     ids: { planId: string; dayIds: string[] },
   ) => Promise<string>;
   updatePlanRemote: (planId: string, input: UpdatePlanInput) => Promise<void>;
+  updatePlanTrainingWeekdaysRemote: (planId: string, trainingWeekdays: number[]) => Promise<void>;
   deletePlanRemote: (planId: string) => Promise<void>;
   setActivePlanRemote: (userId: string, planId: string) => Promise<void>;
   createExerciseRemote: (userId: string, input: ExerciseInput, exerciseId: string) => Promise<string>;
@@ -81,6 +82,12 @@ async function executeEntry(entry: SyncQueueEntry): Promise<void> {
       break;
     case "UPDATE_PLAN":
       await handlers.updatePlanRemote(p.planId as string, p.input as UpdatePlanInput);
+      break;
+    case "UPDATE_PLAN_WEEKDAYS":
+      await handlers.updatePlanTrainingWeekdaysRemote(
+        p.planId as string,
+        p.trainingWeekdays as number[],
+      );
       break;
     case "DELETE_PLAN":
       await handlers.deletePlanRemote(p.planId as string);

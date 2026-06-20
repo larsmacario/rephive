@@ -25,7 +25,7 @@ export function CalculatorScreen({ onBack }: CalculatorScreenProps) {
         >
           <Icon name="chevL" size={24} stroke={2.2} />
         </button>
-        <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>1RM RECHNER</span>
+        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>1RM RECHNER</span>
         <span style={{ width: 24 }} />
       </div>
 

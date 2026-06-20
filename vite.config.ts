@@ -9,5 +9,15 @@ export default defineConfig({
   plugins: [react()],
   // Expose the package.json version to the app (stays in sync automatically).
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
-  server: { host: true, port: 5173 },
+  optimizeDeps: {
+    // Capacitor sync copies production bundles under ios/ — don't scan them for dev pre-bundling.
+    entries: ["index.html"],
+  },
+  server: {
+    host: true,
+    port: 5173,
+    watch: {
+      ignored: ["**/ios/**", "**/android/**", "**/dist/**"],
+    },
+  },
 });

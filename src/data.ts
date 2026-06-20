@@ -91,10 +91,24 @@ export interface PlanDay {
   exercises: PlanDayExercise[];
 }
 
-export function planDayDisplayName(day: Pick<PlanDay, "name" | "position">): string {
+export function defaultPlanDayName(dayNumber: number): string {
+  return `Tag ${dayNumber}`;
+}
+
+export function isDefaultPlanDayName(name: string | undefined | null, dayNumber: number): boolean {
+  const trimmed = (name ?? "").trim();
+  if (!trimmed) return true;
+  return trimmed.toLowerCase() === defaultPlanDayName(dayNumber).toLowerCase();
+}
+
+export function planDayDisplayName(
+  day: Pick<PlanDay, "name" | "position">,
+  weekdayLabels?: string[],
+): string {
   const trimmed = day.name.trim();
-  if (trimmed) return trimmed;
-  return `Tag ${day.position + 1}`;
+  const base = trimmed || defaultPlanDayName(day.position + 1);
+  const wd = weekdayLabels?.[day.position];
+  return wd ? `${wd} · ${base}` : base;
 }
 
 export interface PlanSummaryNutrition {
@@ -119,6 +133,8 @@ export interface PlanSummaryInputs {
   sleepHours?: number | null;
   stressLevel?: number | null;
   dietPreference?: "omnivore" | "vegetarian" | "vegan" | "pescetarian" | null;
+  /** ISO-Wochentage 0=Mo … 6=So — für Anzeige-Präfix pro Plan-Tag */
+  trainingWeekdays?: number[];
 }
 
 export interface PlanSummaryAdvice {
@@ -148,6 +164,8 @@ export interface LibraryPlan {
   currentDay: number;
   days: PlanDay[];
   summary: PlanSummary | null;
+  /** Aus summary.inputs extrahiert; auch bei manuellen Plänen ohne vollständige KI-Summary */
+  trainingWeekdays?: number[];
 }
 
 export interface PlanDayForTracking {

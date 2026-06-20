@@ -306,7 +306,7 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
                   border: "none",
                   padding: 0,
                   minWidth: 44,
-                  minHeight: 44,
+                  minHeight: 48,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",

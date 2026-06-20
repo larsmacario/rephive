@@ -18,10 +18,12 @@ const ICON_PATHS: Record<string, string> = {
   dumbbell: "M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10",
   timer: "M12 8v5l3 2M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM9 2h6",
   list: "M8 6h12M8 12h12M8 18h12M3.5 6h.01M3.5 12h.01M3.5 18h.01",
+  menu: "M4 6h16M4 12h16M4 18h16",
   trash: "M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13",
   search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4",
   edit: "M4 20h4L18 10l-4-4L4 16zM14 6l4 4",
   bolt: "M13 2L4 14h7l-1 8 9-12h-7z",
+  heart: "M12 20.5l-1.05-1.02C5.4 14.36 2 11.28 2 7.5 2 5 4 3 6.5 3c1.74 0 3.41 1.01 4.22 2.44C11.09 4.01 12.76 3 14.5 3 17 3 19 5 19 7.5c0 3.78-3.4 6.86-8.95 11.98L12 20.5z",
   sparkles: "M12 2L13.2 8.8L20 10L13.2 11.2L12 18L10.8 11.2L4 10L10.8 8.8L12 2zM19 15L19.6 17.2L22 17.8L19.6 18.4L19 20.6L18.4 18.4L16 17.8L18.4 17.2L19 15z",
   arrowUp: "M12 19V5M5 12l7-7 7 7",
   grip: "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01",
@@ -43,6 +45,7 @@ const ICON_PATHS: Record<string, string> = {
   user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 9a7 7 0 0 1 14 0",
   users: "M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-5 9a6 6 0 0 1 12 0M13 19a5 5 0 0 1 10 0",
   mail: "M4 6h16v12H4zM4 7l8 6 8-6",
+  volume: "M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07",
 };
 
 export interface IconProps {
@@ -63,7 +66,7 @@ export function Icon({
   style,
 }: IconProps) {
   const d = ICON_PATHS[name] || "";
-  const filled = name === "play" || name === "pause" || name === "bolt" || name === "flame" || name === "sparkles";
+  const filled = name === "play" || name === "pause" || name === "bolt" || name === "flame" || name === "sparkles" || name === "heart";
   return (
     <svg
       width={size}

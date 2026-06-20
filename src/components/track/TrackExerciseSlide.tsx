@@ -39,8 +39,6 @@ export interface TrackExerciseSlideProps {
   onRemoveSet: (setIndex: number) => void;
   onAddSet: () => void;
   onWarmUpChange: (enabled: boolean) => void;
-  onOpenHistory: () => void;
-  onOpenNotes: () => void;
   onOpenMenu?: () => void;
 }
 
@@ -61,8 +59,6 @@ export function TrackExerciseSlide({
   onRemoveSet,
   onAddSet,
   onWarmUpChange,
-  onOpenHistory,
-  onOpenNotes,
   onOpenMenu,
 }: TrackExerciseSlideProps) {
   const { index: blockIndex, accent: blockAccent } = blockBadgeForExercise(exercise);
@@ -72,7 +68,7 @@ export function TrackExerciseSlide({
     border: "1px solid " + M.line,
     background: M.card,
     color: M.fg,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 600,
     cursor: "pointer",
     fontFamily: M.body,
@@ -120,16 +116,33 @@ export function TrackExerciseSlide({
           {blockIndex}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 20, lineHeight: 1.15, color: M.fg }}>
-            {exercise.name}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 4 }}>
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                fontFamily: M.disp,
+                fontWeight: 700,
+                fontSize: 20,
+                lineHeight: 1.15,
+                color: M.fg,
+              }}
+            >
+              {exercise.name}
+            </div>
+            {onOpenMenu ? (
+              <MButton type="button" variant="ghost" size="icon" onClick={onOpenMenu} aria-label="Übungsmenü" style={{ flexShrink: 0, color: M.mut2 }}>
+                <Icon name="moreH" size={20} stroke={2.2} />
+              </MButton>
+            ) : null}
           </div>
           {progressionBadge ? (
-            <div style={{ fontSize: 12, color: M.brand, marginTop: 6, fontWeight: 600 }}>{progressionBadge}</div>
+            <div style={{ fontSize: 13, color: M.brand, marginTop: 6, fontWeight: 600 }}>{progressionBadge}</div>
           ) : null}
           {trendLabel ? (
-            <div style={{ fontSize: 12, color: M.mut, marginTop: 4 }}>{trendLabel}</div>
+            <div style={{ fontSize: 13, color: M.mut, marginTop: 4 }}>{trendLabel}</div>
           ) : null}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 12, color: M.mut }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 13, color: M.mut }}>
             <Icon name="clock" size={14} stroke={2} color={M.mut2} />
             Pausendauer · {fmtRestSec(restSeconds)}
           </div>
@@ -148,7 +161,7 @@ export function TrackExerciseSlide({
           }}
         >
           <div style={{ fontSize: 13, fontWeight: 600, color: M.fg }}>{plateauReason ?? "Kein Fortschritt"}</div>
-          <div style={{ fontSize: 12, color: M.mut, marginTop: 4, lineHeight: 1.4 }}>
+          <div style={{ fontSize: 13, color: M.mut, marginTop: 4, lineHeight: 1.4 }}>
             Deload oder Übung tauschen kann helfen.
           </div>
           {onApplyDeload ? (
@@ -159,27 +172,13 @@ export function TrackExerciseSlide({
         </div>
       ) : null}
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexShrink: 0, flexWrap: "wrap" }}>
-        <button type="button" onClick={onAddSet} style={pillStyle}>
-          + Satz
-        </button>
-        <button type="button" onClick={onOpenHistory} style={pillStyle}>
-          Verlauf
-        </button>
-        <button type="button" onClick={onOpenNotes} style={pillStyle}>
-          Notizen
-        </button>
-        {onOpenMenu ? (
-          <button type="button" onClick={onOpenMenu} style={pillStyle}>
-            ⋯ Übung
-          </button>
-        ) : null}
-        {hasSuggested && onConfirmAllSuggested ? (
+      {hasSuggested && onConfirmAllSuggested ? (
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexShrink: 0, flexWrap: "wrap" }}>
           <button type="button" onClick={onConfirmAllSuggested} style={{ ...pillStyle, borderColor: M.brandBorder, color: M.brand }}>
             Alle bestätigen ✓
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       <SetTable
         sets={exercise.sets}
@@ -199,7 +198,7 @@ export function TrackExerciseSlide({
 
       {allDone && onPerceivedEffort ? (
         <div style={{ marginTop: 14, flexShrink: 0 }}>
-          <div style={{ fontSize: 12, color: M.mut, marginBottom: 8 }}>Wie lief&apos;s?</div>
+          <div style={{ fontSize: 13, color: M.mut, marginBottom: 8 }}>Wie lief&apos;s?</div>
           <div style={{ display: "flex", gap: 8 }}>
             {(["easy", "ok", "hard"] as PerceivedEffort[]).map((effort) => {
               const selected = exercise.perceivedEffort === effort;

@@ -13,6 +13,7 @@ export interface TrackExerciseMenuSheetProps {
   onEditSets?: () => void;
   onGuide?: () => void;
   onHistory: () => void;
+  onNotes?: () => void;
   onRemove: () => void;
   onToggleSuperset?: () => void;
   /** Nur Sätze bearbeiten + Aus Session entfernen (Verlauf/Video/Supersatz ausgeblendet). */
@@ -67,6 +68,7 @@ export function TrackExerciseMenuSheet({
   onEditSets,
   onGuide,
   onHistory,
+  onNotes,
   onRemove,
   onToggleSuperset,
   variant = "full",
@@ -121,16 +123,24 @@ export function TrackExerciseMenuSheet({
             }}
           />
         ) : null}
-        {!compact ? (
+        {onNotes ? (
           <MenuAction
-            label="Verlauf"
-            icon="history"
+            label="Notizen"
+            icon="edit"
             onClick={() => {
               onClose();
-              onHistory();
+              onNotes();
             }}
           />
         ) : null}
+        <MenuAction
+          label="Verlauf"
+          icon="history"
+          onClick={() => {
+            onClose();
+            onHistory();
+          }}
+        />
         {showSupersetAction && onToggleSuperset && !compact ? (
           <MenuAction
             label={linkedToPrevious ? "Supersatz lösen" : "Mit vorheriger verknüpfen"}

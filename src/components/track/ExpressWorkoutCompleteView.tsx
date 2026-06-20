@@ -155,7 +155,7 @@ export function ExpressWorkoutCompleteView({
       >
         <div
           style={{
-            fontSize: 11,
+            fontSize: 13,
             letterSpacing: 1.2,
             color: M.mut,
             fontWeight: 700,

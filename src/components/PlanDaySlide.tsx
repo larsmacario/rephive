@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
 import { motion } from "framer-motion";
-import type { PlanDayBlock, PlanDayExercise } from "../data";
+import { defaultPlanDayName, isDefaultPlanDayName, type PlanDayBlock, type PlanDayExercise } from "../data";
 import { prefersReducedMotion } from "../lib/haptics";
 import type { TrainingBlockType } from "../lib/planBlocks";
 import { M } from "../theme";
-import { Icon } from "./Icon";
 import { PlanDayExercisePreview } from "./PlanDayAccordion";
 
 const ENTRANCE_EASE = [0.25, 0.1, 0.25, 1] as const;
@@ -40,6 +39,8 @@ export interface PlanDaySlideProps {
   onExerciseClick?: (exerciseId: string) => void;
   actions?: ReactNode;
   footer?: ReactNode;
+  /** Scrolls with day content (e.g. weekday picker in plan builder). */
+  scrollHeader?: ReactNode;
 }
 
 export function PlanDaySlide({
@@ -64,10 +65,12 @@ export function PlanDaySlide({
   onExerciseClick,
   actions,
   footer,
+  scrollHeader,
 }: PlanDaySlideProps) {
   const highlighted = isCurrent;
   const reducedMotion = prefersReducedMotion();
   const animateEntrance = isActive && !reducedMotion;
+  const hasCustomDayName = !isDefaultPlanDayName(nameValue ?? label, dayNumber);
 
   const containerStyle = {
     flex: 1,
@@ -77,24 +80,6 @@ export function PlanDaySlide({
     flexDirection: "column" as const,
     overflow: "hidden",
   };
-
-  const typeIcon = (
-    <div
-      style={{
-        width: variant === "builder" ? 34 : 32,
-        height: variant === "builder" ? 34 : 32,
-        borderRadius: variant === "builder" ? 9 : 8,
-        background: M.brandSoft,
-        color: M.brand,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flex: "0 0 auto",
-      }}
-    >
-      <Icon name="dumbbell" size={variant === "builder" ? 18 : 16} stroke={2} />
-    </div>
-  );
 
   const previewExercises: PlanDayExercise[] = exercises.map((e) => ({
     id: e.id,
@@ -136,88 +121,99 @@ export function PlanDaySlide({
       </p>
     );
 
+  const scrollAreaStyle = {
+    flex: 1,
+    minHeight: 0,
+    minWidth: 0,
+    overflowY: "auto" as const,
+    WebkitOverflowScrolling: "touch" as const,
+    overscrollBehavior: "contain" as const,
+    touchAction: "pan-y" as const,
+    padding: "0 0 14px",
+  };
+
+  const dayHeader = (
+    <motion.div
+      key={isActive ? `header-active-${dayNumber}` : `header-idle-${dayNumber}`}
+      initial={animateEntrance ? { opacity: 0, y: 8 } : false}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, ease: ENTRANCE_EASE }}
+      style={{
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        gap: variant === "builder" ? 12 : 10,
+        padding: variant === "builder" ? "4px 0 12px" : "4px 0 12px",
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {variant === "builder" ? (
+          <>
+            {hasCustomDayName ? (
+              <div style={{ fontSize: 13, letterSpacing: 1.2, color: M.mut2, fontWeight: 700 }}>TAG {dayNumber}</div>
+            ) : null}
+            {editableName && onNameChange ? (
+              <input
+                value={hasCustomDayName ? (nameValue ?? "") : ""}
+                placeholder={defaultPlanDayName(dayNumber)}
+                onChange={(e) => onNameChange(e.target.value)}
+                aria-label={`Name für ${defaultPlanDayName(dayNumber)}`}
+                style={{
+                  width: "100%",
+                  marginTop: hasCustomDayName ? 2 : 0,
+                  fontWeight: 600,
+                  fontSize: 15.5,
+                  background: "transparent",
+                  border: "none",
+                  color: M.fg,
+                  outline: "none",
+                  padding: 0,
+                }}
+              />
+            ) : (
+              <div style={{ fontWeight: 600, fontSize: 15.5, marginTop: hasCustomDayName ? 2 : 0 }}>{label}</div>
+            )}
+          </>
+        ) : (
+          <>
+            <div
+              style={{
+                fontSize: 13,
+                letterSpacing: 1.2,
+                color: highlighted ? M.brand : M.mut2,
+                fontWeight: 700,
+              }}
+            >
+              TAG {dayNumber}
+              {highlighted ? " · AKTUELL" : ""}
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 15, marginTop: 2, color: M.fg }}>{label}</div>
+          </>
+        )}
+      </div>
+      {actions}
+    </motion.div>
+  );
+
+  const scrollBody = (
+    <motion.div
+      key={isActive ? `body-active-${dayNumber}` : `body-idle-${dayNumber}`}
+      initial={animateEntrance ? { opacity: 0, y: 8 } : false}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, delay: animateEntrance ? 0.08 : 0, ease: ENTRANCE_EASE }}
+    >
+      {scrollHeader}
+      {scrollHeader ? dayHeader : null}
+      {bodyContent}
+      {footer}
+    </motion.div>
+  );
+
   return (
     <div style={containerStyle}>
-      <motion.div
-        key={isActive ? `header-active-${dayNumber}` : `header-idle-${dayNumber}`}
-        initial={animateEntrance ? { opacity: 0, y: 8 } : false}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.22, ease: ENTRANCE_EASE }}
-        style={{
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          gap: variant === "builder" ? 12 : 10,
-          padding: variant === "builder" ? "4px 0 12px" : "4px 0 12px",
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {variant === "builder" ? (
-            <>
-              <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut2, fontWeight: 700 }}>TAG {dayNumber}</div>
-              {editableName && onNameChange ? (
-                <input
-                  value={nameValue ?? label}
-                  onChange={(e) => onNameChange(e.target.value)}
-                  style={{
-                    width: "100%",
-                    marginTop: 2,
-                    fontWeight: 600,
-                    fontSize: 15.5,
-                    background: "transparent",
-                    border: "none",
-                    color: M.fg,
-                    outline: "none",
-                    padding: 0,
-                  }}
-                />
-              ) : (
-                <div style={{ fontWeight: 600, fontSize: 15.5, marginTop: 2 }}>{label}</div>
-              )}
-            </>
-          ) : (
-            <>
-              <div
-                style={{
-                  fontSize: 11,
-                  letterSpacing: 1.2,
-                  color: highlighted ? M.brand : M.mut2,
-                  fontWeight: 700,
-                }}
-              >
-                TAG {dayNumber}
-                {highlighted ? " · AKTUELL" : ""}
-              </div>
-              <div style={{ fontWeight: 600, fontSize: 15, marginTop: 2, color: M.fg }}>{label}</div>
-            </>
-          )}
-        </div>
-        {typeIcon}
-        {actions}
-      </motion.div>
+      {scrollHeader ? null : dayHeader}
 
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          minWidth: 0,
-          overflowY: "auto",
-          WebkitOverflowScrolling: "touch",
-          overscrollBehavior: "contain",
-          touchAction: "pan-y",
-          padding: "0 0 14px",
-        }}
-      >
-        <motion.div
-          key={isActive ? `body-active-${dayNumber}` : `body-idle-${dayNumber}`}
-          initial={animateEntrance ? { opacity: 0, y: 8 } : false}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.22, delay: animateEntrance ? 0.08 : 0, ease: ENTRANCE_EASE }}
-        >
-          {bodyContent}
-          {footer}
-        </motion.div>
-      </div>
+      <div style={scrollAreaStyle}>{scrollBody}</div>
     </div>
   );
 }

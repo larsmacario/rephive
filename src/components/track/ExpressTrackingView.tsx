@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Exercise } from "../../lib/engine";
+import { fmt, type Exercise } from "../../lib/engine";
 import {
   countExpressProgress,
   findNextExpressExercise,
   findNextExpressTarget,
-  formatExpressSetDisplay,
 } from "../../lib/expressTrackingFlow";
 import type { SetField } from "../../lib/exerciseSets";
+import {
+  formatKgDisplay,
+  formatRepsDisplay,
+  parseKgInput,
+  parseRepsInput,
+} from "../../lib/exerciseSets";
 import { prefersReducedMotion, triggerTapHaptic } from "../../lib/haptics";
 import {
   appendFrictionMetrics,
   type FrictionSessionMetrics,
 } from "../../lib/ownerLabs";
-import { M } from "../../theme";
+import { brandButtonStyle, M } from "../../theme";
 import { MButton } from "../MButton";
 import { Icon } from "../Icon";
 
@@ -26,8 +31,9 @@ export interface ExpressTrackingViewProps {
   onAddSet: (exId: string) => void;
   onRemoveSet: (exId: string, setIndex: number) => void;
   onOpenExerciseMenu: (exId: string) => void;
-  onOpenHistory: (exId: string) => void;
-  onOpenNotes: (exId: string) => void;
+  restActive?: boolean;
+  restSec?: number;
+  onSkipRest?: () => void;
   onAllSetsDone?: () => void;
 }
 
@@ -42,13 +48,14 @@ export function ExpressTrackingView({
   elapsedSec,
   onBack,
   onBumpSet,
-  onSetValues: _onSetValues,
+  onSetValues,
   onToggleSet,
   onAddSet,
   onRemoveSet,
   onOpenExerciseMenu,
-  onOpenHistory,
-  onOpenNotes,
+  restActive = false,
+  restSec = 0,
+  onSkipRest,
   onAllSetsDone,
 }: ExpressTrackingViewProps) {
   const target = useMemo(() => findNextExpressTarget(exercises), [exercises]);
@@ -84,7 +91,7 @@ export function ExpressTrackingView({
     if (prev != null && prev !== target.exerciseId) {
       setExerciseSwitchFlash(true);
       void triggerTapHaptic();
-      const id = window.setTimeout(() => setExerciseSwitchFlash(false), 600);
+      const id = window.setTimeout(() => setExerciseSwitchFlash(false), 1000);
       prevExerciseIdRef.current = target.exerciseId;
       return () => window.clearTimeout(id);
     }
@@ -148,9 +155,6 @@ export function ExpressTrackingView({
       <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "24px 18px" }}>
         <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 22, color: M.fg }}>Fertig</div>
         <div style={{ color: M.mut, marginTop: 8, fontSize: 14 }}>Alle Sätze erledigt.</div>
-        <MButton type="button" variant="secondary" size="md" onClick={onBack} style={{ marginTop: 24 }}>
-          Zur Übersicht
-        </MButton>
       </div>
     );
   }
@@ -160,21 +164,6 @@ export function ExpressTrackingView({
   const isLastSetInExercise = target.setIndex === target.totalSetsInExercise - 1;
   const showNextExercisePreview = isLastSetInExercise && nextExercise != null;
   const reducedMotion = prefersReducedMotion();
-
-  const actionPillStyle = {
-    padding: "10px 16px",
-    minHeight: 44,
-    borderRadius: 999,
-    border: "1px solid " + M.line,
-    background: M.card,
-    color: M.fg,
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: "pointer",
-    fontFamily: M.body,
-    touchAction: "manipulation",
-    WebkitTapHighlightColor: "transparent",
-  } as const;
 
   const handleAddSet = () => {
     if (!target) return;
@@ -187,6 +176,30 @@ export function ExpressTrackingView({
     recordOverride();
     onRemoveSet(target.exerciseId, target.setIndex);
   };
+
+  const handleSetValueCommit = (field: "kg" | "reps", newValue: number) => {
+    if (!target || !set) return;
+    recordOverride();
+    onSetValues(
+      target.exerciseId,
+      target.setIndex,
+      field === "kg" ? newValue : set.kg,
+      field === "reps" ? newValue : set.reps,
+    );
+  };
+
+  const displayColor = isSuggested ? M.brand : M.fg;
+  const displayTypography = {
+    fontFamily: M.disp,
+    fontWeight: 800,
+    fontSize: 52,
+    lineHeight: 1.05,
+    color: displayColor,
+    fontVariantNumeric: "tabular-nums" as const,
+  };
+
+  const exerciseSwitchActive = exerciseSwitchFlash;
+  const animateExerciseSwitch = exerciseSwitchFlash && !reducedMotion;
 
   return (
     <div
@@ -237,7 +250,7 @@ export function ExpressTrackingView({
             }}
           />
         </div>
-        <div style={{ fontSize: 11, color: M.mut, marginTop: 6, fontWeight: 600 }}>
+        <div style={{ fontSize: 13, color: M.mut, marginTop: 6, fontWeight: 600 }}>
           {progress.done}/{progress.total} Sätze
         </div>
       </div>
@@ -246,77 +259,125 @@ export function ExpressTrackingView({
         style={{
           flex: 1,
           minHeight: 0,
-          overflowY: "auto",
-          WebkitOverflowScrolling: "touch",
-          overscrollBehavior: "contain",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            paddingTop: 8,
-            paddingBottom: 8,
-          }}
-        >
+        <div style={{ flexShrink: 0, paddingTop: 8 }}>
           <div
             style={{
-              fontFamily: M.disp,
-              fontWeight: 700,
-              fontSize: 26,
-              color: exerciseSwitchFlash && !reducedMotion ? M.brand : M.fg,
-              lineHeight: 1.15,
-              marginBottom: 12,
-              textAlign: "center",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              animation:
-                exerciseSwitchFlash && !reducedMotion ? "expressExerciseSwitch 0.6s ease" : undefined,
-            }}
-          >
-            {target.exerciseName}
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 10,
               marginBottom: 16,
+              position: "relative",
+              padding: "14px 16px 12px",
+              borderRadius: 16,
+              border: "1px solid " + (exerciseSwitchActive ? M.brandBorder : "transparent"),
+              background: exerciseSwitchActive ? M.brandSoft : "transparent",
+              boxShadow: exerciseSwitchActive ? M.brandGlow : "none",
+              transition: reducedMotion ? "none" : "border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease",
+              animation: animateExerciseSwitch ? "expressExerciseSwitchPanel 1s ease" : undefined,
             }}
           >
-            <ExpressSetStepButton label="−" onClick={handleRemoveSet} disabled={!canRemoveSet} ariaLabel="Satz entfernen" />
-            <span
+            <div
               style={{
+                position: "absolute",
+                top: 10,
+                left: 16,
+                right: 16,
                 fontSize: 13,
-                fontWeight: 600,
-                color: M.mut,
-                fontVariantNumeric: "tabular-nums",
-                minWidth: 96,
+                fontWeight: 700,
+                letterSpacing: 1.2,
+                textTransform: "uppercase",
+                color: M.brand,
                 textAlign: "center",
+                opacity: exerciseSwitchActive ? 1 : 0,
+                pointerEvents: "none",
+                transition: reducedMotion ? "none" : "opacity 0.25s ease",
+              }}
+              aria-hidden={!exerciseSwitchActive}
+            >
+              Neue Übung
+            </div>
+
+            <div
+              style={{
+                fontFamily: M.disp,
+                fontWeight: 700,
+                fontSize: 26,
+                color: exerciseSwitchActive ? M.brand : M.fg,
+                lineHeight: 1.15,
+                paddingTop: 24,
+                minHeight: 60,
+                marginBottom: 12,
+                textAlign: "center",
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                transition: reducedMotion ? "none" : "color 0.3s ease",
+                animation: animateExerciseSwitch ? "expressExerciseSwitchTitle 0.7s ease" : undefined,
               }}
             >
-              Satz {target.setIndex + 1} von {target.totalSetsInExercise}
-            </span>
-            <ExpressSetStepButton label="+" onClick={handleAddSet} ariaLabel="Satz hinzufügen" />
+              {target.exerciseName}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                minHeight: 44,
+              }}
+            >
+              <ExpressSetStepButton label="−" onClick={handleRemoveSet} disabled={!canRemoveSet} ariaLabel="Satz entfernen" />
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: exerciseSwitchActive ? M.fg : M.mut,
+                  fontVariantNumeric: "tabular-nums",
+                  minWidth: 108,
+                  textAlign: "center",
+                  transition: reducedMotion ? "none" : "color 0.3s ease",
+                }}
+              >
+                Satz {target.setIndex + 1} von {target.totalSetsInExercise}
+              </span>
+              <ExpressSetStepButton label="+" onClick={handleAddSet} ariaLabel="Satz hinzufügen" />
+            </div>
           </div>
 
           <div
             style={{
-              fontFamily: M.disp,
-              fontWeight: 800,
-              fontSize: 52,
-              lineHeight: 1.05,
-              color: isSuggested ? M.brand : M.fg,
+              ...displayTypography,
+              display: "flex",
+              alignItems: "baseline",
+              justifyContent: "center",
               textAlign: "center",
+              minHeight: 55,
               marginBottom: 20,
-              fontVariantNumeric: "tabular-nums",
             }}
           >
-            {formatExpressSetDisplay(set.kg, set.reps)}
+            <ExpressSetValueInput
+              value={set.kg}
+              format={formatKgDisplay}
+              parse={parseKgInput}
+              inputMode="decimal"
+              ariaLabel="Gewicht in kg"
+              color={displayColor}
+              onCommit={(kg) => handleSetValueCommit("kg", kg)}
+            />
+            <span aria-hidden>{" kg × "}</span>
+            <ExpressSetValueInput
+              value={set.reps}
+              format={formatRepsDisplay}
+              parse={parseRepsInput}
+              inputMode="numeric"
+              ariaLabel="Wiederholungen"
+              color={displayColor}
+              onCommit={(reps) => handleSetValueCommit("reps", reps)}
+            />
           </div>
 
           <div
@@ -332,35 +393,22 @@ export function ExpressTrackingView({
             <ExpressBumpButton label="Wdh −" onClick={() => handleBump("reps", -1)} />
             <ExpressBumpButton label="Wdh +" onClick={() => handleBump("reps", 1)} />
           </div>
+        </div>
 
+        {showNextExercisePreview ? (
           <div
             style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 8,
-              justifyContent: "center",
+              flex: 1,
+              minHeight: 0,
+              overflowY: "auto",
+              WebkitOverflowScrolling: "touch",
+              overscrollBehavior: "contain",
+              paddingTop: 4,
+              paddingBottom: 8,
             }}
           >
-            <button type="button" onClick={() => onOpenHistory(target.exerciseId)} style={actionPillStyle}>
-              Verlauf
-            </button>
-            <button type="button" onClick={() => onOpenNotes(target.exerciseId)} style={actionPillStyle}>
-              Notizen
-            </button>
-            <button
-              type="button"
-              onClick={() => onOpenExerciseMenu(target.exerciseId)}
-              style={actionPillStyle}
-              aria-label="Übungsmenü"
-            >
-              ⋯
-            </button>
-          </div>
-
-          {showNextExercisePreview ? (
             <div
               style={{
-                marginTop: 12,
                 padding: "12px 14px",
                 borderRadius: 14,
                 border: "1px solid " + M.line2,
@@ -370,7 +418,7 @@ export function ExpressTrackingView({
             >
               <div
                 style={{
-                  fontSize: 11,
+                  fontSize: 13,
                   fontWeight: 700,
                   letterSpacing: 1.1,
                   textTransform: "uppercase",
@@ -387,6 +435,7 @@ export function ExpressTrackingView({
                   fontSize: 16,
                   color: M.fg,
                   lineHeight: 1.2,
+                  minHeight: 38,
                   display: "-webkit-box",
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: "vertical",
@@ -396,15 +445,31 @@ export function ExpressTrackingView({
                 {nextExercise.exerciseName}
               </div>
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : (
+          <div aria-hidden style={{ flex: 1, minHeight: 0 }} />
+        )}
       </div>
 
       <style>{`
-        @keyframes expressExerciseSwitch {
-          0% { transform: scale(1); }
-          35% { transform: scale(1.06); }
-          100% { transform: scale(1); }
+        @keyframes expressExerciseSwitchPanel {
+          0% {
+            box-shadow: 0 0 0 rgba(126, 246, 123, 0);
+          }
+          35% {
+            box-shadow: 0 0 32px rgba(126, 246, 123, 0.35);
+          }
+          100% {
+            box-shadow: 0 0 20px rgba(126, 246, 123, 0.22);
+          }
+        }
+        @keyframes expressExerciseSwitchTitle {
+          0% {
+            opacity: 0.35;
+          }
+          100% {
+            opacity: 1;
+          }
         }
       `}</style>
 
@@ -418,23 +483,147 @@ export function ExpressTrackingView({
         }}
       >
         {isSuggested ? (
-          <div style={{ textAlign: "center", fontSize: 12, color: M.brand, fontStyle: "italic" }}>
+          <div style={{ textAlign: "center", fontSize: 13, color: M.brand, fontStyle: "italic" }}>
             Auto-Pilot · ein Tap zum Loggen
           </div>
         ) : null}
 
-        <MButton
-          type="button"
-          variant="primary"
-          size="md"
-          fullWidth
-          onClick={handleConfirm}
-          style={{ minHeight: 52, fontFamily: M.disp, fontWeight: 700, letterSpacing: 0.3 }}
-        >
-          <Icon name="check" size={18} stroke={2.6} /> Satz loggen
-        </MButton>
+        {restActive ? (
+          <div
+            style={{
+              ...brandButtonStyle(),
+              borderRadius: 16,
+              padding: "13px 18px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              boxSizing: "border-box",
+            }}
+          >
+            <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>PAUSE</span>
+            <span
+              style={{
+                fontFamily: M.disp,
+                fontWeight: 700,
+                fontSize: 30,
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {fmt(restSec)}
+            </span>
+            <MButton
+              type="button"
+              onClick={onSkipRest}
+              variant="secondary"
+              size="sm"
+              style={{ borderColor: "rgba(10,26,10,.25)", color: M.brandInk, background: "transparent" }}
+            >
+              Skip
+            </MButton>
+          </div>
+        ) : null}
+
+        <div style={{ display: "flex", alignItems: "stretch", gap: 10 }}>
+          <MButton
+            type="button"
+            variant="primary"
+            size="md"
+            onClick={handleConfirm}
+            style={{ flex: 1, minHeight: 52, fontFamily: M.disp, fontWeight: 700, letterSpacing: 0.3 }}
+          >
+            <Icon name="check" size={18} stroke={2.6} /> Satz loggen
+          </MButton>
+          <MButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => onOpenExerciseMenu(target.exerciseId)}
+            aria-label="Übungsmenü"
+            style={{ flexShrink: 0, color: M.mut2, alignSelf: "stretch", minHeight: 52, width: 52 }}
+          >
+            <Icon name="moreH" size={20} stroke={2.2} />
+          </MButton>
+        </div>
       </div>
     </div>
+  );
+}
+
+function ExpressSetValueInput({
+  value,
+  format,
+  parse,
+  inputMode,
+  ariaLabel,
+  color,
+  onCommit,
+}: {
+  value: number;
+  format: (value: number) => string;
+  parse: (raw: string) => number | null;
+  inputMode: "decimal" | "numeric";
+  ariaLabel: string;
+  color: string;
+  onCommit: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setDraft(format(value));
+  }, [value, focused, format]);
+
+  const commit = () => {
+    const parsed = parse(draft);
+    if (parsed !== null) onCommit(parsed);
+    setDraft(format(parsed ?? value));
+    setFocused(false);
+  };
+
+  const shown = focused ? draft : format(value);
+  const widthCh = Math.max(1, shown.length);
+
+  return (
+    <input
+      type="text"
+      inputMode={inputMode}
+      value={shown}
+      aria-label={ariaLabel}
+      onFocus={(e) => {
+        setFocused(true);
+        setDraft(format(value));
+        e.currentTarget.select();
+      }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        }
+      }}
+      style={{
+        fontFamily: M.disp,
+        fontWeight: 800,
+        fontSize: 52,
+        lineHeight: 1.05,
+        color,
+        fontVariantNumeric: "tabular-nums",
+        textAlign: "center",
+        background: "transparent",
+        border: "none",
+        outline: "none",
+        padding: 0,
+        margin: 0,
+        width: `${widthCh}ch`,
+        minWidth: "1ch",
+        maxWidth: "100%",
+        cursor: "text",
+        touchAction: "manipulation",
+        WebkitAppearance: "none",
+        MozAppearance: "textfield",
+      }}
+    />
   );
 }
 
@@ -456,8 +645,8 @@ function ExpressSetStepButton({
       disabled={disabled}
       aria-label={ariaLabel}
       style={{
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
         borderRadius: 10,
         border: "1px solid " + M.line2,
         background: M.cardHi,

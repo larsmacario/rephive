@@ -49,6 +49,21 @@ export function useIsWide(): boolean {
   return bp === "tablet" || bp === "desktop";
 }
 
+/** True when viewport height is tight (e.g. iPhone SE, small phones). */
+export function useShortViewport(threshold = 740): boolean {
+  const [short, setShort] = useState(() =>
+    typeof window === "undefined" ? false : window.innerHeight < threshold,
+  );
+
+  useEffect(() => {
+    const update = () => setShort(window.innerHeight < threshold);
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [threshold]);
+
+  return short;
+}
+
 /** Horizontal padding used by tab screens — nav aligns to the same inset. */
 export const CONTENT_HORIZONTAL_PADDING = 22;
 

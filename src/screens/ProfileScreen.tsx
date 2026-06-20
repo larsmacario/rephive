@@ -47,7 +47,7 @@ const compactInputStyle: React.CSSProperties = {
 };
 
 const smallOutlineBtn: React.CSSProperties = {
-  height: 30,
+  height: 40,
   borderRadius: 9,
   border: "1px solid " + M.line,
   background: "transparent",
@@ -335,7 +335,7 @@ export function ProfileScreen({ onBack, mode = "push" }: ProfileScreenProps) {
         >
           <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
         </MButton>
-        <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>PROFIL</span>
+        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>PROFIL</span>
         <div aria-hidden style={{ width: 40, flexShrink: 0 }} />
       </div>
 
@@ -426,7 +426,7 @@ export function ProfileScreen({ onBack, mode = "push" }: ProfileScreenProps) {
         <div style={{ marginBottom: 18 }}>
           <div
             style={{
-              fontSize: 11,
+              fontSize: 13,
               letterSpacing: 1.5,
               color: M.mut,
               fontWeight: 700,
@@ -549,7 +549,7 @@ export function ProfileScreen({ onBack, mode = "push" }: ProfileScreenProps) {
                         autoComplete="email"
                         style={compactInputStyle}
                       />
-                      <div style={{ fontSize: 12, color: M.mut, lineHeight: 1.45 }}>
+                      <div style={{ fontSize: 13, color: M.mut, lineHeight: 1.45 }}>
                         Nach dem Speichern erhältst du eine Bestätigungs-Mail an die neue Adresse.
                       </div>
                       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
@@ -664,7 +664,7 @@ export function ProfileScreen({ onBack, mode = "push" }: ProfileScreenProps) {
         <div>
           <div
             style={{
-              fontSize: 11,
+              fontSize: 13,
               letterSpacing: 1.5,
               color: M.mut,
               fontWeight: 700,

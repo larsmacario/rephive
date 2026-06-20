@@ -21,7 +21,7 @@ export function SupersetBlock({ children, showLabel = true }: SupersetBlockProps
       {showLabel && (
         <span
           style={{
-            fontSize: 10,
+            fontSize: 13,
             letterSpacing: 1.4,
             color: M.acc,
             fontWeight: 700,
@@ -43,7 +43,7 @@ export function supersetLinkButtonStyle(linked: boolean): React.CSSProperties {
     border: `1px solid ${linked ? M.acc : M.line}`,
     background: linked ? M.accSoft : "transparent",
     color: linked ? M.acc : M.mut,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 700,
     letterSpacing: 0.6,
     cursor: "pointer",

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { M } from "../theme";
 import { fmt, TIMER_DEFAULTS, TIMER_MODES, type TimerMode } from "../lib/engine";
 import { createAiConsentGrant, hasAiConsent, usePreferences } from "../lib/preferences";
+import { TimerSoundPackPicker } from "../components/TimerSoundPackPicker";
 import { Icon } from "../components/Icon";
 import { TimerConfigPanel } from "../components/TimerConfigPanel";
 import { MStepper, MSwitch } from "../components/widgets";
@@ -21,7 +22,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div style={{ marginBottom: 18 }}>
       <div
         style={{
-          fontSize: 11,
+          fontSize: 13,
           letterSpacing: 1.5,
           color: M.mut,
           fontWeight: 700,
@@ -68,7 +69,7 @@ function SettingRow({
     >
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ color: M.fg, fontWeight: 600, fontSize: 15 }}>{label}</div>
-        {hint && <div style={{ color: M.mut, fontSize: 12, marginTop: 3 }}>{hint}</div>}
+        {hint && <div style={{ color: M.mut, fontSize: 13, marginTop: 3 }}>{hint}</div>}
       </div>
       <div style={{ flex: "0 0 auto" }}>{children}</div>
     </div>
@@ -132,8 +133,8 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
         <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
           <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
         </MButton>
-        <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>EINSTELLUNGEN</span>
-        <span style={{ width: 24, fontSize: 11, color: saving ? M.acc : "transparent", fontWeight: 700 }}>
+        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>EINSTELLUNGEN</span>
+        <span style={{ width: 24, fontSize: 13, color: saving ? M.acc : "transparent", fontWeight: 700 }}>
           {saving ? "…" : ""}
         </span>
       </div>
@@ -207,15 +208,6 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
           </SettingRow>
         </Section>
 
-        <Section title="SIGNALE">
-          <SettingRow label="Signaletöne" hint="Akustische Signale für Timer und Pausen" last>
-            <MSwitch
-              checked={preferences.timerSounds}
-              onChange={(v) => updatePreferences({ timerSounds: v }, true)}
-            />
-          </SettingRow>
-        </Section>
-
         {showOwnerLabs ? (
           <Section title="LABS">
             <OwnerLabsSection />
@@ -223,6 +215,12 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
         ) : null}
 
         <Section title="INTERVAL-TIMER">
+          <TimerSoundPackPicker
+            enabled={preferences.timerSounds}
+            packId={preferences.timerSoundPack}
+            onEnabledChange={(v) => updatePreferences({ timerSounds: v }, true)}
+            onPackChange={(id) => updatePreferences({ timerSoundPack: id }, true)}
+          />
           <div
             style={{
               display: "flex",
@@ -232,6 +230,7 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
               borderRadius: 12,
               border: "1px solid " + M.line2,
               marginBottom: 14,
+              marginTop: 16,
             }}
           >
             {TIMER_MODES.map((m) => (
@@ -264,7 +263,7 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
           </MButton>
         </Section>
 
-        <div style={{ fontSize: 11, color: M.mut2, textAlign: "center", paddingTop: 4 }}>
+        <div style={{ fontSize: 13, color: M.mut2, textAlign: "center", paddingTop: 4 }}>
           Änderungen werden automatisch gespeichert
         </div>
       </div>

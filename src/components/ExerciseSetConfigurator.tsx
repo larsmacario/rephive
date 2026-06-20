@@ -67,7 +67,7 @@ export function SetModeToggle({
             color: setMode === mode ? M.acc : M.mut,
             fontFamily: M.disp,
             fontWeight: 700,
-            fontSize: 12,
+            fontSize: 13,
             letterSpacing: 0.4,
             cursor: "pointer",
           }}
@@ -206,7 +206,7 @@ function UniformStepper({
           +
         </button>
       </div>
-      <div style={{ fontSize: 9, letterSpacing: 1, color: M.mut2, fontWeight: 700, marginTop: 2 }}>{label}</div>
+      <div style={{ fontSize: 13, letterSpacing: 1, color: M.mut2, fontWeight: 700, marginTop: 2 }}>{label}</div>
     </div>
   );
 }

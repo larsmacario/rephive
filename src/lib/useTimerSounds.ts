@@ -16,6 +16,7 @@ export function useIntervalTimerSounds(
     "running" | "phase" | "kind" | "round" | "bigSeconds" | "done" | "mode" | "countUp" | "idle"
   >,
   enabled: boolean,
+  packId: string,
   cap?: number,
 ) {
   const prev = useRef<IntervalSoundState | null>(null);
@@ -47,10 +48,10 @@ export function useIntervalTimerSounds(
 
     if (prev.current) {
       if (prev.current.phase === "prep" && current.phase === "run") {
-        playTimerCue("go");
+        playTimerCue("go", packId);
       } else if (current.phase === "run" && prev.current.phase === "run") {
         if (prev.current.round !== current.round || prev.current.kind !== current.kind) {
-          playTimerCue(current.kind === "rest" ? "rest" : "go");
+          playTimerCue(current.kind === "rest" ? "rest" : "go", packId);
         }
       }
 
@@ -58,17 +59,17 @@ export function useIntervalTimerSounds(
         const manualForTimeFinish =
           snapshot.mode === "fortime" && snapshot.countUp && (cap == null || snapshot.bigSeconds < cap - 0.05);
         if (!manualForTimeFinish) {
-          playTimerCue("done");
+          playTimerCue("done", packId);
         }
       }
     } else if (current.phase === "run") {
-      playTimerCue("go");
+      playTimerCue("go", packId);
     }
 
     if (!snapshot.done && (snapshot.phase === "prep" || !snapshot.countUp)) {
       const sec = countdownSecond(snapshot.bigSeconds);
       if (sec >= 1 && sec <= 3 && sec !== prevTickSec.current) {
-        playTimerCue("tick");
+        playTimerCue("tick", packId);
         prevTickSec.current = sec;
       }
     }
@@ -76,6 +77,7 @@ export function useIntervalTimerSounds(
     prev.current = current;
   }, [
     enabled,
+    packId,
     snapshot.idle,
     snapshot.running,
     snapshot.phase,
@@ -89,7 +91,7 @@ export function useIntervalTimerSounds(
   ]);
 }
 
-export function useRestTimerSounds(rest: number, restActive: boolean, enabled: boolean) {
+export function useRestTimerSounds(rest: number, restActive: boolean, enabled: boolean, packId: string) {
   const prevActive = useRef(false);
   const prevRest = useRef(0);
   const prevTickSec = useRef<number | null>(null);
@@ -104,7 +106,7 @@ export function useRestTimerSounds(rest: number, restActive: boolean, enabled: b
 
     if (!restActive) {
       if (prevActive.current && prevRest.current > 0 && prevRest.current <= 1.5 && rest <= 0) {
-        playTimerCue("go");
+        playTimerCue("go", packId);
       }
       prevActive.current = false;
       prevRest.current = rest;
@@ -113,17 +115,17 @@ export function useRestTimerSounds(rest: number, restActive: boolean, enabled: b
     }
 
     if (!prevActive.current && restActive) {
-      playTimerCue("rest");
+      playTimerCue("rest", packId);
       prevTickSec.current = null;
     }
 
     const sec = countdownSecond(rest);
     if (sec >= 1 && sec <= 3 && sec !== prevTickSec.current) {
-      playTimerCue("tick");
+      playTimerCue("tick", packId);
       prevTickSec.current = sec;
     }
 
     prevActive.current = restActive;
     prevRest.current = rest;
-  }, [enabled, rest, restActive]);
+  }, [enabled, packId, rest, restActive]);
 }

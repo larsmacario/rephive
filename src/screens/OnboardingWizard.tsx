@@ -266,7 +266,7 @@ export function OnboardingWizard() {
 
             {/* Gender Selection */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Geschlecht
               </span>
               <div style={{ display: "flex", gap: 8 }}>
@@ -301,7 +301,7 @@ export function OnboardingWizard() {
 
             {/* Fitness Goal Selection */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Dein primäres Fitnessziel
               </span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -356,7 +356,7 @@ export function OnboardingWizard() {
 
             {/* Experience Selection */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Deine Trainingserfahrung
               </span>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -374,7 +374,7 @@ export function OnboardingWizard() {
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#d4d4d4" }} />
                   <div style={{ textAlign: "left" }}>
                     <div style={{ fontWeight: 700 }}>Anfänger</div>
-                    <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>0 bis 1 Jahre Erfahrung</div>
+                    <div style={{ fontSize: 13, color: M.mut, fontWeight: 400 }}>0 bis 1 Jahre Erfahrung</div>
                   </div>
                 </button>
 
@@ -392,7 +392,7 @@ export function OnboardingWizard() {
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#9ca3af" }} />
                   <div style={{ textAlign: "left" }}>
                     <div style={{ fontWeight: 700 }}>Fortgeschritten</div>
-                    <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>1 bis 3 Jahre Erfahrung</div>
+                    <div style={{ fontSize: 13, color: M.mut, fontWeight: 400 }}>1 bis 3 Jahre Erfahrung</div>
                   </div>
                 </button>
 
@@ -410,7 +410,7 @@ export function OnboardingWizard() {
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#6b7280" }} />
                   <div style={{ textAlign: "left" }}>
                     <div style={{ fontWeight: 700 }}>Profi</div>
-                    <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>Über 3 Jahre Erfahrung</div>
+                    <div style={{ fontSize: 13, color: M.mut, fontWeight: 400 }}>Über 3 Jahre Erfahrung</div>
                   </div>
                 </button>
               </div>
@@ -418,7 +418,7 @@ export function OnboardingWizard() {
 
             {/* Weekly Days Stepper */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Trainingstage pro Woche
               </span>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, background: M.card, padding: "12px", borderRadius: 14, border: "1px solid " + M.line }}>
@@ -426,8 +426,8 @@ export function OnboardingWizard() {
                   type="button"
                   onClick={() => setWeeklyDays(Math.max(1, weeklyDays - 1))}
                   style={{
-                    width: 40,
-                    height: 40,
+                    width: 44,
+                    height: 44,
                     borderRadius: 10,
                     border: "1px solid " + M.line,
                     background: M.bg,
@@ -443,14 +443,14 @@ export function OnboardingWizard() {
                 </button>
                 <div style={{ textAlign: "center", minWidth: 80 }}>
                   <div style={{ fontSize: 24, fontWeight: 700, color: M.acc, fontFamily: M.disp }}>{weeklyDays}</div>
-                  <div style={{ fontSize: 11, color: M.mut }}>{weeklyDays === 1 ? "Tag" : "Tage"} / Woche</div>
+                  <div style={{ fontSize: 13, color: M.mut }}>{weeklyDays === 1 ? "Tag" : "Tage"} / Woche</div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setWeeklyDays(Math.min(7, weeklyDays + 1))}
                   style={{
-                    width: 40,
-                    height: 40,
+                    width: 44,
+                    height: 44,
                     borderRadius: 10,
                     border: "1px solid " + M.line,
                     background: M.bg,
@@ -483,7 +483,7 @@ export function OnboardingWizard() {
 
             {/* Height Input */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <label style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Körpergröße (cm)
               </label>
               <div style={{ position: "relative" }}>
@@ -504,7 +504,7 @@ export function OnboardingWizard() {
 
             {/* Weight Input */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <label style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Aktuelles Gewicht (kg)
               </label>
               <div style={{ position: "relative" }}>
@@ -522,7 +522,7 @@ export function OnboardingWizard() {
                   kg
                 </div>
               </div>
-              <p style={{ fontSize: 11, color: M.mut, margin: "4px 0 0 0", textAlign: "center" }}>
+              <p style={{ fontSize: 13, color: M.mut, margin: "4px 0 0 0", textAlign: "center" }}>
                 Wenn du ein Gewicht einträgst, wird automatisch dein erster Logeintrag im Gewichtstracker angelegt!
               </p>
             </div>

@@ -18,14 +18,14 @@ export function MuscleGroupPicker({ value, rawValue, onChange }: MuscleGroupPick
 
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 8 }}>
+      <div style={{ fontSize: 13, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 8 }}>
         MUSKELGRUPPE
       </div>
       {MUSCLE_GROUP_SECTIONS.map((section) => (
         <div key={section.id} style={{ marginBottom: section.id === "upper" ? 12 : 0 }}>
           <div
             style={{
-              fontSize: 10,
+              fontSize: 13,
               letterSpacing: 1.1,
               color: M.mut2,
               fontWeight: 700,
@@ -62,7 +62,7 @@ export function MuscleGroupPicker({ value, rawValue, onChange }: MuscleGroupPick
         </div>
       ))}
       {legacyHint && (
-        <div style={{ fontSize: 12, color: M.mut2, marginTop: 8 }}>Früher: {legacyHint}</div>
+        <div style={{ fontSize: 13, color: M.mut2, marginTop: 8 }}>Früher: {legacyHint}</div>
       )}
     </div>
   );

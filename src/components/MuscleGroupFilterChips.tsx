@@ -13,7 +13,7 @@ const chipStyle = (active: boolean): CSSProperties => ({
   border: "1px solid " + (active ? M.acc : M.line2),
   background: active ? M.accSoft : "transparent",
   color: active ? M.fg : M.mut,
-  fontSize: 11,
+  fontSize: 13,
   fontWeight: 600,
   cursor: "pointer",
 });
@@ -30,7 +30,7 @@ export function MuscleGroupFilterChips({ groupFilter, onGroupFilterChange }: Mus
         <div key={section.id}>
           <div
             style={{
-              fontSize: 10,
+              fontSize: 13,
               letterSpacing: 1.1,
               color: M.mut2,
               fontWeight: 700,

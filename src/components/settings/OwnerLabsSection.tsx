@@ -31,7 +31,7 @@ export function OwnerLabsSection() {
       >
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ color: M.fg, fontWeight: 600, fontSize: 15 }}>Friction-Killer (Express Tracking)</div>
-          <div style={{ color: M.mut, fontSize: 12, marginTop: 3, lineHeight: 1.45 }}>
+          <div style={{ color: M.mut, fontSize: 13, marginTop: 3, lineHeight: 1.45 }}>
             Experiment · nur auf diesem Gerät. Ein Satz, Riesen-Confirm, schnelle Overrides.
           </div>
         </div>
@@ -43,7 +43,7 @@ export function OwnerLabsSection() {
 
       <div style={{ padding: "12px 0", borderBottom: metricsLog.length ? "1px solid " + M.line2 : "none" }}>
         <div style={{ color: M.fg, fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Gym-Test (2 Sessions)</div>
-        <div style={{ color: M.mut, fontSize: 12, lineHeight: 1.5 }}>
+        <div style={{ color: M.mut, fontSize: 13, lineHeight: 1.5 }}>
           Session A: klassischer Track — Zeit/Taps pro Satz notieren.
           <br />
           Session B: Express an — Ziel: ≤3 s und ≤2 Taps bei Auto-Pilot-Prefill.
@@ -52,7 +52,7 @@ export function OwnerLabsSection() {
 
       {metricsLog.length > 0 ? (
         <div style={{ paddingTop: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: M.mut, marginBottom: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1, color: M.mut, marginBottom: 8 }}>
             LETZTE EXPRESS-SESSIONS
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -60,7 +60,7 @@ export function OwnerLabsSection() {
               <div
                 key={`${entry.startedAt}-${i}`}
                 style={{
-                  fontSize: 11,
+                  fontSize: 13,
                   color: M.mut2,
                   lineHeight: 1.45,
                   fontFamily: M.body,

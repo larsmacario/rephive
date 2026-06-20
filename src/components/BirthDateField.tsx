@@ -112,7 +112,7 @@ export function BirthDateField({ value, onChange, label = "Geburtsdatum (optiona
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0 }}>
-      <label style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+      <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
         {label}
       </label>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.15fr 1.15fr", gap: 8, width: "100%" }}>

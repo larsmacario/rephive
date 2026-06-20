@@ -172,7 +172,7 @@ export function SessionExerciseEditor({
                   >
                     {ex.name}
                   </div>
-                  <div style={{ color: M.mut, fontSize: 12, marginTop: 1 }}>
+                  <div style={{ color: M.mut, fontSize: 13, marginTop: 1 }}>
                     {ex.note ? `${ex.note} · ` : ""}
                     {done}/{ex.sets.length} Sätze
                   </div>

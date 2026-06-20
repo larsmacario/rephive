@@ -80,7 +80,7 @@ export function TrendLineChart({
         <LineChart data={data} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
           <XAxis
             dataKey="label"
-            tick={{ fill: M.mut2, fontSize: 10, fontWeight: 700 }}
+            tick={{ fill: M.mut2, fontSize: 13, fontWeight: 700 }}
             axisLine={false}
             tickLine={false}
             interval="preserveStartEnd"
@@ -98,11 +98,11 @@ export function TrendLineChart({
                     border: "1px solid " + M.line,
                     borderRadius: 8,
                     padding: "6px 10px",
-                    fontSize: 12,
+                    fontSize: 13,
                     color: M.fg,
                   }}
                 >
-                  <div style={{ color: M.mut, fontSize: 10, marginBottom: 2 }}>{row.label}</div>
+                  <div style={{ color: M.mut, fontSize: 13, marginBottom: 2 }}>{row.label}</div>
                   <div style={{ fontFamily: M.disp, fontWeight: 700, color: accent }}>
                     {valueFormatter(row.value)}
                     {unit ? ` ${unit}` : ""}

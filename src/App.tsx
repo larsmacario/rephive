@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { M } from "./theme";
 import { PhoneApp } from "./PhoneApp";
 import { useAuth } from "./lib/auth";
@@ -46,11 +46,23 @@ function UnauthenticatedGate() {
 
 export function App() {
   const { user, loading, profileReady } = useAuth();
-  const booting = loading || (!!user && !profileReady);
+  const bootCompleteRef = useRef(false);
+  const [, setBootTick] = useState(0);
+
+  useEffect(() => {
+    if (bootCompleteRef.current) return;
+    if (!loading && (!user || profileReady)) {
+      bootCompleteRef.current = true;
+      setBootTick((n) => n + 1);
+    }
+  }, [loading, user, profileReady]);
+
+  const showSplash =
+    !bootCompleteRef.current && (loading || (!!user && !profileReady));
 
   return (
     <ResponsiveProvider>
-      {booting ? <Splash /> : !user ? <UnauthenticatedGate /> : <PhoneApp />}
+      {showSplash ? <Splash /> : !user ? <UnauthenticatedGate /> : <PhoneApp />}
     </ResponsiveProvider>
   );
 }

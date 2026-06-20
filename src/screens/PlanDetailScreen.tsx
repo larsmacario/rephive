@@ -3,6 +3,7 @@ import { M } from "../theme";
 import { useAuth } from "../lib/auth";
 import { deletePlan, setActivePlan, usePlan } from "../lib/db";
 import { planDayDisplayName } from "../data";
+import { weekdayLabelsFromSummary } from "../lib/trainingWeekdays";
 import { Icon } from "../components/Icon";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { PlanAdviceCollapsible } from "../components/PlanAdviceCollapsible";
@@ -80,9 +81,14 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
     );
   }
 
-  const totalExercises = plan.days.reduce((sum, d) => sum + d.exercises.length, 0);
+  const planDays = plan.days ?? [];
+  const weekdayLabels = weekdayLabelsFromSummary(plan.summary);
+  const totalExercises = planDays.reduce(
+    (sum, d) => sum + (d.exercises?.length ?? 0),
+    0,
+  );
 
-  const slideCount = 1 + plan.days.length;
+  const slideCount = 1 + planDays.length;
   const tabLabel = (index: number) => {
     if (index === 0) return "Übersicht";
     return `Tag ${index}`;
@@ -122,14 +128,14 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
             alignItems: "center",
             gap: 16,
             marginTop: 14,
-            fontSize: 12.5,
+            fontSize: 14,
             color: M.mut,
             fontWeight: 600,
           }}
         >
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <Icon name="layers" size={15} stroke={2} color={M.mut} />
-            {plan.days.length} Tage
+            {planDays.length} Tage
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <Icon name="dumbbell" size={15} stroke={2} color={M.mut} />
@@ -155,7 +161,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
 
         {plan.summary && (
           <div style={{ marginTop: 18 }}>
-            <div style={{ fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>DEINE EMPFEHLUNG</div>
+            <div style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>DEINE EMPFEHLUNG</div>
 
             <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
               <MStat
@@ -191,22 +197,22 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
 
             <PlanAdviceCollapsible>
               <div>
-                <div style={{ fontSize: 11, color: M.brand, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>TRAININGSFOKUS</div>
+                <div style={{ fontSize: 13, color: M.brand, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>TRAININGSFOKUS</div>
                 <p style={{ margin: 0, fontSize: 13, color: M.fg, lineHeight: 1.5 }}>{plan.summary.advice.trainingFocus}</p>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: M.brand, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>ERNÄHRUNG</div>
+                <div style={{ fontSize: 13, color: M.brand, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>ERNÄHRUNG</div>
                 <p style={{ margin: 0, fontSize: 13, color: M.fg, lineHeight: 1.5 }}>{plan.summary.advice.nutritionTips}</p>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: M.brand, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>REGENERATION</div>
+                <div style={{ fontSize: 13, color: M.brand, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>REGENERATION</div>
                 <p style={{ margin: 0, fontSize: 13, color: M.fg, lineHeight: 1.5 }}>{plan.summary.advice.recoveryTips}</p>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: M.brand, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>HYDRATION</div>
+                <div style={{ fontSize: 13, color: M.brand, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>HYDRATION</div>
                 <p style={{ margin: 0, fontSize: 13, color: M.fg, lineHeight: 1.5 }}>{plan.summary.advice.hydrationTips}</p>
               </div>
-              <p style={{ margin: 0, fontSize: 11, color: M.mut2, lineHeight: 1.4 }}>
+              <p style={{ margin: 0, fontSize: 13, color: M.mut2, lineHeight: 1.4 }}>
                 Richtwerte basierend auf deinen Angaben — kein medizinischer oder ernährungstherapeutischer Rat.
               </p>
             </PlanAdviceCollapsible>
@@ -218,7 +224,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
     </div>
   );
 
-  const daySlides = plan.days.map((day, dayIndex) => {
+  const daySlides = planDays.map((day, dayIndex) => {
     const isCurrent = plan.isActive && day.position === plan.currentDay;
     return (
       <div
@@ -234,7 +240,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
       >
         <PlanDaySlide
           dayNumber={day.position + 1}
-          label={planDayDisplayName(day)}
+          label={planDayDisplayName(day, weekdayLabels)}
           isCurrent={isCurrent}
           isActive={activeSlideIndex === dayIndex + 1}
           exercises={day.exercises}
@@ -259,7 +265,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
         <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex" }}>
           <Icon name="chevL" size={24} stroke={2.2} />
         </button>
-        <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>PLAN</span>
+        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>PLAN</span>
         <div style={{ width: 24 }} />
       </div>
 

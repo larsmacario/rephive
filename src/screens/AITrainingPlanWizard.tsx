@@ -20,6 +20,12 @@ import { MUSCLE_GROUP_SECTIONS } from "../lib/exerciseCatalog";
 import { normalizeMusclePriorities, type MusclePriorities } from "../lib/musclePriorities";
 import { MusclePrioritySliderRow } from "../components/MusclePrioritySliderRow";
 import { getExerciseCountHint } from "../lib/ai-plan-volume";
+import {
+  defaultTrainingWeekdays,
+  normalizeTrainingWeekdays,
+  toggleTrainingWeekday,
+  TRAINING_WEEKDAY_LABELS,
+} from "../lib/trainingWeekdays";
 import { MButton } from "../components/MButton";
 import { AiConsentStep } from "../components/AiConsentStep";
 
@@ -38,26 +44,26 @@ const GENERATION_LOADING_TEXTS = [
 
 /** Phasen an typischen Laufzeiten (Speichern → KI → DB). */
 function getGenerationLoadingStep(elapsedSec: number): number {
-  if (elapsedSec < 3) return 0;
-  if (elapsedSec < 7) return 1;
-  if (elapsedSec < 14) return 2;
+  if (elapsedSec < 2) return 0;
+  if (elapsedSec < 5) return 1;
+  if (elapsedSec < 45) return 2;
   return 3;
 }
 
 function formatGenerationTimeHint(elapsedSec: number): string {
   const prefix = "Bitte schließe die App nicht. ";
   if (elapsedSec < 4) {
-    return prefix + "Dieser Vorgang dauert etwa 10–15 Sekunden.";
-  }
-  if (elapsedSec < 12) {
-    const remaining = Math.max(3, 15 - elapsedSec);
-    return prefix + `Noch etwa ${remaining} Sekunden …`;
+    return prefix + "Dieser Vorgang dauert etwa 30–60 Sekunden.";
   }
   if (elapsedSec < 20) {
-    return prefix + "Gleich fertig — nur noch einen Moment.";
+    const remaining = Math.max(10, 55 - elapsedSec);
+    return prefix + `Noch etwa ${remaining} Sekunden …`;
   }
-  if (elapsedSec < 40) {
-    return prefix + "Die KI braucht etwas länger — bitte weiter warten.";
+  if (elapsedSec < 45) {
+    return prefix + "Die KI erstellt deinen Plan — bitte weiter warten.";
+  }
+  if (elapsedSec < 60) {
+    return prefix + "Fast fertig — nur noch einen Moment.";
   }
   return prefix + "Das dauert ungewöhnlich lange. Prüfe deine Verbindung und warte noch kurz.";
 }
@@ -215,7 +221,14 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
   const [trainingLocation, setTrainingLocation] = useState<"gym" | "home_equipment" | "bodyweight">(
     preferences.anamnesis?.trainingLocation ?? "gym"
   );
-  const [weeklyDays, setWeeklyDays] = useState<number>(preferences.weeklyDays || 3);
+  const [trainingWeekdays, setTrainingWeekdays] = useState<number[]>(() =>
+    normalizeTrainingWeekdays(preferences.anamnesis?.trainingWeekdays) ??
+      defaultTrainingWeekdays(preferences.weeklyDays ?? 3),
+  );
+  const selectedWeekdays =
+    Array.isArray(trainingWeekdays) && trainingWeekdays.length > 0
+      ? trainingWeekdays
+      : defaultTrainingWeekdays(3);
   const [trainingStructure, setTrainingStructure] = useState<TrainingStructure | null>(
     preferences.anamnesis?.trainingStructure ?? null
   );
@@ -268,8 +281,8 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
   };
 
   useEffect(() => {
-    if (step !== 12 || !busy) {
-      if (step !== 12) {
+    if (step !== 13 || !busy) {
+      if (step !== 13) {
         generationStartedAtRef.current = null;
         setGenElapsedSec(0);
       }
@@ -340,6 +353,10 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
     setOtherSports((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const handleToggleWeekday = (day: number) => {
+    setTrainingWeekdays((prev) => toggleTrainingWeekday(prev, day));
+  };
+
   const nextStep = () => {
     setError(null);
     if (step === 1) {
@@ -395,9 +412,15 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
         setError("Bitte wähle die Split-Größe (2er bis 6er).");
         return;
       }
-      if (trainingStructure === "split" && trainingSplitDays && weeklyDays < trainingSplitDays) {
+    }
+    if (step === 8) {
+      if (selectedWeekdays.length < 1) {
+        setError("Bitte wähle mindestens einen Trainingstag.");
+        return;
+      }
+      if (trainingStructure === "split" && trainingSplitDays && selectedWeekdays.length < trainingSplitDays) {
         setError(
-          `Für einen ${trainingSplitDays}er-Split brauchst du mindestens ${trainingSplitDays} Trainingstage pro Woche.`
+          `Für einen ${trainingSplitDays}er-Split brauchst du mindestens ${trainingSplitDays} Trainingstage pro Woche.`,
         );
         return;
       }
@@ -406,7 +429,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
         return;
       }
     }
-    if (step === 9) {
+    if (step === 10) {
       if (!occupation) {
         setError("Bitte wähle deine berufliche Alltagsaktivität.");
         return;
@@ -420,8 +443,8 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
         return;
       }
     }
-    if (step === 10) {
-      setStep(11);
+    if (step === 11) {
+      setStep(12);
       return;
     }
     setStep((s) => s + 1);
@@ -435,10 +458,10 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
   const startGenerationFlow = (options?: { consentGranted?: boolean }) => {
     if (!options?.consentGranted && !hasAiConsent(preferences)) {
       setError("Bitte erteile zuerst deine Einwilligung zur KI-Nutzung.");
-      setStep(11);
+      setStep(12);
       return;
     }
-    setStep(12);
+    setStep(13);
     void runGeneration(options?.consentGranted);
   };
 
@@ -456,7 +479,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
     if (!user) return;
     if (!consentGranted && !hasAiConsent(preferences)) {
       setError("Für die KI-Planerstellung ist deine Einwilligung erforderlich.");
-      setStep(11);
+      setStep(12);
       return;
     }
     generationStartedAtRef.current = Date.now();
@@ -471,20 +494,6 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
       const parsedWaist = metricMode === "htv" && waistCm ? parseFloat(waistCm) : null;
       const parsedHips = metricMode === "htv" && hipsCm ? parseFloat(hipsCm) : null;
       const parsedHtv = parsedWaist && parsedHips && parsedHips > 0 ? parsedWaist / parsedHips : null;
-
-      // 1. Körperdaten in body_measurements speichern
-      await createBodyMeasurement(user.id, {
-        weightKg: parsedWeight,
-        bodyFatPct: parsedKfa && !isNaN(parsedKfa) ? parsedKfa : undefined,
-        waistCm: parsedWaist && !isNaN(parsedWaist) ? parsedWaist : undefined,
-        hipsCm: parsedHips && !isNaN(parsedHips) ? parsedHips : undefined,
-        performedAt: new Date().toISOString(),
-      });
-
-      // 2. Geburtsdatum in Auth aktualisieren falls eingegeben
-      if (birthDate.trim() && birthDate.trim() !== profile?.birth_date) {
-        await updateBirthDate(birthDate.trim());
-      }
 
       const anamnesisObj = {
         painZones,
@@ -504,8 +513,11 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
         dietAllergies,
         trainingStructure,
         trainingSplitDays: trainingStructure === "split" ? trainingSplitDays : null,
+        trainingWeekdays: selectedWeekdays,
         musclePriorities,
       };
+
+      const effectiveWeeklyDays = selectedWeekdays.length;
 
       const nutrition = buildNutrition({
         gender,
@@ -514,34 +526,44 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
         weightKg: parsedWeight,
         fitnessGoal,
         experienceLevel,
-        weeklyDays,
+        weeklyDays: effectiveWeeklyDays,
         minutesPerSession,
         occupation,
         otherSports,
       });
 
-      // 3. Preferences aktualisieren
-      await updatePreferences(
-        {
-          gender,
-          fitnessGoal,
-          experienceLevel,
-          heightCm: parsedHeight,
-          weeklyDays,
-          anamnesis: anamnesisObj,
-        },
-        true // Sofort in DB speichern
-      );
+      const birthDatePromise =
+        birthDate.trim() && birthDate.trim() !== profile?.birth_date
+          ? updateBirthDate(birthDate.trim())
+          : Promise.resolve();
 
-      // 4. Lade Lern- und Verlaufsdaten für die KI
-      let recentSessions: any[] = [];
-      try {
-        recentSessions = await fetchRecentSessionsWithExercises(10);
-      } catch (historyErr) {
-        console.warn("Konnte Trainings-Historie nicht laden, fahre ohne fort:", historyErr);
-      }
+      const [, , , recentSessions] = await Promise.all([
+        createBodyMeasurement(user.id, {
+          weightKg: parsedWeight,
+          bodyFatPct: parsedKfa && !isNaN(parsedKfa) ? parsedKfa : undefined,
+          waistCm: parsedWaist && !isNaN(parsedWaist) ? parsedWaist : undefined,
+          hipsCm: parsedHips && !isNaN(parsedHips) ? parsedHips : undefined,
+          performedAt: new Date().toISOString(),
+        }),
+        birthDatePromise,
+        updatePreferences(
+          {
+            gender,
+            fitnessGoal,
+            experienceLevel,
+            heightCm: parsedHeight,
+            weeklyDays: effectiveWeeklyDays,
+            anamnesis: anamnesisObj,
+          },
+          true,
+        ),
+        fetchRecentSessionsWithExercises(5).catch((historyErr) => {
+          console.warn("Konnte Trainings-Historie nicht laden, fahre ohne fort:", historyErr);
+          return [] as Awaited<ReturnType<typeof fetchRecentSessionsWithExercises>>;
+        }),
+      ]);
 
-      // 5. KI Edge-Function zur Planerstellung aufrufen
+      // KI Edge-Function zur Planerstellung aufrufen
       const planId = await generateAndSaveAITrainingPlan(user.id, {
         gender,
         birthDate: birthDate.trim() || profile?.birth_date,
@@ -549,7 +571,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
         weightKg: parsedWeight,
         fitnessGoal,
         experienceLevel,
-        weeklyDays,
+        weeklyDays: effectiveWeeklyDays,
         anamnesis: anamnesisObj,
         nutrition,
         recentSessions,
@@ -560,17 +582,17 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
     } catch (e: any) {
       console.error("Fehler bei der KI-Generierung:", e);
       setError(e.message || "Es ist ein Fehler bei der Generierung aufgetreten. Bitte versuche es erneut.");
-      setStep(12); // Zurück zum Generierungsschritt im Fehlerfall
+      setStep(13);
     } finally {
       setBusy(false);
     }
   };
 
   // Steps Configuration
-  const stepsCount = 13;
+  const stepsCount = 14;
   const progressPercent = step === 0 ? 0 : Math.min(100, (step / (stepsCount - 1)) * 100);
   /** Header + Footer fix; nur der Mittelteil scrollt (Step 6 Split-Abfrage etc.). */
-  const scrollableMain = step <= 11;
+  const scrollableMain = step <= 12;
 
   return (
     <div
@@ -590,7 +612,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
       }}
     >
       {/* Header und Progressbar */}
-      {step < 12 && (
+      {step < 13 && (
         <div style={{ width: "100%", maxWidth: 460, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <button
@@ -706,7 +728,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                 textAlign: "left",
               }}
             >
-              <div style={{ fontSize: 11, letterSpacing: 1.4, color: M.mut, fontWeight: 700, marginBottom: 10 }}>
+              <div style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700, marginBottom: 10 }}>
                 DAS BEKOMMST DU
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -720,7 +742,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
             </div>
 
             <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 11, letterSpacing: 1.4, color: M.mut, fontWeight: 700, marginBottom: 8 }}>
+              <div style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700, marginBottom: 8 }}>
                 WARUM DAS SINN MACHT
               </div>
               <p style={{ color: M.mut, fontSize: 13, lineHeight: 1.55, margin: "0 0 8px 0" }}>
@@ -730,7 +752,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
               <p style={{ color: M.mut, fontSize: 13, lineHeight: 1.55, margin: "0 0 8px 0" }}>
                 In ca. 3–5 Minuten Eingabe erhältst du einen strukturierten Plan, ohne stundenlang recherchieren zu müssen.
               </p>
-              <p style={{ color: M.mut2, fontSize: 12, lineHeight: 1.5, margin: 0 }}>
+              <p style={{ color: M.mut2, fontSize: 13, lineHeight: 1.5, margin: 0 }}>
                 Alle Angaben sind Richtwerte und ersetzen keine medizinische oder ernährungstherapeutische Beratung.
               </p>
             </div>
@@ -744,7 +766,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                 textAlign: "left",
               }}
             >
-              <p style={{ color: M.mut2, fontSize: 11.5, lineHeight: 1.45, margin: 0 }}>
+              <p style={{ color: M.mut2, fontSize: 13, lineHeight: 1.45, margin: 0 }}>
                 Deine Angaben werden in deinem rephive-Konto gespeichert. Für die Plan-Erstellung werden relevante Daten an
                 <strong> Anthropic</strong> übermittelt — dazu holen wir vor der Generierung eine separate Einwilligung ein
                 (kein automatisches Opt-in). Es erfolgt keine Weitergabe zu Werbezwecken.{" "}
@@ -784,7 +806,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
 
             {/* Geschlecht */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Geschlecht
               </span>
               <div style={{ display: "flex", gap: 8 }}>
@@ -819,7 +841,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
             {/* Größe & Gewicht */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <label style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                   Körpergröße (cm)
                 </label>
                 <div style={{ position: "relative" }}>
@@ -837,7 +859,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <label style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                   Gewicht (kg)
                 </label>
                 <div style={{ position: "relative" }}>
@@ -858,7 +880,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
 
             {/* KFA oder HTV Selector */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Körperfett oder Hüft-Taillen-Verhältnis
               </span>
               <div style={{ display: "flex", background: M.card, borderRadius: 12, padding: 4, border: "1px solid " + M.line }}>
@@ -873,7 +895,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                     background: metricMode === "kfa" ? M.brand : "transparent",
                     color: metricMode === "kfa" ? M.brandInk : M.fg,
                     fontWeight: 700,
-                    fontSize: 12,
+                    fontSize: 13,
                     cursor: "pointer",
                     fontFamily: M.disp,
                   }}
@@ -891,7 +913,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                     background: metricMode === "htv" ? M.brand : "transparent",
                     color: metricMode === "htv" ? M.brandInk : M.fg,
                     fontWeight: 700,
-                    fontSize: 12,
+                    fontSize: 13,
                     cursor: "pointer",
                     fontFamily: M.disp,
                   }}
@@ -903,7 +925,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
 
             {metricMode === "kfa" ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <label style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                   Körperfettanteil (optional, %)
                 </label>
                 <div style={{ position: "relative" }}>
@@ -923,7 +945,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <label style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                       Hüftumfang (cm)
                     </label>
                     <div style={{ position: "relative" }}>
@@ -941,7 +963,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <label style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                       Taillenumfang (cm)
                     </label>
                     <div style={{ position: "relative" }}>
@@ -979,7 +1001,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                           gap: 4,
                         }}
                       >
-                        <div style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                        <div style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                           Berechnetes HTV / WHR
                         </div>
                         <div style={{ fontSize: 32, fontFamily: M.disp, fontWeight: 800, color: M.fg }}>
@@ -1012,7 +1034,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
 
             {/* Fitnessziel */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Dein Primäres Ziel
               </span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -1037,7 +1059,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
 
             {/* Erfahrung */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Deine Trainingserfahrung
               </span>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1048,7 +1070,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                 >
                   <div>
                     <div style={{ fontWeight: 700 }}>Anfänger</div>
-                    <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>Unter 1 Jahr Erfahrung</div>
+                    <div style={{ fontSize: 13, color: M.mut, fontWeight: 400 }}>Unter 1 Jahr Erfahrung</div>
                   </div>
                   {experienceLevel === "beginner" && <Icon name="check" size={16} color={M.brand} />}
                 </button>
@@ -1059,7 +1081,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                 >
                   <div>
                     <div style={{ fontWeight: 700 }}>Fortgeschritten</div>
-                    <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>1 bis 3 Jahre Erfahrung</div>
+                    <div style={{ fontSize: 13, color: M.mut, fontWeight: 400 }}>1 bis 3 Jahre Erfahrung</div>
                   </div>
                   {experienceLevel === "intermediate" && <Icon name="check" size={16} color={M.brand} />}
                 </button>
@@ -1070,7 +1092,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                 >
                   <div>
                     <div style={{ fontWeight: 700 }}>Profi</div>
-                    <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>Über 3 Jahre Erfahrung</div>
+                    <div style={{ fontSize: 13, color: M.mut, fontWeight: 400 }}>Über 3 Jahre Erfahrung</div>
                   </div>
                   {experienceLevel === "advanced" && <Icon name="check" size={16} color={M.brand} />}
                 </button>
@@ -1096,7 +1118,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                 <span
                   style={{
                     display: "block",
-                    fontSize: 11,
+                    fontSize: 13,
                     color: M.mut,
                     fontWeight: 700,
                     textTransform: "uppercase",
@@ -1132,7 +1154,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Ernährungspräferenz
               </span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -1158,7 +1180,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                   onKeyDown={(e) => e.key === "Enter" && addAllergy()}
                   style={{ ...inputStyle, textAlign: "left", flex: 1, padding: "10px 12px" }}
                 />
-                <MButton type="button" onClick={addAllergy} variant="secondary" size="sm" style={{ width: 36, minWidth: 36 }}>
+                <MButton type="button" onClick={addAllergy} variant="secondary" size="sm" style={{ width: 44, minWidth: 44 }}>
                   +
                 </MButton>
               </div>
@@ -1174,7 +1196,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                         borderRadius: 20,
                         border: "1px solid " + M.line,
                         background: M.card,
-                        fontSize: 12,
+                        fontSize: 13,
                         fontWeight: 600,
                         cursor: "pointer",
                       }}
@@ -1202,28 +1224,28 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
 
             {/* Trainingsort */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Trainingsort
               </span>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button type="button" onClick={() => setTrainingLocation("gym")} style={listTileStyle(trainingLocation === "gym")}>
                   <div>
                     <div style={{ fontWeight: 700 }}>Fitnessstudio (Gym)</div>
-                    <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>Alle Geräte, Freihanteln, Kabelzüge</div>
+                    <div style={{ fontSize: 13, color: M.mut, fontWeight: 400 }}>Alle Geräte, Freihanteln, Kabelzüge</div>
                   </div>
                   {trainingLocation === "gym" && <Icon name="check" size={16} color={M.brand} />}
                 </button>
                 <button type="button" onClick={() => setTrainingLocation("home_equipment")} style={listTileStyle(trainingLocation === "home_equipment")}>
                   <div>
                     <div style={{ fontWeight: 700 }}>Home Gym mit Ausrüstung</div>
-                    <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>Kurzhanteln, Bänder, Klimmzugstange</div>
+                    <div style={{ fontSize: 13, color: M.mut, fontWeight: 400 }}>Kurzhanteln, Bänder, Klimmzugstange</div>
                   </div>
                   {trainingLocation === "home_equipment" && <Icon name="check" size={16} color={M.brand} />}
                 </button>
                 <button type="button" onClick={() => setTrainingLocation("bodyweight")} style={listTileStyle(trainingLocation === "bodyweight")}>
                   <div>
                     <div style={{ fontWeight: 700 }}>Nur Eigengewicht (Bodyweight)</div>
-                    <div style={{ fontSize: 11, color: M.mut, fontWeight: 400 }}>Keinerlei Geräte oder Gewichte nötig</div>
+                    <div style={{ fontSize: 13, color: M.mut, fontWeight: 400 }}>Keinerlei Geräte oder Gewichte nötig</div>
                   </div>
                   {trainingLocation === "bodyweight" && <Icon name="check" size={16} color={M.brand} />}
                 </button>
@@ -1232,7 +1254,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
 
             {trainingLocation === "home_equipment" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: -8, paddingLeft: 12, borderLeft: "2px solid " + M.brandSoft }}>
-                <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                   Vorhandene Ausrüstung im Home Gym
                 </span>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -1269,20 +1291,20 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
           </div>
         )}
 
-        {/* STEP 7: Frequenz & Zeit */}
+        {/* STEP 7: Trainingsstruktur */}
         {step === 7 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             <div>
               <h2 style={{ fontFamily: M.disp, fontSize: 24, fontWeight: 700, margin: "0 0 6px 0", textTransform: "uppercase", letterSpacing: 0.5 }}>
-                Training & Zeit
+                Trainingsstruktur
               </h2>
               <p style={{ color: M.mut, fontSize: 14, margin: 0 }}>
-                Struktur, Häufigkeit und Dauer deiner Einheiten — die KI baut deinen Wochenplan danach auf.
+                Ganzkörper oder Split — im nächsten Schritt wählst du deine Trainingstage und die Dauer.
               </p>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Trainingsstruktur
               </span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -1295,7 +1317,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                   style={tileStyle(trainingStructure === "full_body")}
                 >
                   <span>Ganzkörper</span>
-                  <span style={{ fontSize: 11, color: M.mut, fontWeight: 500 }}>Jede Einheit: ganzer Körper</span>
+                  <span style={{ fontSize: 13, color: M.mut, fontWeight: 500 }}>Jede Einheit: ganzer Körper</span>
                 </button>
                 <button
                   type="button"
@@ -1303,14 +1325,14 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                   style={tileStyle(trainingStructure === "split")}
                 >
                   <span>Split-Training</span>
-                  <span style={{ fontSize: 11, color: M.mut, fontWeight: 500 }}>Muskelgruppen getrennt</span>
+                  <span style={{ fontSize: 13, color: M.mut, fontWeight: 500 }}>Muskelgruppen getrennt</span>
                 </button>
               </div>
             </div>
 
             {trainingStructure === "split" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                   Split-Größe
                 </span>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1323,7 +1345,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                     >
                       <span>
                         {opt.label}
-                        <span style={{ display: "block", fontSize: 11, color: M.mut, fontWeight: 500, marginTop: 2 }}>
+                        <span style={{ display: "block", fontSize: 13, color: M.mut, fontWeight: 500, marginTop: 2 }}>
                           {opt.hint}
                         </span>
                       </span>
@@ -1334,42 +1356,57 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
               </div>
             )}
 
-            {trainingStructure === "full_body" && weeklyDays > 3 && (
-              <p style={{ color: M.mut2, fontSize: 12, lineHeight: 1.45, margin: 0 }}>
+            {trainingStructure === "full_body" && selectedWeekdays.length > 3 && (
+              <p style={{ color: M.mut2, fontSize: 13, lineHeight: 1.45, margin: 0 }}>
                 Ganzkörper-Training ist oft mit 2–3 Einheiten pro Woche am sinnvollsten — du kannst trotzdem mehr wählen.
               </p>
             )}
+          </div>
+        )}
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                Trainingstage pro Woche
-              </span>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, background: M.card, padding: "12px", borderRadius: 14, border: "1px solid " + M.line }}>
-                <button
-                  type="button"
-                  onClick={() => setWeeklyDays(Math.max(1, weeklyDays - 1))}
-                  style={stepperBtnStyle}
-                  aria-label="Trainingstage reduzieren"
-                >
-                  -
-                </button>
-                <div style={{ textAlign: "center", minWidth: 80 }}>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: M.brand, fontFamily: M.disp }}>{weeklyDays}</div>
-                  <div style={{ fontSize: 11, color: M.mut }}>{weeklyDays === 1 ? "Tag" : "Tage"} / Woche</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setWeeklyDays(Math.min(7, weeklyDays + 1))}
-                  style={stepperBtnStyle}
-                  aria-label="Trainingstage erhöhen"
-                >
-                  +
-                </button>
-              </div>
+        {/* STEP 8: Tage & Zeit */}
+        {step === 8 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            <div>
+              <h2 style={{ fontFamily: M.disp, fontSize: 24, fontWeight: 700, margin: "0 0 6px 0", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Tage & Zeit
+              </h2>
+              <p style={{ color: M.mut, fontSize: 14, margin: 0 }}>
+                An welchen Wochentagen trainierst du — und wie lange dauert eine Einheit?
+              </p>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Trainingstage
+              </span>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+                {TRAINING_WEEKDAY_LABELS.map((label, dayIndex) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => handleToggleWeekday(dayIndex)}
+                    style={{
+                      ...tileStyle(selectedWeekdays.includes(dayIndex)),
+                      padding: "14px 4px",
+                      minWidth: 0,
+                    }}
+                    aria-label={`${label} ${selectedWeekdays.includes(dayIndex) ? "abwählen" : "auswählen"}`}
+                    aria-pressed={selectedWeekdays.includes(dayIndex)}
+                  >
+                    <span style={{ fontSize: 13, fontWeight: 700 }}>{label}</span>
+                  </button>
+                ))}
+              </div>
+              <p style={{ color: M.mut, fontSize: 13, margin: 0 }}>
+                {selectedWeekdays.length === 1
+                  ? "1 Tag ausgewählt"
+                  : `${selectedWeekdays.length} Tage ausgewählt`}
+              </p>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Zeit pro Trainingseinheit
               </span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -1396,8 +1433,8 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
           </div>
         )}
 
-        {/* STEP 8: Schmerzen & Einschränkungen */}
-        {step === 8 && (
+        {/* STEP 9: Schmerzen & Einschränkungen */}
+        {step === 9 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div>
               <h2 style={{ fontFamily: M.disp, fontSize: 24, fontWeight: 700, margin: "0 0 6px 0", textTransform: "uppercase", letterSpacing: 0.5 }}>
@@ -1455,8 +1492,8 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
           </div>
         )}
 
-        {/* STEP 9: Alltag & Regeneration */}
-        {step === 9 && (
+        {/* STEP 10: Alltag & Regeneration */}
+        {step === 10 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             <div>
               <h2 style={{ fontFamily: M.disp, fontSize: 24, fontWeight: 700, margin: "0 0 6px 0", textTransform: "uppercase", letterSpacing: 0.5 }}>
@@ -1468,27 +1505,27 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Beruf / Alltagsaktivität
               </span>
               <button type="button" onClick={() => setOccupation("sedentary")} style={listTileStyle(occupation === "sedentary")}>
                 <div>
                   <div style={{ fontWeight: 700 }}>Überwiegend sitzend</div>
-                  <div style={{ fontSize: 11, color: M.mut }}>Büro, Homeoffice</div>
+                  <div style={{ fontSize: 13, color: M.mut }}>Büro, Homeoffice</div>
                 </div>
                 {occupation === "sedentary" && <Icon name="check" size={16} color={M.brand} />}
               </button>
               <button type="button" onClick={() => setOccupation("standing")} style={listTileStyle(occupation === "standing")}>
                 <div>
                   <div style={{ fontWeight: 700 }}>Überwiegend stehend</div>
-                  <div style={{ fontSize: 11, color: M.mut }}>Einzelhandel, Pflege</div>
+                  <div style={{ fontSize: 13, color: M.mut }}>Einzelhandel, Pflege</div>
                 </div>
                 {occupation === "standing" && <Icon name="check" size={16} color={M.brand} />}
               </button>
               <button type="button" onClick={() => setOccupation("physical")} style={listTileStyle(occupation === "physical")}>
                 <div>
                   <div style={{ fontWeight: 700 }}>Körperlich belastend</div>
-                  <div style={{ fontSize: 11, color: M.mut }}>Handwerk, Logistik</div>
+                  <div style={{ fontSize: 13, color: M.mut }}>Handwerk, Logistik</div>
                 </div>
                 {occupation === "physical" && <Icon name="check" size={16} color={M.brand} />}
               </button>
@@ -1504,7 +1541,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
             </button>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Ø Schlaf pro Nacht (Stunden)
               </span>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, background: M.card, padding: "12px", borderRadius: 14, border: "1px solid " + M.line }}>
@@ -1518,7 +1555,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                 </button>
                 <div style={{ textAlign: "center", minWidth: 80 }}>
                   <div style={{ fontSize: 24, fontWeight: 700, color: M.brand, fontFamily: M.disp }}>{formatSleepHours(sleepHours)}</div>
-                  <div style={{ fontSize: 11, color: M.mut }}>pro Nacht</div>
+                  <div style={{ fontSize: 13, color: M.mut }}>pro Nacht</div>
                 </div>
                 <button
                   type="button"
@@ -1532,7 +1569,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Stresslevel (1 = sehr niedrig, 10 = sehr hoch)
               </span>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, background: M.card, padding: "12px", borderRadius: 14, border: "1px solid " + M.line }}>
@@ -1546,7 +1583,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                 </button>
                 <div style={{ textAlign: "center", minWidth: 80 }}>
                   <div style={{ fontSize: 24, fontWeight: 700, color: M.brand, fontFamily: M.disp }}>{stressLevel}</div>
-                  <div style={{ fontSize: 11, color: M.mut }}>von 10</div>
+                  <div style={{ fontSize: 13, color: M.mut }}>von 10</div>
                 </div>
                 <button
                   type="button"
@@ -1561,8 +1598,8 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
           </div>
         )}
 
-        {/* STEP 10: Andere Sportarten */}
-        {step === 10 && (
+        {/* STEP 11: Andere Sportarten */}
+        {step === 11 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div>
               <h2 style={{ fontFamily: M.disp, fontSize: 24, fontWeight: 700, margin: "0 0 6px 0", textTransform: "uppercase", letterSpacing: 0.5 }}>
@@ -1629,7 +1666,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
                         color: tempFreq === f ? M.brandInk : M.fg,
                         fontWeight: 700,
                         cursor: "pointer",
-                        fontSize: 12,
+                        fontSize: 13,
                       }}
                     >
                       {f}x
@@ -1642,7 +1679,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
             {/* Liste hinzugefügter Sportarten */}
             {otherSports.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                <span style={{ fontSize: 12, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                <span style={{ fontSize: 13, color: M.mut, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
                   Eingetragene Sportarten
                 </span>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1679,8 +1716,8 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
           </div>
         )}
 
-        {/* STEP 11: KI-Einwilligung (Anthropic) — explizite Einwilligung vor generate-training-plan */}
-        {step === 11 && (
+        {/* STEP 12: KI-Einwilligung (Anthropic) — explizite Einwilligung vor generate-training-plan */}
+        {step === 12 && (
           <AiConsentStep
             onOpenPrivacy={openDatenschutz}
             onAccept={() => void handleGrantConsent()}
@@ -1690,8 +1727,8 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
           />
         )}
 
-        {/* STEP 12: Generierung & Fertigstellung */}
-        {step === 12 && (
+        {/* STEP 13: Generierung & Fertigstellung */}
+        {step === 13 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 24, textAlign: "center", alignItems: "center" }}>
             {busy ? (
               <>
@@ -1788,7 +1825,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
         </div>
       )}
 
-      {step > 0 && step < 11 && (
+      {step > 0 && step < 12 && (
         <div style={{ width: "100%", maxWidth: 460, flexShrink: 0, display: "flex", justifyContent: "space-between", gap: 12 }}>
           <MButton type="button" onClick={prevStep} variant="secondary" size="md">
             <Icon name="chevL" size={16} /> ZURÜCK

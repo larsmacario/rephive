@@ -4,10 +4,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import type { Session, User } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import type { Tables } from "./database.types";
@@ -61,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileReady, setProfileReady] = useState(false);
+  const activeUserIdRef = useRef<string | null>(null);
 
   const loadProfile = useCallback(async (userId: string, opts?: { silent?: boolean }) => {
     if (!opts?.silent) setProfileReady(false);
@@ -79,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
       setSession(data.session);
       setUser(data.session?.user ?? null);
+      activeUserIdRef.current = data.session?.user?.id ?? null;
       if (data.session?.user) {
         loadProfile(data.session.user.id).finally(() => mounted && setLoading(false));
       } else {
@@ -90,16 +93,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, nextSession) => {
       setSession(nextSession);
-      setUser(nextSession?.user ?? null);
-      if (nextSession?.user) {
-        setLoading(true);
-        loadProfile(nextSession.user.id).finally(() => setLoading(false));
-      } else {
+      const nextUser = nextSession?.user ?? null;
+      setUser(nextUser);
+
+      if (!nextUser) {
+        activeUserIdRef.current = null;
         setProfile(null);
         setProfileReady(true);
         setLoading(false);
+        return;
+      }
+
+      const nextUserId = nextUser.id;
+      const sameUser = activeUserIdRef.current === nextUserId;
+      activeUserIdRef.current = nextUserId;
+
+      switch (event) {
+        case "INITIAL_SESSION":
+          // Initial profile load is owned by getSession() above.
+          break;
+        case "TOKEN_REFRESHED":
+        case "USER_UPDATED":
+        case "PASSWORD_RECOVERY":
+          void loadProfile(nextUserId, { silent: true });
+          break;
+        case "SIGNED_IN":
+          if (sameUser) {
+            void loadProfile(nextUserId, { silent: true });
+          } else {
+            setLoading(true);
+            void loadProfile(nextUserId).finally(() => setLoading(false));
+          }
+          break;
+        default:
+          if (sameUser) {
+            void loadProfile(nextUserId, { silent: true });
+          } else {
+            setLoading(true);
+            void loadProfile(nextUserId).finally(() => setLoading(false));
+          }
       }
     });
 

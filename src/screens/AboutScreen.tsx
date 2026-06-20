@@ -72,7 +72,7 @@ export function AboutScreen({ onBack }: AboutScreenProps) {
         <MButton type="button" onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
           <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
         </MButton>
-        <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>UEBER REPHIVE</span>
+        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>UEBER REPHIVE</span>
         <span style={{ width: 24 }} />
       </div>
 
@@ -117,7 +117,7 @@ export function AboutScreen({ onBack }: AboutScreenProps) {
         >
           <div
             style={{
-              fontSize: 11,
+              fontSize: 13,
               letterSpacing: 1.4,
               color: M.mut,
               fontWeight: 700,
@@ -145,7 +145,7 @@ export function AboutScreen({ onBack }: AboutScreenProps) {
 
         <div
           style={{
-            fontSize: 11,
+            fontSize: 13,
             letterSpacing: 1.4,
             color: M.mut,
             fontWeight: 700,
@@ -192,7 +192,7 @@ export function AboutScreen({ onBack }: AboutScreenProps) {
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div
                       style={{
-                        fontSize: 11,
+                        fontSize: 13,
                         fontWeight: 700,
                         letterSpacing: "0.06em",
                         textTransform: "uppercase",
@@ -203,7 +203,7 @@ export function AboutScreen({ onBack }: AboutScreenProps) {
                     </div>
                     <div
                       style={{
-                        fontSize: 12,
+                        fontSize: 13,
                         color: M.mut2,
                         marginTop: 3,
                         lineHeight: 1.4,
@@ -229,7 +229,7 @@ export function AboutScreen({ onBack }: AboutScreenProps) {
 
         <div
           style={{
-            fontSize: 11,
+            fontSize: 13,
             letterSpacing: 1.4,
             color: M.mut,
             fontWeight: 700,
@@ -259,7 +259,7 @@ export function AboutScreen({ onBack }: AboutScreenProps) {
         <p
           style={{
             textAlign: "center",
-            fontSize: 12,
+            fontSize: 13,
             color: M.mut2,
             letterSpacing: 0.5,
             margin: 0,
@@ -271,7 +271,7 @@ export function AboutScreen({ onBack }: AboutScreenProps) {
           style={{
             marginTop: 8,
             textAlign: "center",
-            fontSize: 12,
+            fontSize: 13,
             color: M.mut2,
           }}
         >

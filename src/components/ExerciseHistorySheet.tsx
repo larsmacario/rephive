@@ -39,7 +39,7 @@ export function ExerciseHistorySheet({ open, onClose, exerciseName }: ExerciseHi
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexShrink: 0 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 11, letterSpacing: 1.5, color: M.acc, fontWeight: 700, textTransform: "uppercase" }}>
+          <div style={{ fontSize: 13, letterSpacing: 1.5, color: M.acc, fontWeight: 700, textTransform: "uppercase" }}>
             ÜBUNGSVERLAUF
           </div>
           <div
@@ -138,13 +138,13 @@ export function ExerciseHistorySheet({ open, onClose, exerciseName }: ExerciseHi
                 >
                   {entry.sessionName}
                 </div>
-                <div style={{ fontSize: 11.5, color: M.mut, fontWeight: 600 }}>
+                <div style={{ fontSize: 13, color: M.mut, fontWeight: 600 }}>
                   {formatHistoryDate(entry.performedAt)}
                 </div>
               </div>
 
               {entry.note && (
-                <div style={{ fontSize: 12, color: M.mut, marginBottom: 8, fontStyle: "italic" }}>
+                <div style={{ fontSize: 13, color: M.mut, marginBottom: 8, fontStyle: "italic" }}>
                   Hinweis: {entry.note}
                 </div>
               )}
@@ -163,11 +163,11 @@ export function ExerciseHistorySheet({ open, onClose, exerciseName }: ExerciseHi
                         display: "flex",
                         alignItems: "center",
                         gap: 4,
-                        fontSize: 12.5,
+                        fontSize: 14,
                         fontWeight: 600,
                       }}
                     >
-                      <span style={{ color: set.done ? M.acc : M.mut, fontSize: 11 }}>S{sIdx + 1}</span>
+                      <span style={{ color: set.done ? M.acc : M.mut, fontSize: 12 }}>S{sIdx + 1}</span>
                       <span style={{ color: M.fg, fontFamily: M.disp, fontWeight: 700, fontSize: 14 }}>
                         {line}
                       </span>

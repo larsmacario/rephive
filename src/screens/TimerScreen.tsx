@@ -1,13 +1,13 @@
 import { contentMaxWidth, useBreakpoint } from "../lib/responsive";
 import type { SaveSessionInput } from "../lib/db";
-import { IntervalTimerPanel } from "../components/IntervalTimerPanel";
-import { floatNavContentInset } from "../components/FloatNav";
+import { IntervalTimerWizard } from "../components/intervalTimer/IntervalTimerWizard";
 
 export interface TimerScreenProps {
   onSaveSession: (input: SaveSessionInput) => Promise<void>;
+  onBack: () => void;
 }
 
-export function TimerScreen({ onSaveSession }: TimerScreenProps) {
+export function TimerScreen({ onSaveSession, onBack }: TimerScreenProps) {
   const breakpoint = useBreakpoint();
   const maxW = contentMaxWidth(breakpoint);
 
@@ -17,15 +17,20 @@ export function TimerScreen({ onSaveSession }: TimerScreenProps) {
         flex: 1,
         display: "flex",
         flexDirection: "column",
-        padding: `6px 22px ${floatNavContentInset("bottom")}`,
         minHeight: 0,
         width: "100%",
         maxWidth: maxW,
         margin: maxW ? "0 auto" : undefined,
-        position: "relative",
+        padding: "0 22px",
+        boxSizing: "border-box",
       }}
     >
-      <IntervalTimerPanel onSaveSession={onSaveSession} variant="screen" />
+      <IntervalTimerWizard
+        variant="screen"
+        onSaveSession={onSaveSession}
+        onExit={onBack}
+        showHeader
+      />
     </div>
   );
 }

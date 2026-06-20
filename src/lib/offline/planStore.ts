@@ -1,5 +1,6 @@
 import type { LibraryPlan, PlanDayForTracking } from "../../data";
 import { planDayDisplayName } from "../../data";
+import { weekdayLabelsFromSummary } from "../trainingWeekdays";
 import { localDb } from "./localDb";
 
 export async function hasPlansCache(userId: string): Promise<boolean> {
@@ -85,7 +86,7 @@ export async function resolvePlanDayFromLocal(
     if (!day) continue;
     return {
       id: day.id,
-      name: planDayDisplayName(day),
+      name: planDayDisplayName(day, weekdayLabelsFromSummary(plan.summary)),
       planId: plan.id,
       enabledBlocks: day.enabledBlocks,
       blocks: day.blocks ?? [],

@@ -22,7 +22,7 @@ function toDatetimeLocal(iso: string): string {
 }
 
 const fieldLabel: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: 13,
   letterSpacing: 1.5,
   color: M.mut,
   fontWeight: 700,
@@ -147,7 +147,7 @@ export function SessionEditScreen({ sessionId, onBack, onSave }: SessionEditScre
         <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
           <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
         </MButton>
-        <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>SESSION BEARBEITEN</span>
+        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>SESSION BEARBEITEN</span>
         <MButton
           disabled={saving || exercises.length === 0}
           onClick={handleSave}
@@ -224,7 +224,7 @@ export function SessionEditScreen({ sessionId, onBack, onSave }: SessionEditScre
           <span style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 15 }}>Personal Record (PR)</span>
           <span
             style={{
-              fontSize: 11,
+              fontSize: 13,
               fontWeight: 800,
               letterSpacing: 0.6,
               color: isPr ? M.accInk : M.mut,

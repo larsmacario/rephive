@@ -90,7 +90,7 @@ export function MetconConfigSheet({ open, initialConfig, onClose, onConfirm }: M
   return (
     <BottomSheet open={open} onClose={onClose} zIndex={25} aria-label="MetCon konfigurieren">
       <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 22, marginBottom: 4 }}>MetCon</div>
-      <div style={{ color: M.mut, fontSize: 12, marginBottom: 16 }}>
+      <div style={{ color: M.mut, fontSize: 13, marginBottom: 16 }}>
         Format und Timer — {formatMetconBlockBadge(previewConfig())}
       </div>
 

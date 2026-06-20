@@ -90,7 +90,7 @@ export function SessionDetailScreen({
         <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
           <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
         </MButton>
-        <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>SESSION</span>
+        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>SESSION</span>
         <div style={{ width: 24 }} />
       </div>
 
@@ -117,7 +117,7 @@ export function SessionDetailScreen({
             alignItems: "center",
             gap: 16,
             marginTop: 14,
-            fontSize: 12.5,
+            fontSize: 14,
             color: M.mut,
             fontWeight: 600,
             flexWrap: "wrap",
@@ -149,14 +149,14 @@ export function SessionDetailScreen({
         </div>
 
         {session.skippedBlocks.length > 0 && (
-          <div style={{ marginTop: 12, fontSize: 12, color: M.mut, fontWeight: 600 }}>
+          <div style={{ marginTop: 12, fontSize: 13, color: M.mut, fontWeight: 600 }}>
             Übersprungen: {skippedBlocksLabel(session.skippedBlocks)}
           </div>
         )}
 
         {session.exercises.length > 0 && (
           <>
-            <div style={{ marginTop: 18, fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>ÜBUNGEN</div>
+            <div style={{ marginTop: 18, fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>ÜBUNGEN</div>
             <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 12 }}>
               {groupExercisesByBlock(
                 session.exercises.map((ex) => ({ ...ex, blockType: ex.blockType ?? "strength" })),
@@ -199,10 +199,10 @@ export function SessionDetailScreen({
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ color: M.fg }}>{ex.name}</div>
                                   {ex.note && (
-                                    <div style={{ color: M.mut, fontSize: 12, marginTop: 2, fontWeight: 500 }}>{ex.note}</div>
+                                    <div style={{ color: M.mut, fontSize: 13, marginTop: 2, fontWeight: 500 }}>{ex.note}</div>
                                   )}
                                 </div>
-                                <span style={{ color: M.mut2, fontSize: 12, flex: "0 0 auto" }}>
+                                <span style={{ color: M.mut2, fontSize: 13, flex: "0 0 auto" }}>
                                   {formatSetSummary(ex.sets, ex.metric)}
                                 </span>
                               </div>
@@ -218,7 +218,7 @@ export function SessionDetailScreen({
                                       borderRadius: 8,
                                       background: s.done ? M.accSoft : "transparent",
                                       color: s.done ? M.fg : M.mut2,
-                                      fontSize: 12.5,
+                                      fontSize: 14,
                                     }}
                                   >
                                     <span>Satz {si + 1}</span>
@@ -240,7 +240,7 @@ export function SessionDetailScreen({
                         })}
                       </div>
                     ) : (
-                      <div style={{ fontSize: 12, color: M.mut, fontWeight: 500 }}>Nicht absolviert</div>
+                      <div style={{ fontSize: 13, color: M.mut, fontWeight: 500 }}>Nicht absolviert</div>
                     )}
                   </PlanBlockSection>
                 );

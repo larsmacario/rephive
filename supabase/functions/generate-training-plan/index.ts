@@ -78,50 +78,55 @@ async function requireAiConsent(req: Request): Promise<Response | null> {
 }
 
 const BLOCK_TYPES = ["warmup", "skill", "strength", "metcon"] as const;
+const MAX_OUTPUT_TOKENS = 4000;
 
 const EXERCISE_ITEM_SCHEMA = {
   type: "object",
   properties: {
     name: { type: "string" },
-    metric: {
-      type: "string",
-      description:
-        'Tracking-Typ: "weight_reps" für Kraftübungen; "time" für zeitbasiertes Cardio (Warm-up); "distance_time" für Distanz+Zeit (Rudergerät, Laufband)',
-    },
-    muscleGroup: { type: "string" },
-    equipment: {
-      type: "string",
-      description: 'Gerätetyp, z.B. "Langhantel", "Kabel" oder "Cardiogerät" für Ergometer/Warm-up',
-    },
     note: {
       type: "string",
-      description:
-        "Kraft: Sätze, Wdh. und % 1RM (z.B. 3x8 @ 75% 1RM). Cardio: Dauer/Distanz ohne % 1RM (z.B. 5 min leichtes Tempo)",
-    },
-    sets: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          reps: { type: "number", description: "Wiederholungen (Kraft) oder 0 bei Cardio" },
-          kg: {
-            type: "number",
-            description: "Immer 0 — Nutzer ermittelt kg selbst via 1RM-Rechner",
-          },
-          durationSec: {
-            type: "number",
-            description: "Dauer in Sekunden (Cardio: metric time oder distance_time)",
-          },
-          distanceM: {
-            type: "number",
-            description: "Distanz in Metern (nur metric distance_time, z.B. 500 für 500 m)",
-          },
-        },
-        required: ["reps", "kg"],
-      },
+      description: "Kurz halten (max. ~40 Zeichen): z.B. 3x8 @ 75% 1RM, 5 min leicht, 10 Wdh./Runde",
     },
   },
-  required: ["name", "metric", "muscleGroup", "equipment", "note", "sets"],
+  required: ["name", "note"],
+};
+
+const PLAN_ADVICE_SCHEMA = {
+  type: "object",
+  description:
+    "Personalisierte Tipps aus der Anamnese — je Feld 1–2 Sätze (max. ~150 Zeichen), keine kg/kcal-Zahlen.",
+  properties: {
+    trainingFocus: {
+      type: "string",
+      description: "Trainingsfokus: Ziel, Erfahrung, Struktur, Prioritäten, Session-Dauer",
+    },
+    nutritionTips: {
+      type: "string",
+      description: "Ernährung passend zu Diätpräferenz und Ziel; Allergien beachten, keine Kalorien",
+    },
+    recoveryTips: {
+      type: "string",
+      description: "Regeneration: Schlaf, Stress, Beruf/Schicht, andere Sportarten, Schmerzzonen",
+    },
+    hydrationTips: {
+      type: "string",
+      description: "Trinken im Alltag und rund ums Training",
+    },
+    planDuration: {
+      type: "object",
+      properties: {
+        weeksMin: { type: "number" },
+        weeksMax: { type: "number" },
+        note: {
+          type: "string",
+          description: "1–2 Sätze: wann Plan wechseln/Deload (Plateau), kein medizinischer Rat",
+        },
+      },
+      required: ["weeksMin", "weeksMax", "note"],
+    },
+  },
+  required: ["trainingFocus", "nutritionTips", "recoveryTips", "hydrationTips", "planDuration"],
 };
 
 const TRAINING_PLAN_TOOL = {
@@ -141,12 +146,6 @@ const TRAINING_PLAN_TOOL = {
               type: "string",
               description: "Tag-Name (z.B. Push, Oberkörper) — ohne Ruhetage",
             },
-            note: { type: "string" },
-            enabledBlocks: {
-              type: "array",
-              items: { type: "string", enum: [...BLOCK_TYPES] },
-              description: "Aktive Bausteine an diesem Tag (Standard: alle vier)",
-            },
             blocks: {
               type: "array",
               items: {
@@ -156,20 +155,7 @@ const TRAINING_PLAN_TOOL = {
                   format: {
                     type: "string",
                     enum: ["amrap", "emom", "circuit"],
-                    description: "Nur für metcon: AMRAP, EMOM oder Circuit",
-                  },
-                  config: {
-                    type: "object",
-                    description: "Nur für metcon: Timer-Konfiguration",
-                    properties: {
-                      durationSec: { type: "number", description: "AMRAP Gesamtzeit in Sekunden (z.B. 600 = 10 Min)" },
-                      rounds: { type: "number", description: "EMOM Minuten/Runden oder Circuit-Runden" },
-                      intervalSec: { type: "number", description: "EMOM Intervall in Sekunden (Standard 60)" },
-                      workSec: { type: "number", description: "Circuit: Arbeit pro Station in Sekunden" },
-                      restSec: { type: "number", description: "Circuit: Pause zwischen Stationen" },
-                      restBetweenRoundsSec: { type: "number", description: "Circuit: Pause zwischen Runden" },
-                      prepSec: { type: "number" },
-                    },
+                    description: "Nur metcon: AMRAP, EMOM oder Circuit (Timer wird serverseitig gesetzt)",
                   },
                   exercises: {
                     type: "array",
@@ -179,32 +165,13 @@ const TRAINING_PLAN_TOOL = {
                 required: ["type", "exercises"],
               },
               description:
-                "Pro Baustein passende Übungen. MetCon: format + config + 3–5 einzelne Übungen (metric reps), KEIN Sammelname „AMRAP 10 Min“.",
+                "Pro Baustein Übungen. MetCon: format + 3–4 einzelne Übungen, KEIN Sammel-Eintrag.",
             },
           },
           required: ["name", "blocks"],
         },
       },
-      advice: {
-        type: "object",
-        description: "Begleitende Empfehlungen (nur Text + Plan-Nutzungsdauer in Wochen, keine kg/kcal).",
-        properties: {
-          trainingFocus: { type: "string" },
-          nutritionTips: { type: "string" },
-          recoveryTips: { type: "string" },
-          hydrationTips: { type: "string" },
-          planDuration: {
-            type: "object",
-            properties: {
-              weeksMin: { type: "number" },
-              weeksMax: { type: "number" },
-              note: { type: "string" },
-            },
-            required: ["weeksMin", "weeksMax", "note"],
-          },
-        },
-        required: ["trainingFocus", "nutritionTips", "recoveryTips", "hydrationTips", "planDuration"],
-      },
+      advice: PLAN_ADVICE_SCHEMA,
     },
     required: ["name", "sub", "days", "advice"],
   },
@@ -235,35 +202,39 @@ serve(async (req) => {
 
     const ageYears = ageFromBirthDate(birthDate);
     const ageBand = getAgeBand(ageYears);
+    const resolvedWeeklyDays =
+      Array.isArray(anamnesis?.trainingWeekdays) && anamnesis.trainingWeekdays.length > 0
+        ? anamnesis.trainingWeekdays.length
+        : weeklyDays || 3;
+
+    const mockPlanInput = {
+      gender,
+      heightCm,
+      weightKg,
+      birthDate,
+      fitnessGoal,
+      experienceLevel,
+      weeklyDays: resolvedWeeklyDays,
+      anamnesis,
+    };
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     let planData: any = null;
+    let llmStopReason: string | undefined;
 
     // Falls kein API-Schlüssel vorhanden ist, nutzen wir den Mock-Fallback
     if (!apiKey) {
       console.warn("ANTHROPIC_API_KEY ist nicht gesetzt. Nutze Mock-Plan-Generierung.");
-      planData = generateMockPlan({
-        gender,
-        heightCm,
-        weightKg,
-        birthDate,
-        fitnessGoal,
-        experienceLevel,
-        weeklyDays,
-        anamnesis,
-      });
+      planData = generateMockPlan(mockPlanInput);
     } else {
       // Bereite historische Daten für den Prompt vor
       let historyText = "";
       if (recentSessions && recentSessions.length > 0) {
         historyText = recentSessions.map((s: any) => {
           const performedAt = s.performedAt ? new Date(s.performedAt).toLocaleDateString("de-DE") : "";
-          const exercisesText = s.exercises ? s.exercises.map((e: any) => {
-            const setsText = e.sets ? e.sets.map((set: any) => `${set.reps} Wdh.`).join(", ") : "";
-            return `- ${e.name}: ${setsText}`;
-          }).join("\n") : "";
-          return `Training am ${performedAt} (${s.name}):\n${exercisesText}`;
-        }).join("\n\n");
+          const exerciseNames = s.exercises?.map((e: any) => e.name).filter(Boolean).join(", ") ?? "";
+          return exerciseNames ? `${performedAt} (${s.name}): ${exerciseNames}` : "";
+        }).filter(Boolean).join("\n");
       }
 
       let feedbackText = "";
@@ -287,6 +258,7 @@ serve(async (req) => {
 
       const ageBandRules = formatAgeBandRules(ageBand);
       const blockStructureRules = formatBlockStructureRules(fitnessGoal, ageBand, anamnesis);
+      const trainingWeekdaysText = formatTrainingWeekdaysFromAnamnesis(anamnesis);
 
       // Prompt für KI vorbereiten
       const prompt = `Du bist ein hochqualifizierter Personal Trainer und Sportwissenschaftler. 
@@ -299,7 +271,9 @@ Hier sind die Anamnesedaten des Nutzers:
 - Gewicht: ${weightKg ? `${weightKg} kg` : "Keine Angabe"}
 - Fitness-Ziel: ${translateGoal(fitnessGoal)}
 - Trainingserfahrung: ${translateExperience(experienceLevel)}
-- Geplante Trainingstage: ${weeklyDays || 3} Tage pro Woche
+- Geplante Trainingstage: ${resolvedWeeklyDays} Tage pro Woche${
+        trainingWeekdaysText ? `\n- Gewählte Wochentage: ${trainingWeekdaysText}` : ""
+      }
 - Trainingsstruktur: ${translateTrainingSplitPreference(anamnesis)}
 - Trainingsort/Equipment: ${translateLocation(anamnesis?.trainingLocation)} ${
         anamnesis?.trainingLocation === "home_equipment" && anamnesis?.homeEquipment?.length > 0
@@ -324,7 +298,7 @@ Hier sind die Anamnesedaten des Nutzers:
 ${feedbackText ? `PRÄFERENZEN & FEEDBACK ZU ÜBUNGEN:\n${feedbackText}\n` : ""}
 ${historyText ? `TRAININGS-HISTORIE (nur für Übungsauswahl und Feedback, KEINE kg-Werte übernehmen!):\n${historyText}\n` : ""}
 
-Erstelle einen logischen Trainingsplan mit genau ${weeklyDays || 3} Trainingstagen (keine Ruhetage).
+Erstelle einen logischen Trainingsplan mit genau ${resolvedWeeklyDays} Trainingstagen (keine Ruhetage).
 
 4-BAUSTEINE-SYSTEM (Pflicht pro Trainingstag):
 Jeder Tag besteht aus blocks[] in fester Reihenfolge: warmup → skill → strength → metcon.
@@ -335,17 +309,15 @@ ${ageBandRules}
 Wichtige Regeln:
 1. Nutze das Tool create_training_plan — kein Freitext. Pro Tag blocks[] mit type und exercises[].
 2. ${exerciseCountRule} (gilt nur für den strength-Block; Warm-up/Skill/MetCon separat.)
-3. sets[].kg IMMER 0 — schätze NIEMals absolute kg-Werte aus Körpergewicht oder Historie.
-4. note PFLICHT pro Übung: Bei Kraft metric "weight_reps": Satzanzahl, Wdh.-Ziel und Intensität als % des 1RM (z.B. 3x8 @ 75% 1RM). Bei Cardio (metric "time" oder "distance_time"): KEIN % 1RM — stattdessen Dauer/Distanz (z.B. "5 min leichtes Tempo, Puls aufbauen" oder "500 m leichtes Rudern"). Bei MetCon (metric "reps" oder Körpergewicht): KEIN % 1RM — nur Ziel-Wdh. pro Runde (z.B. "10 Wdh. pro Runde").
-5. Richtwerte Ziel → typische % 1RM (nur Kraft): Kraft 85–95%, Hypertrophie 70–80%, Ausdauer/Technik 60–70%, Anfänger eher 65–75%.
-6. Schmerzzonen und Feedback (Dislike/Schmerzen) strikt beachten. Bei Reha/Einschränkung MetCon optional weglassen → enabledBlocks ohne metcon setzen.
-7. metric und equipment nach Übungstyp: Kraft → weight_reps. Warm-up → time/distance_time. Skill → leichte Technik. MetCon: format (amrap|emom|circuit) + config setzen; 3–5 EINZELNE Übungen (metric reps, Ziel-Wdh. in sets[0].reps), KEIN Sammel-Eintrag mit allen Übungen in der note. Übungsnamen auf Deutsch.
-8. Wenig Schlaf (<7h) oder Stress ≥ 8/10 → konservativeres Volumen in den notes.
-9. advice-Objekt PFLICHT: trainingFocus, nutritionTips (diätpräferenz-konform, keine Kalorienzahlen), recoveryTips, hydrationTips.
-10. advice.planDuration: weeksMin/weeksMax empfehlen — Anfänger oder Stress ≥ 8/wenig Schlaf: 10–14 Wochen; Fortgeschritten: 8–12; Advanced: 4–8. note: 1–2 Sätze wann Plan wechseln (Plateau, Deload), kein medizinischer Rat.
-11. Trainingsstruktur strikt umsetzen: full_body → jeder Tag ein Ganzkörper-Tag (deutsche Namen z. B. „Ganzkörper A/B“); split + N → genau N verschiedene Split-Einheiten pro Woche rotieren (2er: Ober-/Unterkörper; 3er: Push/Pull/Beine; 4er–6er: passende Muskelgruppen-Namen). days[].name beschreibt die Einheit, nicht den Wochentag.
-12. days[].name NIEMALS mit „Tag 1“, „Tag 2“, „Tag A“ o. Ä. beginnen — keine Tag-Nummern im Namen (Reihenfolge ergibt sich aus dem Plan). Beispiele erlaubt: „Unterkörper“, „Push“, „Rücken & Bizeps“. Verboten: „Tag 3 – Brust, Trizeps“.
-13. Muskelgruppen-Prioritäten (1–5) beeinflussen Volumen und Übungsauswahl im strength-Block: Priorität ≥4 → mehr Übungen/Sätze für diese Gruppe; Priorität ≤2 → reduziertes Volumen; Priorität 3 → ausgewogen. Schmerzzonen und Feedback haben Vorrang vor Prioritäten.`;
+3. note PFLICHT pro Übung — nur name + note liefern (kein sets[], metric, equipment, muscleGroup). note kurz halten (≤40 Zeichen): Kraft z.B. 3x8 @ 75% 1RM; Cardio z.B. 5 min; MetCon z.B. 10 Wdh./Runde. Richtwerte Kraft-%: Kraft 85–95%, Hypertrophie 70–80%, Ausdauer/Technik 60–70%, Anfänger 65–75%.
+4. Schmerzzonen und Feedback (Dislike/Schmerzen) strikt beachten. Bei Reha/Einschränkung MetCon weglassen (metcon-Block einfach weglassen).
+5. MetCon: nur format (amrap|emom|circuit) + 3–4 Übungen — kein config, kein enabledBlocks, kein day.note. Übungsnamen auf Deutsch.
+6. Wenig Schlaf (<7h) oder Stress ≥ 8/10 → konservativeres Volumen in den notes.
+7. Trainingsstruktur strikt umsetzen: full_body → jeder Tag Ganzkörper (z. B. „Ganzkörper A/B“); split + N → genau N Split-Einheiten rotieren. days[].name beschreibt die Einheit, nicht den Wochentag.
+8. days[].name NIEMALS mit „Tag 1“, „Tag 2“ o. Ä. beginnen. Erlaubt: „Unterkörper“, „Push“. Verboten: „Tag 3 – Brust“.
+9. Muskelgruppen-Prioritäten (1–5) beeinflussen Volumen im strength-Block: ≥4 → mehr Volumen; ≤2 → reduziert. Schmerzzonen und Feedback haben Vorrang.
+10. advice PFLICHT — personalisiert aus ALLEN Anamnesedaten oben: trainingFocus (Ziel, Erfahrung, Split, Prioritäten), nutritionTips (Diät + Allergien, keine kcal), recoveryTips (Schlaf, Stress, Beruf/Schicht, andere Sportarten, Schmerzzonen, ${resolvedWeeklyDays}×/Woche), hydrationTips. planDuration: Anfänger oder Stress ≥8/wenig Schlaf → 10–14 Wochen; Fortgeschritten → 8–12; Advanced → 4–8. note: wann wechseln/Deload.
+11. Übungen kompakt (name + note ≤40 Zeichen): sub ≤80 Zeichen, Warm-up 1, Skill 1, MetCon max. 4 — Gesamtantwort max. ${MAX_OUTPUT_TOKENS} Tokens (advice darf ausführlicher sein).`;
 
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -356,7 +328,7 @@ Wichtige Regeln:
         },
         body: JSON.stringify({
           model: ANTHROPIC_MODEL,
-          max_tokens: 8192,
+          max_tokens: MAX_OUTPUT_TOKENS,
           temperature: 0.2,
           tools: [TRAINING_PLAN_TOOL],
           tool_choice: { type: "tool", name: "create_training_plan" },
@@ -370,6 +342,7 @@ Wichtige Regeln:
       }
 
       const result = await response.json();
+      llmStopReason = result.stop_reason;
       const toolBlock = result.content?.find((block: { type?: string }) => block.type === "tool_use");
 
       if (toolBlock?.input) {
@@ -387,13 +360,37 @@ Wichtige Regeln:
       }
     }
 
-    normalizePlanDaysStructure(planData);
-    normalizePlanBlocks(planData, fitnessGoal, ageBand, anamnesis);
-    normalizeMetconBlocks(planData);
-    normalizePlanSets(planData, fitnessGoal, experienceLevel, anamnesis?.minutesPerSession, anamnesis, ageYears);
-    sanitizePlanDayNames(planData);
-    if (!planData.advice) {
-      planData.advice = buildDefaultAdvice(experienceLevel, fitnessGoal, anamnesis);
+    const finalizePlan = (data: any) => {
+      normalizePlanDaysStructure(data);
+      normalizePlanBlocks(data, fitnessGoal, ageBand, anamnesis);
+      normalizeMetconBlocks(data);
+      normalizePlanSets(data, fitnessGoal, experienceLevel, anamnesis?.minutesPerSession, anamnesis, ageYears);
+      sanitizePlanDayNames(data);
+      data.advice = mergePlanAdvice(
+        data.advice,
+        buildDefaultAdvice(experienceLevel, fitnessGoal, anamnesis, resolvedWeeklyDays, ageYears),
+      );
+      return data;
+    };
+
+    planData = finalizePlan(planData ?? {});
+
+    const planHasTrainingDays =
+      Array.isArray(planData.days) &&
+      planData.days.some((day: { blocks?: { exercises?: unknown[] }[]; exercises?: unknown[] }) => {
+        if (Array.isArray(day.blocks)) {
+          return day.blocks.some((b) => Array.isArray(b.exercises) && b.exercises.length > 0);
+        }
+        return Array.isArray(day.exercises) && day.exercises.length > 0;
+      });
+
+    if (!Array.isArray(planData?.days) || planData.days.length === 0 || !planHasTrainingDays) {
+      if (llmStopReason === "max_tokens") {
+        throw new Error(
+          "KI-Antwort wurde abgeschnitten — bitte erneut versuchen (kürzere Session-Dauer oder weniger Trainingstage können helfen).",
+        );
+      }
+      throw new Error("KI-Antwort ohne Trainingstage — bitte erneut versuchen.");
     }
 
     // Katalog-Sync im Hintergrund — blockiert die Antwort nicht (spart oft 5–15 s Wartezeit).
@@ -655,28 +652,169 @@ function getSplitWorkoutLabel(anamnesis: { trainingStructure?: string; trainingS
   return labels[(workoutIndex - 1) % labels.length];
 }
 
-function buildDefaultAdvice(experienceLevel?: string, fitnessGoal?: string, anamnesis?: any): any {
+function formatPainZonesForAdvice(painZones?: string[]): string | null {
+  if (!painZones?.length) return null;
+  const labels: Record<string, string> = {
+    knees: "Knie",
+    lower_back: "unterer Rücken",
+    shoulders: "Schultern",
+    wrists: "Handgelenke",
+    neck: "Nacken",
+  };
+  return painZones.map((z) => labels[z] ?? z).join(", ");
+}
+
+function topMusclePriorities(anamnesis?: { musclePriorities?: Record<string, number> }): string[] {
+  const priorities = anamnesis?.musclePriorities;
+  if (!priorities || typeof priorities !== "object") return [];
+  return Object.entries(priorities)
+    .filter(([, v]) => typeof v === "number" && v >= 4)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([k]) => k);
+}
+
+function pickAdviceField(llm: unknown, fallback: string): string {
+  if (typeof llm === "string" && llm.trim().length >= 16) return llm.trim();
+  return fallback;
+}
+
+function mergePlanAdvice(llmAdvice: unknown, localAdvice: ReturnType<typeof buildDefaultAdvice>) {
+  if (!llmAdvice || typeof llmAdvice !== "object" || Array.isArray(llmAdvice)) {
+    return localAdvice;
+  }
+  const raw = llmAdvice as Record<string, unknown>;
+  const durationRaw =
+    raw.planDuration && typeof raw.planDuration === "object" && !Array.isArray(raw.planDuration)
+      ? (raw.planDuration as Record<string, unknown>)
+      : null;
+  const weeksMin =
+    typeof durationRaw?.weeksMin === "number" && durationRaw.weeksMin > 0
+      ? Math.round(durationRaw.weeksMin)
+      : localAdvice.planDuration.weeksMin;
+  const weeksMax =
+    typeof durationRaw?.weeksMax === "number" && durationRaw.weeksMax >= weeksMin
+      ? Math.round(durationRaw.weeksMax)
+      : localAdvice.planDuration.weeksMax;
+
+  return {
+    trainingFocus: pickAdviceField(raw.trainingFocus, localAdvice.trainingFocus),
+    nutritionTips: pickAdviceField(raw.nutritionTips, localAdvice.nutritionTips),
+    recoveryTips: pickAdviceField(raw.recoveryTips, localAdvice.recoveryTips),
+    hydrationTips: pickAdviceField(raw.hydrationTips, localAdvice.hydrationTips),
+    planDuration: {
+      weeksMin,
+      weeksMax,
+      note: pickAdviceField(durationRaw?.note, localAdvice.planDuration.note),
+    },
+  };
+}
+
+function buildDefaultAdvice(
+  experienceLevel?: string,
+  fitnessGoal?: string,
+  anamnesis?: any,
+  weeklyDays = 3,
+  ageYears = 35,
+): any {
   const goalName = translateGoal(fitnessGoal);
   const diet = translateDiet(anamnesis?.dietPreference);
+  const structure = translateTrainingSplitPreference(anamnesis);
+  const location = translateLocation(anamnesis?.trainingLocation);
+  const sessionMins = anamnesis?.minutesPerSession ?? 60;
+  const painText = formatPainZonesForAdvice(anamnesis?.painZones);
+  const topPriorities = topMusclePriorities(anamnesis);
+
   let weeksMin = 8;
   let weeksMax = 12;
-  let durationNote = "Nutze diesen Plan etwa 8–12 Wochen, danach Deload oder Planwechsel.";
+  let durationNote =
+    "Nutze diesen Plan etwa 8–12 Wochen. Bei Plateau oder Ermüdung: Deload-Woche oder Planwechsel.";
 
-  if (experienceLevel === "beginner" || isHighStress(anamnesis?.stressLevel) || (anamnesis?.sleepHours != null && anamnesis.sleepHours < 7)) {
+  if (
+    experienceLevel === "beginner" ||
+    isHighStress(anamnesis?.stressLevel) ||
+    (anamnesis?.sleepHours != null && anamnesis.sleepHours < 7)
+  ) {
     weeksMin = 10;
     weeksMax = 14;
-    durationNote = "Als Anfänger oder bei hoher Belastung: 10–14 Wochen für stabile Gewöhnung, dann neu bewerten.";
+    durationNote =
+      "Als Anfänger oder bei hoher Alltagsbelastung: 10–14 Wochen für stabile Gewöhnung, danach Ziel-Check oder Deload.";
   } else if (experienceLevel === "advanced") {
     weeksMin = 4;
     weeksMax = 8;
-    durationNote = "Kürzerer Mesozyklus (4–8 Wochen), danach Variation oder angepasster Plan.";
+    durationNote =
+      "Kürzerer Mesozyklus (4–8 Wochen): danach Variation, Deload oder angepasster Plan gegen Stagnation.";
   }
 
+  if (painText) {
+    durationNote += ` Schmerzzonen (${painText}) beobachten — bei Verschlechterung pausieren.`;
+  }
+
+  const priorityHint =
+    topPriorities.length > 0
+      ? ` Extra-Volumen für: ${topPriorities.join(", ")}.`
+      : "";
+
+  const trainingFocus =
+    `${goalName}, ${translateExperience(experienceLevel)} — ${structure} an ${location}, ca. ${sessionMins} Min/Einheit, ${weeklyDays}×/Woche.` +
+    priorityHint +
+    " Technik vor Last, Kraft-Block progressiv steigern.";
+
+  let nutritionTips = `Als ${diet}: proteinreiche Mahlzeiten passend zu ${goalName}, regelmäßige Essenszeiten.`;
+  if (anamnesis?.dietAllergies?.length) {
+    nutritionTips += ` Allergien/Unverträglichkeiten beachten: ${anamnesis.dietAllergies.join(", ")}.`;
+  }
+  nutritionTips += " Keine Kalorien schätzen — Richtwerte stehen oben im Plan.";
+
+  const recoveryParts: string[] = [];
+  if (anamnesis?.sleepHours != null) {
+    recoveryParts.push(
+      anamnesis.sleepHours < 7
+        ? `Schlaf nur ~${anamnesis.sleepHours}h — Volumen moderat halten, früh ins Bett.`
+        : `Schlaf ~${anamnesis.sleepHours}h/Nacht nutzen für Regeneration.`,
+    );
+  }
+  if (isHighStress(anamnesis?.stressLevel)) {
+    recoveryParts.push("Hoher Stress: weniger Zusatz-Cardio, Ruhetage ernst nehmen.");
+  } else if (anamnesis?.stressLevel != null) {
+    recoveryParts.push(`Stress ${anamnesis.stressLevel}/10 — Belastung aus Alltag mit einplanen.`);
+  }
+  if (anamnesis?.occupation) {
+    recoveryParts.push(
+      `${translateOccupation(anamnesis.occupation)}${anamnesis.shiftWork ? " (Schichtarbeit: Schlaf-Routine stabilisieren)" : ""}.`,
+    );
+  }
+  if (anamnesis?.otherSports?.length) {
+    const sports = anamnesis.otherSports
+      .map((s: { sport?: string; frequency?: number }) =>
+        s.sport ? `${s.sport}${s.frequency ? ` (${s.frequency}×/Wo.)` : ""}` : "",
+      )
+      .filter(Boolean)
+      .join(", ");
+    if (sports) recoveryParts.push(`Andere Sportarten: ${sports} — Kraft nicht überlagern.`);
+  }
+  if (painText) {
+    recoveryParts.push(`Schmerzzonen schonen: ${painText} — keine Schmerz-Übungen forcieren.`);
+  }
+  if (ageYears >= 50) {
+    recoveryParts.push("Ab 50: längere Aufwärmphase, langsamer steigern, Gelenke schonen.");
+  }
+  const recoveryTips =
+    recoveryParts.length > 0
+      ? recoveryParts.join(" ")
+      : "Ruhetage einhalten, Schlaf priorisieren und Belastung aus Beruf und Sport beachten.";
+
+  const hydrationTips =
+    weeklyDays >= 4
+      ? `Bei ${weeklyDays} Trainingstagen/Woche: über den Tag verteilt trinken, vor/nach jeder Einheit extra Flüssigkeit.`
+      : "Ausreichend über den Tag trinken, besonders vor und nach dem Training." +
+        (anamnesis?.shiftWork ? " Bei Schichtarbeit Flasche griffbereit halten." : "");
+
   return {
-    trainingFocus: `Fokus auf ${goalName} mit sauberer Technik und progressiver Steigerung.`,
-    nutritionTips: `Ernährung (${diet}): proteinreiche Mahlzeiten passend zu deinem Ziel, ohne Kalorien zu schätzen.`,
-    recoveryTips: "Ruhetage einhalten, Schlaf priorisieren und Belastung aus Beruf und anderen Sportarten beachten.",
-    hydrationTips: "Ausreichend über den Tag trinken, besonders vor und nach dem Training.",
+    trainingFocus,
+    nutritionTips,
+    recoveryTips,
+    hydrationTips,
     planDuration: { weeksMin, weeksMax, note: durationNote },
   };
 }
@@ -740,6 +878,17 @@ function getAgeBand(ageYears: number): AgeBand {
   if (ageYears < 50) return "40_49";
   if (ageYears < 70) return "50_69";
   return "70_plus";
+}
+
+const TRAINING_WEEKDAY_LABELS = ["Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.", "So."];
+
+function formatTrainingWeekdaysFromAnamnesis(anamnesis: { trainingWeekdays?: unknown } | null | undefined): string | null {
+  if (!anamnesis?.trainingWeekdays || !Array.isArray(anamnesis.trainingWeekdays)) return null;
+  const days = anamnesis.trainingWeekdays
+    .filter((d): d is number => typeof d === "number" && Number.isInteger(d) && d >= 0 && d <= 6)
+    .sort((a, b) => a - b);
+  if (days.length === 0) return null;
+  return days.map((d) => TRAINING_WEEKDAY_LABELS[d]).join(", ");
 }
 
 function formatAgeBandLabel(band: AgeBand): string {
@@ -877,6 +1026,8 @@ function normalizePlanBlocks(
     for (const block of day.blocks ?? []) {
       if (!isValidBlockType(block.type) || !Array.isArray(block.exercises)) continue;
       for (const ex of block.exercises) {
+        if (!ex.muscleGroup) ex.muscleGroup = "Ganzkörper";
+        if (!ex.equipment) ex.equipment = "Keines";
         flat.push({ ...ex, blockType: block.type });
       }
     }
@@ -1229,8 +1380,13 @@ function normalizeMetconExercise(ex: {
   const equipment = (ex.equipment ?? "").trim();
   const bodyweight =
     !equipment || /^(keines|körpergewicht|eigengewicht|bodyweight|none|kein\s+gerät)$/i.test(equipment);
+  const repFromNote = (ex.note ?? "").match(/(\d+)\s*Wdh\.?\s*pro\s*runde/i);
   const targetReps =
-    typeof ex.sets?.[0]?.reps === "number" && ex.sets[0].reps > 0 ? ex.sets[0].reps : 10;
+    typeof ex.sets?.[0]?.reps === "number" && ex.sets[0].reps > 0
+      ? ex.sets[0].reps
+      : repFromNote
+      ? parseInt(repFromNote[1], 10)
+      : 10;
 
   if (bodyweight || ex.metric === "reps") {
     ex.metric = "reps";
@@ -1533,6 +1689,12 @@ function generateMockPlan(data: any): any {
     name: `KI ${goalName.split(" ")[0]} Plan`,
     sub: `Individuell erstellt für ${locationName}. Rücksicht auf Schmerzpunkte: ${painZones.length > 0 ? painZones.join(", ") : "Keine"}.`,
     days,
-    advice: buildDefaultAdvice(data.experienceLevel, data.fitnessGoal, data.anamnesis),
+    advice: buildDefaultAdvice(
+      data.experienceLevel,
+      data.fitnessGoal,
+      data.anamnesis,
+      data.weeklyDays || 3,
+      ageYears,
+    ),
   };
 }

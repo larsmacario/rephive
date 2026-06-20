@@ -133,7 +133,7 @@ export function PlanDayExercisePreview({
                       variant="ghost"
                       size="sm"
                       onClick={onMetconSettings}
-                      style={{ color: M.mut, fontSize: 11, padding: "4px 8px" }}
+                      style={{ color: M.mut, fontSize: 13, padding: "4px 8px" }}
                     >
                       Einstellungen
                     </MButton>
@@ -144,7 +144,7 @@ export function PlanDayExercisePreview({
                       variant="ghost"
                       size="sm"
                       onClick={() => onRemoveBlock(block)}
-                      style={{ color: M.mut2, fontSize: 11, padding: "4px 8px" }}
+                      style={{ color: M.mut2, fontSize: 13, padding: "4px 8px" }}
                     >
                       Entfernen
                     </MButton>
@@ -157,7 +157,7 @@ export function PlanDayExercisePreview({
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <div
                   style={{
-                    fontSize: 11,
+                    fontSize: 13,
                     fontWeight: 700,
                     letterSpacing: 0.6,
                     color: "#f97316",
@@ -172,7 +172,7 @@ export function PlanDayExercisePreview({
                 {blockExercises.length > 0 ? (
                   <ExerciseList exercises={blockExercises} flat={flat} onExerciseClick={onExerciseClick} />
                 ) : (
-                  <div style={{ fontSize: 12, color: M.mut, fontWeight: 500, padding: "4px 2px" }}>
+                  <div style={{ fontSize: 13, color: M.mut, fontWeight: 500, padding: "4px 2px" }}>
                     Noch keine Übungen
                   </div>
                 )}
@@ -180,7 +180,7 @@ export function PlanDayExercisePreview({
             ) : blockExercises.length > 0 ? (
               <ExerciseList exercises={blockExercises} flat={flat} onExerciseClick={onExerciseClick} />
             ) : (
-              <div style={{ fontSize: 12, color: M.mut, fontWeight: 500, padding: "4px 2px" }}>
+              <div style={{ fontSize: 13, color: M.mut, fontWeight: 500, padding: "4px 2px" }}>
                 {skipped ? "Nicht absolviert" : "Noch keine Übungen"}
               </div>
             )}
@@ -197,7 +197,7 @@ export function PlanDayExercisePreview({
                   color: M.fg,
                   fontFamily: M.disp,
                   letterSpacing: 0.3,
-                  fontSize: 12,
+                  fontSize: 13,
                 }}
               >
                 <Icon name="plus" size={14} stroke={2.6} /> Übung hinzufügen
@@ -231,7 +231,7 @@ export function PlanDayExercisePreview({
       )}
       {builderMode && disabledBlocks.length > 0 && onRestoreBlock && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
-          <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut2, fontWeight: 700 }}>ENTFERNT</div>
+          <div style={{ fontSize: 13, letterSpacing: 1.2, color: M.mut2, fontWeight: 700 }}>ENTFERNT</div>
           {disabledBlocks.map((block) => (
             <MButton
               key={block}
@@ -332,7 +332,7 @@ export function PlanDayAccordion({
   const mainContent =
     variant === "builder" ? (
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut2, fontWeight: 700 }}>TAG {dayNumber}</div>
+        <div style={{ fontSize: 13, letterSpacing: 1.2, color: M.mut2, fontWeight: 700 }}>TAG {dayNumber}</div>
         <div style={{ fontWeight: 600, fontSize: 15.5, marginTop: 2 }}>{label}</div>
       </div>
     ) : (

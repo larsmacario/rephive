@@ -79,7 +79,7 @@ export function PlanBlockSection({
       <div style={{ minWidth: 0, flex: 1 }}>
         <div
           style={{
-            fontSize: 11,
+            fontSize: 13,
             fontWeight: 700,
             letterSpacing: "0.06em",
             textTransform: "uppercase",
@@ -90,7 +90,7 @@ export function PlanBlockSection({
         </div>
         <div
           style={{
-            fontSize: 11,
+            fontSize: 13,
             color: M.mut2,
             marginTop: 3,
             fontWeight: 400,

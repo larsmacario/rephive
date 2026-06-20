@@ -17,7 +17,7 @@ export function TimerLeaveSheet({
   onConfirm,
   onCancel,
   title = "Timer stoppen?",
-  message = "Ein Timer läuft. Beim Tab-Wechsel wird der Timer gestoppt.",
+  message = "Ein Timer läuft. Beim Verlassen wird der Timer gestoppt.",
   confirmLabel = "FORTFAHREN",
 }: TimerLeaveSheetProps) {
   return (

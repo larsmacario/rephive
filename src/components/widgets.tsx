@@ -10,6 +10,7 @@ export interface MStepperProps {
   step?: number;
   fmt?: (v: number) => string;
   disabled?: boolean;
+  size?: "default" | "lg";
 }
 
 export function MStepper({
@@ -20,15 +21,24 @@ export function MStepper({
   step = 1,
   fmt,
   disabled,
+  size = "default",
 }: MStepperProps) {
+  const isLg = size === "lg";
+  const btnSize = isLg ? 44 : 26;
+  const btnRadius = isLg ? 12 : 8;
+  const iconSize = isLg ? 18 : 14;
+  const valueFontSize = isLg ? 36 : 22;
+  const valueMinWidth = isLg ? 88 : 46;
+  const gap = isLg ? 16 : 8;
+
   const btn = (d: number) => (
     <button
       disabled={disabled}
       onClick={() => onChange(Math.min(max, Math.max(min, value + d)))}
       style={{
-        width: 26,
-        height: 26,
-        borderRadius: 8,
+        width: btnSize,
+        height: btnSize,
+        borderRadius: btnRadius,
         border: "1px solid " + M.line,
         background: M.card,
         color: disabled ? M.mut2 : M.fg,
@@ -39,21 +49,22 @@ export function MStepper({
         flex: "0 0 auto",
       }}
     >
-      <Icon name={d > 0 ? "plus" : "minus"} size={14} stroke={2.4} />
+      <Icon name={d > 0 ? "plus" : "minus"} size={iconSize} stroke={2.4} />
     </button>
   );
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap }}>
       {btn(-step)}
       <span
         style={{
           fontFamily: M.disp,
           fontWeight: 700,
-          fontSize: 22,
-          minWidth: 46,
+          fontSize: valueFontSize,
+          minWidth: valueMinWidth,
           textAlign: "center",
           fontVariantNumeric: "tabular-nums",
           letterSpacing: 0.5,
+          lineHeight: 1,
         }}
       >
         {fmt ? fmt(value) : value}
@@ -113,7 +124,7 @@ export function MTag({ children, on }: { children: ReactNode; on?: boolean }) {
   return (
     <span
       style={{
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: 600,
         color: on ? M.brandInk : M.mut,
         padding: "6px 12px",
@@ -149,7 +160,7 @@ export function MStat({
         padding: "12px 13px",
       }}
     >
-      <div style={{ fontSize: 9.5, letterSpacing: 1.4, color: M.brand, fontWeight: 700 }}>{label}</div>
+      <div style={{ fontSize: 13, letterSpacing: 1.4, color: M.brand, fontWeight: 700 }}>{label}</div>
       <div
         style={{
           fontFamily: M.disp,
@@ -163,7 +174,7 @@ export function MStat({
         {value}
       </div>
       {sub && (
-        <div style={{ fontSize: 10.5, color: M.mut2, marginTop: 3, fontWeight: 600 }}>{sub}</div>
+        <div style={{ fontSize: 13, color: M.mut2, marginTop: 3, fontWeight: 600 }}>{sub}</div>
       )}
     </div>
   );

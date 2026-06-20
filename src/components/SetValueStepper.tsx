@@ -219,7 +219,7 @@ export function SetValueStepper({
       {showLabelAbove ? (
         <div
           style={{
-            fontSize: 11,
+            fontSize: 13,
             letterSpacing: 1.1,
             color: M.mut,
             fontWeight: 600,

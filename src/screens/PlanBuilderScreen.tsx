@@ -6,6 +6,13 @@ import { createPlan, updatePlan, useExercises, usePlan } from "../lib/db";
 import type { LibraryExercise, PlanDayBlock } from "../data";
 import { planDayDisplayName } from "../data";
 import {
+  defaultWeekdayForPlanDayIndex,
+  getPlanTrainingWeekdays,
+  resolveUniquePlanDayWeekdays,
+  trainingWeekdayLabel,
+  trainingWeekdaysFromPlanDayWeekdays,
+} from "../lib/trainingWeekdays";
+import {
   buildUniformTemplateSets,
   defaultSetValue,
   formatSetSummary,
@@ -39,6 +46,7 @@ import { ConfirmSheet } from "../components/ConfirmSheet";
 import { BottomSheet } from "../components/BottomSheet";
 import { MetconConfigSheet } from "../components/MetconConfigSheet";
 import { PlanDaySlide } from "../components/PlanDaySlide";
+import { PlanDayWeekdayPicker } from "../components/PlanDayWeekdayPicker";
 import { MButton } from "../components/MButton";
 import { HorizontalSlidePager } from "../components/HorizontalSlidePager";
 
@@ -53,15 +61,17 @@ interface BuilderExercise extends LibraryExercise {
 interface BuilderDay {
   id: string;
   name: string;
+  trainingWeekday: number;
   enabledBlocks: TrainingBlockType[];
   metconConfig: MetconConfig | null;
   exercises: BuilderExercise[];
 }
 
-function createEmptyDay(index: number): BuilderDay {
+function createEmptyDay(index: number, usedWeekdays: number[] = []): BuilderDay {
   return {
     id: crypto.randomUUID(),
     name: `Tag ${index + 1}`,
+    trainingWeekday: defaultWeekdayForPlanDayIndex(index, usedWeekdays),
     enabledBlocks: [...BUILDER_DEFAULT_ENABLED_BLOCKS],
     metconConfig: null,
     exercises: [],
@@ -104,18 +114,24 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
   const [activeDayIndex, setActiveDayIndex] = useState(0);
 
   const exLibrary = exerciseLibrary ?? [];
+  const weekdayLabels = days.map((d) => trainingWeekdayLabel(d.trainingWeekday));
   const activeDay = days[activeDayIndex] ?? null;
   const configExercise = activeDay?.exercises.find((e) => e.id === configExerciseId) ?? null;
 
   useEffect(() => {
     if (!isEditing || !existingPlan || initialized) return;
+    const planWeekdays = getPlanTrainingWeekdays(existingPlan);
+    const resolvedWeekdays = resolveUniquePlanDayWeekdays(
+      existingPlan.days.map((_, index) => planWeekdays?.[index] ?? null),
+    );
     setName(existingPlan.name);
     setDays(
-      existingPlan.days.map((d) => {
+      existingPlan.days.map((d, index) => {
         const metconBlock = d.blocks?.find((b) => b.blockType === "metcon");
         return {
           id: d.id,
           name: d.name,
+          trainingWeekday: resolvedWeekdays[index] ?? defaultWeekdayForPlanDayIndex(index, []),
           enabledBlocks: d.enabledBlocks,
           metconConfig: metconBlock ? configFromPlanDayBlock(metconBlock) : null,
           exercises: d.exercises.map((e) => ({
@@ -159,7 +175,8 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
 
   const addDay = () => {
     setDays((prev) => {
-      const next = [...prev, createEmptyDay(prev.length)];
+      const usedWeekdays = prev.map((d) => d.trainingWeekday);
+      const next = [...prev, createEmptyDay(prev.length, usedWeekdays)];
       setActiveDayIndex(next.length - 1);
       return next;
     });
@@ -292,6 +309,11 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
 
   const handleSave = async () => {
     if (!user || days.length === 0) return;
+    const trainingWeekdays = trainingWeekdaysFromPlanDayWeekdays(days.map((d) => d.trainingWeekday));
+    if (new Set(trainingWeekdays).size !== trainingWeekdays.length) {
+      setError("Jeder Wochentag darf nur einem Workout zugeordnet sein.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -345,6 +367,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
             exercises,
           };
         }),
+        trainingWeekdays,
       };
 
       if (isEditing && planId) {
@@ -394,7 +417,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
         <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
           <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
         </MButton>
-        <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>
+        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>
           {isEditing ? "PLAN BEARBEITEN" : "NEUER PLAN"}
         </span>
         <div style={{ width: 32 }} aria-hidden />
@@ -419,12 +442,6 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
             padding: 0,
           }}
         />
-      </div>
-
-      <div style={{ padding: "14px 22px 10px" }}>
-        <span style={{ fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700, whiteSpace: "nowrap" }}>
-          {days.length} TAGE IM PLAN
-        </span>
       </div>
 
       <div
@@ -497,9 +514,20 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
                 >
                   <PlanDaySlide
                     dayNumber={index + 1}
-                    label={planDayDisplayName({ name: day.name, position: index })}
+                    label={planDayDisplayName({ name: day.name, position: index }, weekdayLabels)}
                     isCurrent={false}
                     isActive={activeDayIndex === index}
+                    scrollHeader={
+                      <PlanDayWeekdayPicker
+                        value={day.trainingWeekday}
+                        disabledWeekdays={days
+                          .filter((_, i) => i !== index)
+                          .map((d) => d.trainingWeekday)}
+                        onChange={(weekday) =>
+                          updateDayAt(index, (d) => ({ ...d, trainingWeekday: weekday }))
+                        }
+                      />
+                    }
                     enabledBlocks={day.enabledBlocks}
                     blocks={builderBlocksForDay(day)}
                     exercises={day.exercises.map((e) => ({
@@ -635,13 +663,13 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
         {configExercise && (
           <>
             <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 22, marginBottom: 4 }}>{configExercise.name}</div>
-            <div style={{ color: M.mut, fontSize: 12, marginBottom: 12 }}>
+            <div style={{ color: M.mut, fontSize: 13, marginBottom: 12 }}>
               {configExercise.blockType === "metcon"
                 ? (configExercise.displayNote ?? formatSetSummary(configExercise.setRows, configExercise.metric))
                 : `${configExercise.group} · ${configExercise.equip} · ${formatSetSummary(configExercise.setRows, configExercise.metric)}`}
             </div>
             {configExercise.blockType === "metcon" && (
-              <div style={{ color: M.mut2, fontSize: 12, marginBottom: 10, fontWeight: 600 }}>
+              <div style={{ color: M.mut2, fontSize: 13, marginBottom: 10, fontWeight: 600 }}>
                 Ziel-Wdh. pro Runde
               </div>
             )}

@@ -7,7 +7,8 @@ export interface TimerConfigPanelProps {
   cfg: TimerCfg;
   setCfg: (p: Partial<TimerCfg>) => void;
   disabled?: boolean;
-  layout?: "row" | "wrap";
+  layout?: "row" | "wrap" | "stack";
+  size?: "default" | "lg";
 }
 
 export function TimerConfigPanel({
@@ -16,24 +17,49 @@ export function TimerConfigPanel({
   setCfg,
   disabled = false,
   layout = "row",
+  size = "default",
 }: TimerConfigPanelProps) {
+  const isStack = layout === "stack";
+  const stepperSize = size;
+
   const cell = (label: string, node: React.ReactNode) => (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }}>
-      <span style={{ fontSize: 10.5, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: isStack ? 12 : 7,
+        width: isStack ? "100%" : undefined,
+        padding: isStack ? "8px 0" : undefined,
+      }}
+    >
+      <span
+        style={{
+          fontSize: isStack ? 14 : 13,
+          letterSpacing: 1.5,
+          color: M.mut,
+          fontWeight: 700,
+        }}
+      >
         {label}
       </span>
       {node}
     </div>
   );
 
+  const stepperProps = { disabled, size: stepperSize };
+
   return (
     <div
       style={{
         display: "flex",
-        justifyContent: layout === "row" ? "center" : "flex-start",
+        flexDirection: isStack ? "column" : "row",
+        justifyContent: isStack ? "center" : layout === "row" ? "center" : "flex-start",
+        alignItems: isStack ? "stretch" : undefined,
         flexWrap: layout === "wrap" ? "wrap" : "nowrap",
-        gap: 22,
-        padding: "4px 0",
+        gap: isStack ? 20 : 22,
+        padding: isStack ? "8px 0" : "4px 0",
+        width: "100%",
       }}
     >
       {mode === "emom" && (
@@ -45,7 +71,7 @@ export function TimerConfigPanel({
               min={1}
               max={30}
               onChange={(v) => setCfg({ rounds: v })}
-              disabled={disabled}
+              {...stepperProps}
             />,
           )}
           {cell(
@@ -57,7 +83,7 @@ export function TimerConfigPanel({
               step={15}
               fmt={fmt}
               onChange={(v) => setCfg({ interval: v })}
-              disabled={disabled}
+              {...stepperProps}
             />,
           )}
         </>
@@ -72,7 +98,7 @@ export function TimerConfigPanel({
             step={60}
             fmt={fmt}
             onChange={(v) => setCfg({ total: v })}
-            disabled={disabled}
+            {...stepperProps}
           />,
         )}
       {mode === "tabata" && (
@@ -86,7 +112,7 @@ export function TimerConfigPanel({
               step={5}
               fmt={fmt}
               onChange={(v) => setCfg({ work: v })}
-              disabled={disabled}
+              {...stepperProps}
             />,
           )}
           {cell(
@@ -98,7 +124,7 @@ export function TimerConfigPanel({
               step={5}
               fmt={fmt}
               onChange={(v) => setCfg({ rest: v })}
-              disabled={disabled}
+              {...stepperProps}
             />,
           )}
           {cell(
@@ -108,7 +134,7 @@ export function TimerConfigPanel({
               min={1}
               max={20}
               onChange={(v) => setCfg({ rounds: v })}
-              disabled={disabled}
+              {...stepperProps}
             />,
           )}
         </>
@@ -123,7 +149,7 @@ export function TimerConfigPanel({
             step={60}
             fmt={fmt}
             onChange={(v) => setCfg({ cap: v })}
-            disabled={disabled}
+            {...stepperProps}
           />,
         )}
     </div>

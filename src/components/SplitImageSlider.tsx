@@ -98,7 +98,7 @@ export function SplitImageSlider({
               justifyContent: "center",
               boxShadow: "0 4px 10px rgba(0,0,0,0.4)",
               color: M.accInk,
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: 900,
             }}
           >
@@ -117,7 +117,7 @@ export function SplitImageSlider({
             padding: "4px 8px",
             borderRadius: 6,
             color: "#fff",
-            fontSize: 10,
+            fontSize: 13,
             fontWeight: 700,
             zIndex: 3,
             pointerEvents: "none",
@@ -137,7 +137,7 @@ export function SplitImageSlider({
             padding: "4px 8px",
             borderRadius: 6,
             color: M.acc,
-            fontSize: 10,
+            fontSize: 13,
             fontWeight: 700,
             zIndex: 3,
             pointerEvents: "none",
@@ -173,24 +173,24 @@ export function SplitImageSlider({
       {/* Info Details Row */}
       <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 8px 8px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <span style={{ fontSize: 11, color: M.mut, fontWeight: 700 }}>VORHER-MESSUNG</span>
+          <span style={{ fontSize: 13, color: M.mut, fontWeight: 700 }}>VORHER-MESSUNG</span>
           <span style={{ fontSize: 13, color: M.fg, fontWeight: 600 }}>
             {beforeDate || "Kein Datum"}
           </span>
           {beforeWeight && (
-            <span style={{ fontSize: 12, color: M.mut2, fontWeight: 600 }}>
+            <span style={{ fontSize: 13, color: M.mut2, fontWeight: 600 }}>
               {beforeWeight} kg
             </span>
           )}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end", textAlign: "right" }}>
-          <span style={{ fontSize: 11, color: M.mut, fontWeight: 700 }}>NACHHER-MESSUNG</span>
+          <span style={{ fontSize: 13, color: M.mut, fontWeight: 700 }}>NACHHER-MESSUNG</span>
           <span style={{ fontSize: 13, color: M.acc, fontWeight: 600 }}>
             {afterDate || "Kein Datum"}
           </span>
           {afterWeight && (
-            <span style={{ fontSize: 12, color: M.mut2, fontWeight: 600 }}>
+            <span style={{ fontSize: 13, color: M.mut2, fontWeight: 600 }}>
               {afterWeight} kg
             </span>
           )}

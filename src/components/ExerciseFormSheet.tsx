@@ -152,7 +152,7 @@ export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: Exercise
           {formTitle}
         </div>
         <label style={{ display: "block", marginBottom: 14, flexShrink: 0 }}>
-          <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 6 }}>
+          <div style={{ fontSize: 13, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 6 }}>
             NAME
           </div>
           <input
@@ -174,7 +174,7 @@ export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: Exercise
         </label>
 
         <label style={{ display: "block", marginBottom: 14, flexShrink: 0 }}>
-          <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 6 }}>
+          <div style={{ fontSize: 13, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 6 }}>
             BESCHREIBUNG (DE)
           </div>
           <textarea
@@ -213,13 +213,13 @@ export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: Exercise
           <EquipmentSelect embedded value={equipment} onChange={setEquipment} />
         </div>
         {legacyHint && (
-          <div style={{ fontSize: 12, color: M.mut2, marginBottom: 14, flexShrink: 0 }}>
+          <div style={{ fontSize: 13, color: M.mut2, marginBottom: 14, flexShrink: 0 }}>
             Früher: {legacyHint}
           </div>
         )}
 
         <label style={{ display: "block", marginBottom: 14, flexShrink: 0 }}>
-          <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 6 }}>
+          <div style={{ fontSize: 13, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 6 }}>
             YOUTUBE-LINK (OPTIONAL)
           </div>
           <input
@@ -244,7 +244,7 @@ export function ExerciseFormSheet({ open, exercise, onClose, onSaved }: Exercise
         </label>
 
         <div style={{ marginBottom: 14, flexShrink: 0 }}>
-          <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 6 }}>
+          <div style={{ fontSize: 13, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 6 }}>
             KATEGORIE
           </div>
           <MButton

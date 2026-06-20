@@ -483,7 +483,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
         <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
           <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
         </MButton>
-        <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>
+        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>
           {editingId ? "EINTRAG BEARBEITEN" : "KÖRPERWERTE"}
         </span>
         <span style={{ width: 24 }} />
@@ -537,25 +537,38 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "8px 16px",
+            flexDirection: "column",
+            gap: 10,
+            padding: "12px 16px",
             background: M.card,
             border: !preferences.gender ? "1px solid #ff5e5e" : "1px solid " + M.line2,
             borderRadius: 14,
             marginBottom: 12,
           }}
         >
-          <span style={{ fontSize: 11, fontWeight: 700, color: !preferences.gender ? "#ff8a8a" : M.mut, letterSpacing: 0.5 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: !preferences.gender ? "#ff8a8a" : M.mut, letterSpacing: 0.5 }}>
             GESCHLECHT {!preferences.gender && "*"}
           </span>
-          <div style={{ display: "flex", gap: 4, background: M.panel, padding: 2, borderRadius: 8, border: "1px solid " + M.line2 }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 4,
+              width: "100%",
+              minWidth: 0,
+              background: M.panel,
+              padding: 2,
+              borderRadius: 8,
+              border: "1px solid " + M.line2,
+            }}
+          >
             <button
               type="button"
               onClick={() => updatePreferences({ gender: "male" }, true)}
               style={{
-                padding: "6px 10px",
-                fontSize: 11,
+                flex: 1,
+                minWidth: 0,
+                padding: "6px 4px",
+                fontSize: 12,
                 fontWeight: 700,
                 border: "none",
                 borderRadius: 6,
@@ -564,6 +577,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                 color: preferences.gender === "male" ? M.accInk : M.mut,
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "center",
                 gap: 4,
               }}
             >
@@ -573,8 +587,10 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
               type="button"
               onClick={() => updatePreferences({ gender: "female" }, true)}
               style={{
-                padding: "6px 10px",
-                fontSize: 11,
+                flex: 1,
+                minWidth: 0,
+                padding: "6px 4px",
+                fontSize: 12,
                 fontWeight: 700,
                 border: "none",
                 borderRadius: 6,
@@ -583,6 +599,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                 color: preferences.gender === "female" ? M.accInk : M.mut,
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "center",
                 gap: 4,
               }}
             >
@@ -592,8 +609,10 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
               type="button"
               onClick={() => updatePreferences({ gender: "other" }, true)}
               style={{
-                padding: "6px 10px",
-                fontSize: 11,
+                flex: 1,
+                minWidth: 0,
+                padding: "6px 4px",
+                fontSize: 12,
                 fontWeight: 700,
                 border: "none",
                 borderRadius: 6,
@@ -602,6 +621,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                 color: preferences.gender === "other" ? M.accInk : M.mut,
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "center",
                 gap: 4,
               }}
             >
@@ -621,7 +641,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
             marginBottom: 16,
           }}
         >
-          <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 12 }}>
+          <div style={{ fontSize: 13, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 12 }}>
             {editingId ? "WERTE ANPASSEN" : "MESSUNG EINTRAGEN"}
           </div>
 
@@ -629,7 +649,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
             {/* Weight & Body Fat (Always Visible) */}
             <div style={{ display: "flex", gap: 12 }}>
               <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
+                <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
                   Gewicht (kg)
                 </label>
                 <input
@@ -655,7 +675,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
               </div>
 
               <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
+                <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
                   Körperfett (%)
                 </label>
                 <input
@@ -684,7 +704,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
             {/* Hips & Waist (Always visible in form) */}
             <div style={{ display: "flex", gap: 12 }}>
               <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
+                <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
                   Hüfte (cm)
                 </label>
                 <input
@@ -710,7 +730,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
               </div>
 
               <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
+                <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
                   Taille (cm)
                 </label>
                 <input
@@ -751,7 +771,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 11, color: M.mut, fontWeight: 700, letterSpacing: 1 }}>
+                  <span style={{ fontSize: 13, color: M.mut, fontWeight: 700, letterSpacing: 1 }}>
                     TAILLE-HÜFTE-VERHÄLTNIS (WHR)
                   </span>
                 </div>
@@ -762,7 +782,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                   </span>
                   <span
                     style={{
-                      fontSize: 11,
+                      fontSize: 13,
                       fontWeight: 700,
                       color: whrEvaluation.color,
                       background: whrEvaluation.bg,
@@ -803,7 +823,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
 
                   return (
                     <div key={fieldId}>
-                      <label style={{ fontSize: 11, color: M.mut, fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                      <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
                         <span>{field.label}</span>
                         <button
                           type="button"
@@ -862,12 +882,12 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      height: 38,
+                      height: 44,
                       borderRadius: 10,
                       border: "1px dashed " + M.line,
                       background: "transparent",
                       color: M.mut,
-                      fontSize: 12.5,
+                      fontSize: 14,
                       fontWeight: 700,
                       cursor: "pointer",
                       position: "relative",
@@ -908,7 +928,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
 
             {/* Date Picker */}
             <div>
-              <label style={{ fontSize: 11, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
+              <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
                 Datum
               </label>
               <input
@@ -960,7 +980,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span style={{ fontSize: 11, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>
+              <span style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>
                 GEWICHTSVERLAUF (LETZTE 10)
               </span>
               <span style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 15, color: M.acc }}>
@@ -976,7 +996,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
 
         {/* History List */}
         <div>
-          <div style={{ fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700, marginBottom: 10 }}>
+          <div style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700, marginBottom: 10 }}>
             HISTORIE
           </div>
 
@@ -1033,7 +1053,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                     >
                       {/* Top Row: Date & CRUD buttons */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 12.5, color: M.mut, fontWeight: 700 }}>
+                        <span style={{ fontSize: 14, color: M.mut, fontWeight: 700 }}>
                           {formatDateDe(m.performedAt)}
                         </span>
                         <div style={{ display: "flex", gap: 12 }}>
@@ -1107,13 +1127,13 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
 
                             return (
                               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                <span style={{ fontSize: 11, color: M.mut, fontWeight: 600 }}>WHR:</span>
+                                <span style={{ fontSize: 13, color: M.mut, fontWeight: 600 }}>WHR:</span>
                                 <span style={{ fontFamily: M.disp, fontSize: 16, fontWeight: 700, color: M.fg }}>
                                   {ratio.toFixed(2)}
                                 </span>
                                 <span
                                   style={{
-                                    fontSize: 9,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     color: color,
                                     background: bg,
@@ -1140,7 +1160,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                             borderTop: "1px solid " + M.line2,
                             paddingTop: 10,
                             marginTop: 2,
-                            fontSize: 12.5,
+                            fontSize: 14,
                             color: M.fg,
                           }}
                         >
@@ -1244,13 +1264,13 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
               padding: "16px 16px 18px",
             }}
           >
-            <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 12 }}>
+            <div style={{ fontSize: 13, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 12 }}>
               FOTO HINZUFÜGEN
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {/* Ausrichtungs-Auswahl */}
               <div>
-                <label style={{ fontSize: 11, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
+                <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
                   Ausrichtung
                 </label>
                 <div style={{ display: "flex", gap: 4, background: M.panel, padding: 2, borderRadius: 8, border: "1px solid " + M.line2 }}>
@@ -1265,7 +1285,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                         style={{
                           flex: 1,
                           padding: "6px 10px",
-                          fontSize: 11,
+                          fontSize: 13,
                           fontWeight: 700,
                           border: "none",
                           borderRadius: 6,
@@ -1284,7 +1304,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
               {/* Gewicht (optional) & Datum */}
               <div style={{ display: "flex", gap: 12 }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 11, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
+                  <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
                     Gewicht (kg, optional)
                   </label>
                   <input
@@ -1309,7 +1329,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                   />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 11, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
+                  <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
                     Datum
                   </label>
                   <input
@@ -1337,7 +1357,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
 
               {/* File Picker */}
               <div>
-                <label style={{ fontSize: 11, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
+                <label style={{ fontSize: 13, color: M.mut, fontWeight: 600, display: "block", marginBottom: 5 }}>
                   Bilddatei
                 </label>
                 <div
@@ -1350,7 +1370,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                     border: "1px dashed " + M.line,
                     background: photoFile ? M.accSoft : "transparent",
                     color: photoFile ? M.acc : M.mut,
-                    fontSize: 12.5,
+                    fontSize: 14,
                     fontWeight: 700,
                     cursor: "pointer",
                     position: "relative",
@@ -1384,7 +1404,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                 type="submit"
                 disabled={uploading || !photoFile}
                 style={{
-                  height: 40,
+                  height: 44,
                   borderRadius: 12,
                   border: "none",
                   background: photoFile ? M.acc : M.line,
@@ -1415,7 +1435,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <span style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut, fontWeight: 700 }}>
+                <span style={{ fontSize: 13, letterSpacing: 1.2, color: M.mut, fontWeight: 700 }}>
                   VORHER / NACHHER VERGLEICH ({compareOrientation === "front" ? "VORNE" : compareOrientation === "back" ? "HINTEN" : "SEITE"})
                 </span>
                 <button
@@ -1428,7 +1448,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                     background: "none",
                     border: "none",
                     color: "#ff5e5e",
-                    fontSize: 11,
+                    fontSize: 13,
                     fontWeight: 700,
                     cursor: "pointer",
                   }}
@@ -1450,7 +1470,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
           {/* Galerie */}
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
-              <span style={{ fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>
+              <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>
                 FOTOGALERIE
               </span>
             </div>
@@ -1567,7 +1587,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                                   left: 8,
                                   background: M.acc,
                                   color: M.accInk,
-                                  fontSize: 9,
+                                  fontSize: 13,
                                   fontWeight: 800,
                                   padding: "3px 6px",
                                   borderRadius: 4,
@@ -1585,7 +1605,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                                   left: 8,
                                   background: M.acc,
                                   color: M.accInk,
-                                  fontSize: 9,
+                                  fontSize: 13,
                                   fontWeight: 800,
                                   padding: "3px 6px",
                                   borderRadius: 4,
@@ -1622,11 +1642,11 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                           {/* Details & Selection Buttons */}
                           <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
                             <div style={{ display: "flex", flexDirection: "column" }}>
-                              <span style={{ fontSize: 11.5, fontWeight: 700, color: M.fg }}>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: M.fg }}>
                                 {formatDateDe(p.performedAt)}
                               </span>
                               {p.weightKg !== undefined && (
-                                <span style={{ fontSize: 10.5, color: M.mut, fontWeight: 600 }}>
+                                <span style={{ fontSize: 13, color: M.mut, fontWeight: 600 }}>
                                   {p.weightKg.toFixed(1)} kg
                                 </span>
                               )}
@@ -1646,7 +1666,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                                   border: "none",
                                   background: isBefore ? M.acc : M.panel,
                                   color: isBefore ? M.accInk : M.mut,
-                                  fontSize: 9.5,
+                                  fontSize: 13,
                                   fontWeight: 700,
                                   cursor: "pointer",
                                 }}
@@ -1666,7 +1686,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
                                   border: "none",
                                   background: isAfter ? M.acc : M.panel,
                                   color: isAfter ? M.accInk : M.mut,
-                                  fontSize: 9.5,
+                                  fontSize: 13,
                                   fontWeight: 700,
                                   cursor: "pointer",
                                 }}

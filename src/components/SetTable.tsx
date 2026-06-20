@@ -71,7 +71,7 @@ export function SetTable({
       {hint ? (
         <div
           style={{
-            fontSize: 12,
+            fontSize: 13,
             color: hintSuggested ? M.brand : M.mut,
             marginBottom: 12,
             lineHeight: 1.4,
@@ -85,7 +85,7 @@ export function SetTable({
       <div
         style={{
           display: "flex",
-          fontSize: 10,
+          fontSize: 13,
           letterSpacing: 1.2,
           color: M.mut2,
           fontWeight: 700,

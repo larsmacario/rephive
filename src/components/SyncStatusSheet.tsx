@@ -67,7 +67,7 @@ export function SyncStatusSheet({ open, onClose, pendingCount, onSynced }: SyncS
                   borderRadius: 8,
                   background: M.bg,
                   border: `1px solid ${M.line}`,
-                  fontSize: 12,
+                  fontSize: 13,
                   color: M.fg,
                 }}
               >

@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { M } from "../theme";
 
 export const catalogLabelStyle: CSSProperties = {
-  fontSize: 11,
+  fontSize: 13,
   letterSpacing: 1.2,
   color: M.mut,
   fontWeight: 700,

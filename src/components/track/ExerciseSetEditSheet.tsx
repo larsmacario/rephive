@@ -40,7 +40,7 @@ export function ExerciseSetEditSheet({
         <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 18, color: M.fg, marginBottom: 4 }}>
           {exercise.name}
         </div>
-        <div style={{ fontSize: 12, color: M.mut, marginBottom: 16 }}>Sätze bearbeiten</div>
+        <div style={{ fontSize: 13, color: M.mut, marginBottom: 16 }}>Sätze bearbeiten</div>
         <SetTable
           sets={exercise.sets}
           metric={exercise.metric}

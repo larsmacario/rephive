@@ -44,6 +44,13 @@ import type {
 import { planDayDisplayName } from "../data";
 import type { AnamnesisData } from "./preferences";
 import { hasAiConsent, mergePreferences, normalizeStressLevel } from "./preferences";
+import {
+  extractTrainingWeekdaysFromSummaryJson,
+  mergePlanSummaryWithTrainingWeekdays,
+  normalizePlanDayWeekdays,
+  normalizeTrainingWeekdays,
+  patchPlanSummaryJsonWithTrainingWeekdays,
+} from "./trainingWeekdays";
 import { activityFactor, ageFromBirthDate } from "./nutrition";
 
 /** Entfernt KI-typische Präfixe wie „Tag 1 – …“ aus Workout-Namen. */
@@ -957,6 +964,7 @@ function parsePlanSummary(raw: Json | null | undefined): PlanSummary | null {
         inputsObj.dietPreference === "pescetarian"
           ? inputsObj.dietPreference
           : null,
+      trainingWeekdays: normalizePlanDayWeekdays(inputsObj.trainingWeekdays),
     },
     advice: normalizePlanAdvice(advice, expLevel),
     createdAt: typeof obj.createdAt === "string" ? obj.createdAt : new Date().toISOString(),
@@ -969,13 +977,19 @@ function mapPlanRow(
   exercisesMap: Map<string, DbPlanDayExercise[]>,
   blocksMap: Map<string, DbPlanDayBlock[]>,
 ): LibraryPlan {
+  const parsedSummary = parsePlanSummary(plan.summary);
+  const trainingWeekdays =
+    extractTrainingWeekdaysFromSummaryJson(plan.summary) ??
+    parsedSummary?.inputs?.trainingWeekdays;
+
   return {
     id: plan.id,
     name: plan.name,
     sub: plan.sub,
     isActive: plan.is_active,
     currentDay: plan.current_day,
-    summary: parsePlanSummary(plan.summary),
+    summary: parsedSummary,
+    trainingWeekdays,
     days: days
       .sort((a, b) => a.position - b.position)
       .map((d): PlanDay => {
@@ -1086,8 +1100,12 @@ export interface CreatePlanInput {
   days: CreatePlanDayInput[];
   activate?: boolean;
   summary?: PlanSummary | null;
+  /** ISO-Wochentage 0=Mo … 6=So — wird in summary.inputs gemerged */
+  trainingWeekdays?: number[];
   planId?: string;
   dayIds?: string[];
+  /** Nach Insert nur neuen Plan in den Cache schreiben statt alle Pläne neu zu laden. */
+  skipFullRefresh?: boolean;
 }
 
 async function deactivateAllPlans(userId: string): Promise<void> {
@@ -1115,6 +1133,11 @@ export async function createPlanRemote(
     await deactivateAllPlans(userId);
   }
 
+  let summaryJson: Json | null = input.summary ? (input.summary as unknown as Json) : null;
+  if (input.trainingWeekdays?.length) {
+    summaryJson = patchPlanSummaryJsonWithTrainingWeekdays(summaryJson, input.trainingWeekdays) as Json;
+  }
+
   const { error } = await supabase.from("plans").insert({
     id: ids.planId,
     user_id: userId,
@@ -1122,7 +1145,7 @@ export async function createPlanRemote(
     sub: input.sub ?? "",
     is_active: input.activate ?? false,
     current_day: 0,
-    summary: input.summary ? (input.summary as unknown as Json) : null,
+    summary: summaryJson,
   });
   if (error) throw error;
 
@@ -1141,11 +1164,13 @@ export async function createPlanRemote(
     .select("id, position");
   if (daysError) throw daysError;
 
-  for (const inserted of insertedDays ?? []) {
-    const dayInput = input.days[inserted.position];
-    if (!dayInput) continue;
-    await insertPlanDayExercises(inserted.id, dayInput.exercises, dayInput.blockConfigs ?? []);
-  }
+  await Promise.all(
+    (insertedDays ?? []).map(async (inserted) => {
+      const dayInput = input.days[inserted.position];
+      if (!dayInput) return;
+      await insertPlanDayExercises(inserted.id, dayInput.exercises, dayInput.blockConfigs ?? []);
+    }),
+  );
 
   return ids.planId;
 }
@@ -1156,8 +1181,17 @@ export async function createPlan(userId: string, input: CreatePlanInput): Promis
 
   if (getIsOnlineSync()) {
     const id = await createPlanRemote(userId, input, { planId, dayIds });
-    const plans = await fetchPlansRemote();
-    await writePlansCache(userId, plans);
+    if (input.skipFullRefresh) {
+      const localPlan = buildLibraryPlanFromCreateInput(planId, dayIds, input);
+      if (input.activate) {
+        await applySetActivePlanLocal(userId, planId);
+        localPlan.isActive = true;
+      }
+      await upsertCachedPlan(userId, localPlan);
+    } else {
+      const plans = await fetchPlansRemote();
+      await writePlansCache(userId, plans);
+    }
     return id;
   }
 
@@ -1175,6 +1209,8 @@ export interface UpdatePlanInput {
   name: string;
   sub?: string;
   days: CreatePlanDayInput[];
+  /** ISO-Wochentage 0=Mo … 6=So — wird in summary.inputs gemerged */
+  trainingWeekdays?: number[];
 }
 
 export async function fetchPlan(planId: string): Promise<LibraryPlan | null> {
@@ -1188,19 +1224,34 @@ export async function fetchPlan(planId: string): Promise<LibraryPlan | null> {
 export async function updatePlanRemote(planId: string, input: UpdatePlanInput): Promise<void> {
   validatePlanDays(input.days);
 
-  const { data: plan, error: fetchError } = await supabase.from("plans").select("current_day").eq("id", planId).single();
+  const { data: plan, error: fetchError } = await supabase
+    .from("plans")
+    .select("current_day, summary")
+    .eq("id", planId)
+    .single();
   if (fetchError) throw fetchError;
 
   const currentDay = plan.current_day >= input.days.length ? 0 : plan.current_day;
 
-  const { error } = await supabase
-    .from("plans")
-    .update({
-      name: input.name,
-      sub: input.sub ?? "",
-      current_day: currentDay,
-    })
-    .eq("id", planId);
+  const updatePayload: {
+    name: string;
+    sub: string;
+    current_day: number;
+    summary?: Json;
+  } = {
+    name: input.name,
+    sub: input.sub ?? "",
+    current_day: currentDay,
+  };
+
+  if (input.trainingWeekdays?.length) {
+    updatePayload.summary = patchPlanSummaryJsonWithTrainingWeekdays(
+      plan.summary,
+      input.trainingWeekdays,
+    ) as Json;
+  }
+
+  const { error } = await supabase.from("plans").update(updatePayload).eq("id", planId);
   if (error) throw error;
 
   const { error: deleteError } = await supabase.from("plan_days").delete().eq("plan_id", planId);
@@ -1241,6 +1292,59 @@ export async function updatePlan(userId: string, planId: string, input: UpdatePl
   const updated = buildLibraryPlanFromUpdateInput(existing, input);
   await upsertCachedPlan(userId, updated);
   await enqueueMutation(userId, "UPDATE_PLAN", { planId, input });
+}
+
+export async function updatePlanTrainingWeekdaysRemote(
+  planId: string,
+  trainingWeekdays: number[],
+): Promise<void> {
+  const normalized = normalizeTrainingWeekdays(trainingWeekdays);
+  if (!normalized?.length) {
+    throw new Error("Mindestens ein Trainingstag erforderlich.");
+  }
+
+  const { data: plan, error: fetchError } = await supabase
+    .from("plans")
+    .select("summary")
+    .eq("id", planId)
+    .single();
+  if (fetchError) throw fetchError;
+
+  const summary = patchPlanSummaryJsonWithTrainingWeekdays(plan.summary, normalized);
+
+  const { error } = await supabase
+    .from("plans")
+    .update({ summary: summary as Json })
+    .eq("id", planId);
+  if (error) throw error;
+}
+
+export async function updatePlanTrainingWeekdays(
+  userId: string,
+  planId: string,
+  trainingWeekdays: number[],
+): Promise<void> {
+  const normalized = normalizeTrainingWeekdays(trainingWeekdays);
+  if (!normalized?.length) {
+    throw new Error("Mindestens ein Trainingstag erforderlich.");
+  }
+
+  if (getIsOnlineSync()) {
+    await updatePlanTrainingWeekdaysRemote(planId, normalized);
+    const plans = await fetchPlansRemote();
+    await writePlansCache(userId, plans);
+    return;
+  }
+
+  const existing = await getCachedPlan(userId, planId);
+  if (!existing) throw new Error("Plan nicht im Offline-Cache. Bitte zuerst online öffnen.");
+  const updated: LibraryPlan = {
+    ...existing,
+    trainingWeekdays: normalized,
+    summary: mergePlanSummaryWithTrainingWeekdays(existing.summary, normalized),
+  };
+  await upsertCachedPlan(userId, updated);
+  await enqueueMutation(userId, "UPDATE_PLAN_WEEKDAYS", { planId, trainingWeekdays: normalized });
 }
 
 export async function deletePlanRemote(planId: string): Promise<void> {
@@ -1912,8 +2016,6 @@ export async function generateAndSaveAITrainingPlan(
     exerciseFeedback?: any;
   }
 ): Promise<string> {
-  await assertAiTrainingPlanConsent(userId);
-
   const { nutrition, ...edgeInput } = input;
   const { data, error } = await supabase.functions.invoke("generate-training-plan", {
     body: edgeInput,
@@ -1966,6 +2068,12 @@ export async function generateAndSaveAITrainingPlan(
   }
   if (!data) {
     throw new Error("Keine Daten von der Edge Function zurückgegeben");
+  }
+
+  if (!Array.isArray(data.days) || data.days.length === 0) {
+    throw new Error(
+      "Der KI-Plan enthält keine Trainingstage. Bitte erneut versuchen — die Antwort war unvollständig.",
+    );
   }
 
   const planDays: CreatePlanDayInput[] = [];
@@ -2128,6 +2236,7 @@ export async function generateAndSaveAITrainingPlan(
       sleepHours: input.anamnesis.sleepHours,
       stressLevel: input.anamnesis.stressLevel,
       dietPreference: input.anamnesis.dietPreference,
+      trainingWeekdays: normalizeTrainingWeekdays(input.anamnesis.trainingWeekdays) ?? [],
     },
     advice: normalizePlanAdvice(data.advice, input.experienceLevel),
     createdAt: new Date().toISOString(),
@@ -2139,31 +2248,23 @@ export async function generateAndSaveAITrainingPlan(
     days: planDays,
     activate: true,
     summary,
+    skipFullRefresh: true,
   });
 
   return planId;
 }
 
-export async function fetchRecentSessionsWithExercises(limit = 10): Promise<HistoryEntry[]> {
+export async function fetchRecentSessionsWithExercises(limit = 5): Promise<HistoryEntry[]> {
   const { data: sessionRows, error } = await supabase
     .from("sessions")
-    .select("id")
+    .select("*")
     .order("performed_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
   if (!sessionRows || sessionRows.length === 0) return [];
-  
-  const sessions = await Promise.all(
-    sessionRows.map(async (row) => {
-      try {
-        return await fetchSession(row.id);
-      } catch (e) {
-        console.error(`Fehler beim Laden der Session ${row.id}:`, e);
-        return null;
-      }
-    })
-  );
-  return sessions.filter((s): s is HistoryEntry => s !== null);
+
+  const exercisesMap = await fetchSessionExercisesBatch(sessionRows.map((row) => row.id));
+  return sessionRows.map((row) => mapSessionRow(row, exercisesMap.get(row.id) ?? []));
 }
 
 export async function fetchRecentExpressTrackingSessions(limit = 10): Promise<HistoryEntry[]> {
@@ -2202,6 +2303,7 @@ registerSyncHandlers({
   advancePlanRemote,
   createPlanRemote,
   updatePlanRemote,
+  updatePlanTrainingWeekdaysRemote,
   deletePlanRemote,
   setActivePlanRemote,
   createExerciseRemote,

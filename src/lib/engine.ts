@@ -96,6 +96,27 @@ export function fmtUp(s: number): string {
   return m + ":" + String(ss).padStart(2, "0");
 }
 
+/** Zero-padded MM:SS for timer UI — keeps digit columns aligned while ticking. */
+export function fmtClockFixed(s: number, countUp = false): string {
+  const { minutes, seconds } = splitClockFixed(s, countUp);
+  return `${minutes}:${seconds}`;
+}
+
+export function splitClockFixed(
+  s: number,
+  countUp = false,
+): { minutes: string; seconds: string; minuteSlots: 2 | 3 } {
+  const whole = countUp ? Math.max(0, Math.floor(s)) : Math.max(0, Math.ceil(s - 1e-6));
+  const m = Math.floor(whole / 60);
+  const ss = whole % 60;
+  const minuteSlots = m >= 100 ? 3 : 2;
+  return {
+    minutes: String(m).padStart(minuteSlots, "0"),
+    seconds: String(ss).padStart(2, "0"),
+    minuteSlots,
+  };
+}
+
 // ── timer presets ───────────────────────────────────────────
 export const TIMER_MODES: { id: TimerMode; name: string; blurb: string }[] = [
   { id: "emom", name: "EMOM", blurb: "Every Minute On the Minute" },

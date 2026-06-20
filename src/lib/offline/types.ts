@@ -5,6 +5,7 @@ export type SyncOpType =
   | "ADVANCE_PLAN"
   | "CREATE_PLAN"
   | "UPDATE_PLAN"
+  | "UPDATE_PLAN_WEEKDAYS"
   | "DELETE_PLAN"
   | "SET_ACTIVE_PLAN"
   | "CREATE_EXERCISE"

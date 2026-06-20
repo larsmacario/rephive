@@ -32,6 +32,8 @@
 	<string>rephive nutzt das Mikrofon für experimentelles Voice-Logging von Trainingssätzen (Labs).</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>rephive wandelt gesprochene Sätze in Gewicht und Wiederholungen um (experimentelles Labs-Feature).</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>rephive nutzt Bluetooth, um Herzfrequenz-Sensoren während des Trainings anzuzeigen.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

@@ -44,7 +44,7 @@ function FeedbackLegend() {
             display: "inline-flex",
             alignItems: "center",
             gap: 6,
-            fontSize: 11,
+            fontSize: 13,
             color: M.mut,
             fontWeight: 600,
           }}
@@ -187,7 +187,7 @@ export function WorkoutFinishSheet({
           <div style={{ flexShrink: 0, marginBottom: showScrollHint ? 4 : 8 }}>
             <div
               style={{
-                fontSize: 11,
+                fontSize: 13,
                 letterSpacing: 1.2,
                 color: M.mut,
                 fontWeight: 700,
@@ -198,7 +198,7 @@ export function WorkoutFinishSheet({
             </div>
             <FeedbackLegend />
             {showScrollHint && (
-              <div style={{ fontSize: 11, color: M.mut, marginTop: 4, fontWeight: 600 }}>
+              <div style={{ fontSize: 13, color: M.mut, marginTop: 4, fontWeight: 600 }}>
                 Weitere Übungen — nach unten scrollen
               </div>
             )}
@@ -361,7 +361,7 @@ export function WorkoutFinishSheet({
           <div style={{ flex: 1, minWidth: 0 }}>
             <div
               style={{
-                fontSize: 11,
+                fontSize: 13,
                 letterSpacing: 1.2,
                 color: M.mut,
                 fontWeight: 700,

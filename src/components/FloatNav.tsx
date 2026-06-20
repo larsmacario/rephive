@@ -5,7 +5,9 @@ import { Icon } from "./Icon";
 
 export type Tab = "home" | "plans" | "ai-plan" | "timer" | "history" | "profile";
 
-type NavItem = { id: Tab; label: string; icon: string };
+export type NavTabId = Tab | "menu";
+
+type NavItem = { id: NavTabId; label: string; icon: string };
 
 export const LEFT_TABS: NavItem[] = [
   { id: "home", label: "Start", icon: "home" },
@@ -14,7 +16,7 @@ export const LEFT_TABS: NavItem[] = [
 
 export const RIGHT_TABS: NavItem[] = [
   { id: "plans", label: "Pläne", icon: "layers" },
-  { id: "profile", label: "Profil", icon: "user" },
+  { id: "menu", label: "Menü", icon: "menu" },
 ];
 
 /** @deprecated Use LEFT_TABS + RIGHT_TABS */
@@ -100,7 +102,7 @@ function NavTabButton({
   item: NavItem;
   active: boolean;
   horizontal: boolean;
-  onSelect: (id: Tab) => void;
+  onSelect: (id: NavTabId) => void;
 }) {
   const color = active ? M.brand : M.mut;
 
@@ -183,7 +185,7 @@ export function FloatNav({
   placement,
 }: {
   tab: Tab;
-  onTab: (t: Tab) => void;
+  onTab: (t: NavTabId) => void;
   onExpressTracking: () => void;
   timerActive?: boolean;
   placement: "bottom" | "left";

@@ -56,6 +56,7 @@ export function MetconBlockView({
       idle: T.idle,
     },
     preferences.timerSounds,
+    preferences.timerSoundPack,
     config.durationSec,
   );
 
@@ -114,7 +115,7 @@ export function MetconBlockView({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              fontSize: 11,
+              fontSize: 13,
               fontWeight: 700,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
@@ -123,14 +124,14 @@ export function MetconBlockView({
           >
             MetCon · {FORMAT_LABELS[config.format]}
           </div>
-          <div style={{ fontSize: 12, color: M.mut2, marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: M.mut2, marginTop: 2 }}>
             {formatMetconBlockBadge(config)}
           </div>
         </div>
       </div>
 
       {historyHint ? (
-        <div style={{ padding: "0 18px 8px", fontSize: 12, color: M.mut, lineHeight: 1.4 }}>
+        <div style={{ padding: "0 18px 8px", fontSize: 13, color: M.mut, lineHeight: 1.4 }}>
           {historyHint}
         </div>
       ) : null}
@@ -293,7 +294,7 @@ export function MetconBlockView({
           </div>
         )}
 
-        <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut2, fontWeight: 700, marginBottom: 8 }}>
+        <div style={{ fontSize: 13, letterSpacing: 1.2, color: M.mut2, fontWeight: 700, marginBottom: 8 }}>
           ÜBUNGEN
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

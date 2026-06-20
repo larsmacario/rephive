@@ -34,7 +34,7 @@ function CalculatorStepper({ label, value, displayValue, step, min, max, onChang
     <div style={{ flex: 1, minWidth: 0 }}>
       <div
         style={{
-          fontSize: 10,
+          fontSize: 13,
           letterSpacing: 0.6,
           color: M.mut,
           fontWeight: 700,
@@ -47,7 +47,14 @@ function CalculatorStepper({ label, value, displayValue, step, min, max, onChang
         {label}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <MButton type="button" onClick={dec} variant="secondary" size="icon" aria-label={`${label} verringern`} style={{ background: M.panel }}>
+        <MButton
+          type="button"
+          onClick={dec}
+          variant="secondary"
+          size="icon"
+          aria-label={`${label} verringern`}
+          style={{ width: 36, height: 36, minHeight: 36, background: M.panel }}
+        >
           <span style={{ fontWeight: 700 }}>−</span>
         </MButton>
         <div
@@ -75,7 +82,14 @@ function CalculatorStepper({ label, value, displayValue, step, min, max, onChang
             {displayValue}
           </span>
         </div>
-        <MButton type="button" onClick={inc} variant="secondary" size="icon" aria-label={`${label} erhöhen`} style={{ background: M.panel }}>
+        <MButton
+          type="button"
+          onClick={inc}
+          variant="secondary"
+          size="icon"
+          aria-label={`${label} erhöhen`}
+          style={{ width: 36, height: 36, minHeight: 36, background: M.panel }}
+        >
           <span style={{ fontWeight: 700 }}>+</span>
         </MButton>
       </div>
@@ -157,7 +171,7 @@ export function OneRmCalculatorBody({
           flexShrink: 0,
         }}
       >
-        <div style={{ fontSize: 11, letterSpacing: 1.4, color: M.acc, fontWeight: 700 }}>
+        <div style={{ fontSize: 13, letterSpacing: 1.4, color: M.acc, fontWeight: 700 }}>
           GESCHÄTZTES MAXIMUM (1RM)
         </div>
         <div
@@ -172,7 +186,7 @@ export function OneRmCalculatorBody({
         >
           {estimates.epley} <span style={{ fontSize: compact ? 20 : 24, fontWeight: 600 }}>kg</span>
         </div>
-        <div style={{ fontSize: 12, color: M.mut, marginTop: 8 }}>Berechnet nach der Epley-Formel</div>
+        <div style={{ fontSize: 13, color: M.mut, marginTop: 8 }}>Berechnet nach der Epley-Formel</div>
       </div>
 
       <div
@@ -201,7 +215,7 @@ export function OneRmCalculatorBody({
             color: M.fg,
           }}
         >
-          <span style={{ fontSize: 12.5, fontWeight: 600, color: M.fg }}>Formel-Vergleich</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: M.fg }}>Formel-Vergleich</span>
           <Icon name={showFormulas ? "chevD" : "chevR"} size={16} color={M.mut} />
         </button>
 
@@ -252,7 +266,7 @@ export function OneRmCalculatorBody({
       <div style={{ flexShrink: 0 }}>
         <div
           style={{
-            fontSize: 11,
+            fontSize: 13,
             letterSpacing: 1.4,
             color: M.mut,
             fontWeight: 700,
@@ -297,7 +311,7 @@ export function OneRmCalculatorBody({
                   >
                     {row.percentage}%
                   </span>
-                  <span style={{ fontSize: 11.5, color: isMax ? M.acc : M.mut }}>des 1RM</span>
+                  <span style={{ fontSize: 13, color: isMax ? M.acc : M.mut }}>des 1RM</span>
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
                   <div
@@ -310,7 +324,7 @@ export function OneRmCalculatorBody({
                   >
                     {formatKgDisplay(row.weight)} kg
                   </div>
-                  <div style={{ fontSize: 10.5, color: repsColor, fontWeight: 600, marginTop: 2 }}>
+                  <div style={{ fontSize: 13, color: repsColor, fontWeight: 600, marginTop: 2 }}>
                     ~ {row.reps} Wdh.
                   </div>
                 </div>

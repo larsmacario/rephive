@@ -16,7 +16,7 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 - **Web-App-Struktur**: `src/theme.ts` (Design-Tokens `M`, Button-Press-Tokens), `src/lib/db.ts` (DB-Queries), `src/PhoneApp.tsx` (Tab-/Push-Router).
 - `src/components/MButton.tsx` — zentrale Button-Komponente (primary/secondary/ghost/danger); visuelles Press-Feedback + Release-Glow; Haptik nur Primary via `src/lib/haptics.ts` (Capacitor + Web-Fallback).
 - **iOS/Capacitor**: `capacitor.config.ts` (`webDir: dist`), `ios/App/`; keine separate Swift-UI-Codebase.
-- `src/lib/responsive.tsx` — Breakpoint-Context (`mobile` / `tablet` / `desktop`), `useBreakpoint()`, `contentMaxWidth()`, `CONTENT_HORIZONTAL_PADDING` (22px)
+- `src/lib/responsive.tsx` — Breakpoint-Context (`mobile` / `tablet` / `desktop`), `useBreakpoint()`, `useShortViewport()`, `contentMaxWidth()`, `CONTENT_HORIZONTAL_PADDING` (22px)
 - `src/lib/supabase.ts` — typisierter Browser-Client
 - `src/lib/auth.tsx` — AuthProvider, Session, Profile, Konto-Updates (Name/E-Mail/Passwort, **Profilbild**)
 - `src/lib/roles.ts` — `isAppOwner` (globale Übungen-Admin)
@@ -27,13 +27,14 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 - `src/lib/exerciseSets.ts` — Sätze-Logik (Gleich/Individuell, KG_STEP 1.25, `warmUp` auf S1, `setSetWarmUp`, formatSetSummary; Cardio-/Zeit-Sätze)
 - `src/lib/superset.ts` — Supersatz-Blöcke, Verknüpfen/Lösen, `shouldStartRestAfterSet` (flexible Satzanzahl pro Übung)
 - `src/lib/oneRepMax.ts` — 1RM-Formeln, Prozent-Tabelle, `getOneRmPrefillFromExercise` (Track-Sheet-Vorausfüllung)
-- `src/lib/db.ts` — DB-Queries + Hooks (`usePlans`, `useActivePlan`, `useExercises` via `useCachedAsync`); Remote-Wrapper + Sync-Queue; KI-Invoke mit 150 s Timeout
+- `src/lib/db.ts` — DB-Queries + Hooks (`usePlans`, `useActivePlan`, `useExercises` via `useCachedAsync`); Remote-Wrapper + Sync-Queue; `updatePlanTrainingWeekdays` (nur `plans.summary`); KI-Invoke mit 150 s Timeout
 - `src/lib/offline/` — Local-First: `localDb` (Dexie), `planStore`/`exerciseStore`, `syncQueue`/`syncEngine`, `networkStatus`, `useCachedAsync`, `planBuilder`
 - `src/components/OfflineBanner.tsx` + `SyncStatusSheet.tsx` — Offline-/Sync-Status in der App
 - `src/lib/ai-plan-volume.ts` — `exerciseCountBounds` / Hinweistext für Wizard (Logik spiegelt Edge Function)
 - `src/lib/engine.ts` — Timer-Engine (`useTimer`, `elapsedSec`) + Tracking-State (`useWorkout`, verzögerte Pause bei Supersätzen)
 - `src/lib/timerSession.ts` — Timer-Session-Payload + Verlauf/Detail-Formatierung (Tag `Timer`)
-- `src/lib/timerSounds.ts` — Web-Audio-Beep-Engine (`playTimerCue`: tick/go/rest/done)
+- `src/lib/timerSounds.ts` — Timer-Cues via `sonance` (`playTimerCue`)
+- `src/lib/timerSoundPacks.ts` — Pack-Definitionen mit Sonance-Presets pro Cue (klassisch/boxring/pfeife/sanft)
 - `src/lib/useTimerSounds.ts` — React-Hooks für Interval- und Pausen-Timer-Signale
 - `src/lib/activeTimer.tsx` — Context: aktiver Timer-Status für Nav + Tab-Leave-Warnung
 - `src/lib/activeWorkout.ts` — pausierter Trainings-Entwurf in localStorage (`hejcoach:activeWorkout:${userId}`)
@@ -58,7 +59,9 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 - `src/hooks/useVoiceSetLog.ts` + `src/hooks/usePushToTalk.ts` — Speech (Capacitor native / Web API), derzeit ungenutzt in UI
 - `src/lib/voiceSetParser.ts` + `src/lib/voiceTranscriptCleanup.ts` — DE-Gym-Utterances parsen, STT-Fehler bereinigen (für späteres Voice-Re-Enable)
 - `@capgo/capacitor-speech-recognition` — natives iOS Speech (SPM in `ios/App/CapApp-SPM/Package.swift`)
-- `src/components/PlanBlockSection.tsx` — Baustein-Karte (neutral, optional collapsible, Fortschritts-Badge im Track)
+- `src/components/PlanBlockSection.tsx` — Baustein-Karte (Titel 13px uppercase, optional collapsible, Fortschritts-Badge im Track)
+- `src/components/PlanDayWeekdayPicker.tsx` — 7-Tage-Picker pro Plan-Tag (Builder + Wochenplaner)
+- `src/components/WeekPlannerSheet.tsx` — Home-Wochenplaner: aktive Plan-Tage auf Wochentage zuweisen
 - `src/components/PlanDayAccordion.tsx` — Plan-Tage mit Block-Gruppierung; Builder-Modus (Baustein hinzufügen/entfernen)
 - `src/components/HorizontalSlidePager.tsx` — horizontale Plan-Navigation (Stack: nur aktive Folie, Swipe/‹›/Punkte)
 - `src/components/PlanDaySlide.tsx` — Tagesfolie für Builder/Detail (Header + scrollbare Übungsliste, `flat`-Karten)
@@ -67,6 +70,9 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 - `src/components/ExerciseHistorySheet.tsx` — Übungsverlauf pro Übung
 - `src/components/MetricCategorySheet.tsx` — Kategorie-Auswahl (`ExerciseMetric`)
 - `src/components/TimerLeaveSheet.tsx` — Timer stoppen (Tab-Wechsel, Modus, Reset)
+- `src/lib/intervalTimer/useIntervalTimerSession.ts` — Intervall-Timer-Session (Timer-State, HR, Speichern, Reset-Guards)
+- `src/components/intervalTimer/IntervalTimerWizard.tsx` + `TimerTypeStep` / `TimerSettingsStep` / `TimerRunStep` — 3-Schritt-Wizard (Typ-Tipp → Einstellung → Lauf); Eintritt `TimerScreen` + `IntervalTimerSheet`
+- `src/lib/heartRate/heartRateZones.ts` + `src/components/HeartRateTrend.tsx` — HR-Zonen (220 − Alter); im Intervall-Timer Schritt 3 **compact**: zonenfarbige BPM-Box ohne Chart
 - `src/components/DeleteConfirmDialog.tsx` — Lösch-Bestätigung als Bottom-Sheet (Auto-Höhe, max. 95 %); 1 Schritt: Übungen/Körperwerte; 2 Schritte: Plan/Workout/Session
 - `src/components/ConfirmSheet.tsx` — Nicht-Lösch-Bestätigungen (z. B. Workout überspringen, Entwurf verwerfen)
 - `src/components/AlertSheet.tsx` — Hinweise/Fehler mit einem OK-Button (kein `window.alert`)
@@ -97,14 +103,14 @@ Mobile-first; iOS über Capacitor (gleiche React-App).
 - **Auto-Pilot:** Beim Tracken werden Sätze aus letzter Session vorgeschlagen (bestätigen/anpassen); Progression über `progressionEngine`; Gewichtssprünge in Settings (Ober-/Unterkörper). Boot-Overlay in TrackScreen bis Prefills angewendet.
 - **ExpressTracking:** Standard-Track für eligible Workouts (Setup-Wizard → Express-View); kein Wechsel klassisch/Express in der UI. Voice-Logging pausiert (Code bleibt für späteres Re-Enable).
 - Passwort-Reset per E-Mail-Token (OTP), nicht per Link.
-- Nutzer-Preferences in `profiles.preferences` (JSONB); u.a. `timerSounds`, `restSeconds`, `autoRest`, Timer-Defaults; **Profil** als FloatNav-Tab; Settings/Stats/Verlauf/Übungen weiter über Home-Sidepanel (Push-Routes). Rechtliches im Panel: externe Links zu rephive.app (`/impressum`, `/datenschutz`, `/agb`); Über rephive und Support als In-App-Routes. Hilfe-Menü v1: nur Support (kein FAQ/Feature-Anfrage-Platzhalter).
+- Nutzer-Preferences in `profiles.preferences` (JSONB); u.a. `timerSounds`, **`timerSoundPack`**, `restSeconds`, `autoRest`, Timer-Defaults, **`weekPlannerDismissedWeek`**; **Profil** als FloatNav-Tab; Settings/Stats/Verlauf/Übungen über Home-Sidepanel. Rechtliches: externe Links zu rephive.app; Hilfe-Menü v1: nur Support.
 - Legal/Support-URLs Web-App: `VITE_LEGAL_BASE_URL` (Default `https://rephive.app`).
-- Timer-Signale: Web Audio API (keine Sound-Dateien), abschaltbar via `timerSounds`; Countdown-Ticks nur bei runterzählenden Phasen (nicht For-Time-Lauf).
+- Timer-Signale: wählbare Packs (`timerSoundPack`) via **`sonance`** (prozedural, keine Sound-Dateien); abschaltbar via `timerSounds`; Countdown-Ticks nur bei runterzählenden Phasen.
 - Aktiver Timer: `ActiveTimerProvider` in `PhoneApp`; Leave-Sheet bei Tab-Wechsel; Modus/Reset-Warnung in `TimerScreen`; Timer über Home-Schnellzugriff (Tab `timer`, nicht in FloatNav).
-- Trainingspläne: `plans` + `plan_days` mit **`enabled_blocks`** (aktive Bausteine) + Übungen in `plan_day_exercises` inkl. **`block_type`** + **`block_id`** → **`plan_day_blocks`** (Format, Timer: AMRAP/EMOM/Circuit). Manueller Builder: MetCon opt-in per Textlink + `MetconConfigSheet`. Keine Workout-Vorlagen mehr.
+- Trainingspläne: `plans` + `plan_days` mit **`enabled_blocks`** + Übungen in `plan_day_exercises` inkl. **`block_type`** + **`block_id`** → **`plan_day_blocks`**; **`trainingWeekdays`** in `summary.inputs` (ISO 0=Mo..6=So); Home: Sonntags-Karte → `WeekPlannerSheet`. Manueller Builder: MetCon opt-in + `MetconConfigSheet`. Keine Workout-Vorlagen mehr.
 - Sessions: aggregierte Stats in `sessions` + Satz-Snapshot in `session_exercises` (inkl. **`block_type`**); optional `plan_day_id`; **`skipped_blocks`**; **`metcon_results`** (jsonb, AMRAP-Runden o. ä.).
 - Pausiertes Tracking: Entwurf clientseitig (localStorage), Dauer aus `startedAt` läuft weiter; Speichern erst über FinishSheet → `sessions` + `session_exercises`.
-- **Local-First:** Pläne + Übungskatalog in IndexedDB (cache-first); Mutationen offline in Outbox-Queue, Sync bei Online/App-Start; KI-Plan-Generierung bleibt online-only.
+- **Local-First:** Pläne + Übungskatalog in IndexedDB (cache-first); Mutationen offline in Outbox-Queue, Sync bei Online/App-Start; Sync-Ops u.a. `UPDATE_PLAN_WEEKDAYS`; KI-Plan-Generierung bleibt online-only.
 - Individuelle Sessions: ohne `plan_day_id`, Tag „Individuell“; Übungen nur im Session-Snapshot.
 - Supersätze: `superset_id` auf `plan_day_exercises` + `session_exercises`; Pause (`autoRest`) erst nach letzter Übung der Runde.
 - Onboarding-Prozess: Wird bei unvollständigem Onboarding (`preferences.onboarded === false`) über `PhoneAppInner` verpflichtend eingeblendet und blockiert die normale Navigation. Erfasst grundlegende Anamnese-Daten und legt ggf. ein Gewicht in `body_measurements` an.

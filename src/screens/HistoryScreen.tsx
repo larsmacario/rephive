@@ -108,7 +108,7 @@ export function HistoryScreen({ onOpenSession, onOpenStats, refreshKey = 0 }: Hi
                 {h.pr && (
                   <span
                     style={{
-                      fontSize: 9.5,
+                      fontSize: 13,
                       fontWeight: 800,
                       letterSpacing: 0.6,
                       color: M.accInk,
@@ -121,7 +121,7 @@ export function HistoryScreen({ onOpenSession, onOpenStats, refreshKey = 0 }: Hi
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: 12.5, color: M.mut, marginTop: 5, fontWeight: 600 }}>
+              <div style={{ fontSize: 14, color: M.mut, marginTop: 5, fontWeight: 600 }}>
                 {h.day} · {h.date} ·{" "}
                 {isTimerSession(h.tags)
                   ? formatTimerHistorySubtitle(h)

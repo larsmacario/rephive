@@ -1,28 +1,30 @@
 import type { ReactNode } from "react";
-import { fmtUp } from "../../lib/engine";
 import { M } from "../../theme";
+import { fmtUp } from "../../lib/engine";
 import { HorizontalSlidePager } from "../HorizontalSlidePager";
 import { Icon } from "../Icon";
 import { MButton } from "../MButton";
 
 export interface TrackExerciseDetailProps {
-  elapsedSec: number;
   activeIndex: number;
   onIndexChange: (index: number) => void;
+  slides: ReactNode[];
+  elapsedSec: number;
   onBack: () => void;
   onOpenOneRm: () => void;
   onOpenTimer: () => void;
-  slides: ReactNode[];
+  metricsFooter: ReactNode;
 }
 
 export function TrackExerciseDetail({
-  elapsedSec,
   activeIndex,
   onIndexChange,
+  slides,
+  elapsedSec,
   onBack,
   onOpenOneRm,
   onOpenTimer,
-  slides,
+  metricsFooter,
 }: TrackExerciseDetailProps) {
   return (
     <div
@@ -39,7 +41,7 @@ export function TrackExerciseDetail({
           gridTemplateColumns: "1fr auto 1fr",
           alignItems: "center",
           gap: 12,
-          padding: "8px 18px 20px",
+          padding: "8px 18px 12px",
           flexShrink: 0,
         }}
       >
@@ -55,6 +57,7 @@ export function TrackExerciseDetail({
         </div>
         <div
           style={{
+            justifySelf: "center",
             textAlign: "center",
             fontFamily: M.disp,
             fontWeight: 700,
@@ -66,7 +69,7 @@ export function TrackExerciseDetail({
         >
           {fmtUp(elapsedSec)}
         </div>
-        <div style={{ justifySelf: "end", display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ justifySelf: "end", display: "flex", alignItems: "center", gap: 8, gridColumn: "3" }}>
           <MButton
             type="button"
             aria-label="1RM-Rechner"
@@ -97,6 +100,7 @@ export function TrackExerciseDetail({
         ariaLabel="Übungen"
         indicatorVariant="dots"
         showIndicators={slides.length > 1}
+        footerBeforeIndicators={metricsFooter}
       >
         {slides}
       </HorizontalSlidePager>

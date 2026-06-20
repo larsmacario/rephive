@@ -95,7 +95,7 @@ export function ExercisesScreen({ refreshKey = 0, onBack }: ExercisesScreenProps
         ) : null}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 30, lineHeight: 1 }}>Übungen</div>
-          <div style={{ fontSize: 12.5, color: M.mut, marginTop: 3, fontWeight: 600 }}>
+          <div style={{ fontSize: 14, color: M.mut, marginTop: 3, fontWeight: 600 }}>
             {loading ? "…" : `${list.length} Übungen · ${ownedCount} eigene`}
           </div>
         </div>

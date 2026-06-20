@@ -188,7 +188,7 @@ export function SetMetricFields({
             ) : (
               <div style={{ textAlign: "center" }}>
                 {renderField(field)}
-                <div style={{ fontSize: 9, letterSpacing: 1, color: M.mut2, fontWeight: 700, marginTop: 2 }}>
+                <div style={{ fontSize: 13, letterSpacing: 1, color: M.mut2, fontWeight: 700, marginTop: 2 }}>
                   {fieldLabel(field, spec)}
                 </div>
               </div>
@@ -232,7 +232,7 @@ export function SetMetricFields({
             ) : (
               <div style={{ textAlign: "center" }}>
                 {renderField(field)}
-                <div style={{ fontSize: 9, letterSpacing: 1, color: M.mut2, fontWeight: 700, marginTop: 2 }}>
+                <div style={{ fontSize: 13, letterSpacing: 1, color: M.mut2, fontWeight: 700, marginTop: 2 }}>
                   {fieldLabel(field, spec)}
                 </div>
               </div>

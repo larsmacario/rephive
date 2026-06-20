@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { HistoryEntry } from "../data";
-import { M } from "../theme";
+import { M, TYPE } from "../theme";
 import { Icon } from "../components/Icon";
 import { MButton } from "../components/MButton";
 import { MStepper } from "../components/widgets";
@@ -144,7 +144,7 @@ export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingS
           </MButton>
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 24, color: M.fg }}>ExpressTracking</div>
-            <div style={{ fontSize: 12, color: M.mut, marginTop: 2 }}>Schritt {stepIndex} von 2</div>
+            <div style={{ fontSize: TYPE.bodySm, color: M.mut, marginTop: 2 }}>Schritt {stepIndex} von 2</div>
           </div>
         </div>
       </div>
@@ -152,12 +152,12 @@ export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingS
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 18px 24px" }}>
         {step === "source" ? (
           <>
-            <div style={{ fontSize: 14, color: M.mut, lineHeight: 1.45, marginBottom: 16 }}>
+            <div style={{ fontSize: TYPE.body, color: M.mut, lineHeight: 1.5, marginBottom: 16 }}>
               Wiederhole ein früheres ExpressTracking-Workout oder wähle Übungen aus der Bibliothek.
             </div>
 
             {historyLoading ? (
-              <div style={{ color: M.mut, fontSize: 14, marginBottom: 16 }}>Verlauf wird geladen…</div>
+              <div style={{ color: M.mut, fontSize: TYPE.bodySm, marginBottom: 16 }}>Verlauf wird geladen…</div>
             ) : history.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
                 {history.map((session) => {
@@ -183,8 +183,8 @@ export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingS
                       }}
                     >
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: M.fg, fontWeight: 600, fontSize: 14 }}>{session.name}</div>
-                        <div style={{ color: M.mut, fontSize: 12, marginTop: 2 }}>
+                        <div style={{ color: M.fg, fontWeight: 600, fontSize: TYPE.body }}>{session.name}</div>
+                        <div style={{ color: M.mut, fontSize: TYPE.bodySm, marginTop: 2 }}>
                           {formatSessionDate(session.performedAt)} · {eligible} Übung{eligible === 1 ? "" : "en"}
                         </div>
                       </div>
@@ -200,8 +200,8 @@ export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingS
                   borderRadius: 12,
                   border: "1px dashed " + M.line,
                   color: M.mut,
-                  fontSize: 13,
-                  lineHeight: 1.45,
+                  fontSize: TYPE.body,
+                  lineHeight: 1.5,
                   marginBottom: 16,
                   textAlign: "center",
                 }}
@@ -209,21 +209,10 @@ export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingS
                 Noch kein ExpressTracking in der Vergangenheit — wähle Übungen aus der Bibliothek.
               </div>
             )}
-
-            <MButton
-              type="button"
-              variant="secondary"
-              size="md"
-              fullWidth
-              onClick={() => setPickerOpen(true)}
-              style={{ fontFamily: M.disp, letterSpacing: 0.3 }}
-            >
-              <Icon name="plus" size={16} stroke={2.4} /> Übungen auswählen
-            </MButton>
           </>
         ) : (
           <>
-            <div style={{ fontSize: 14, color: M.mut, lineHeight: 1.45, marginBottom: 16 }}>
+            <div style={{ fontSize: TYPE.body, color: M.mut, lineHeight: 1.5, marginBottom: 16 }}>
               Satzanzahl gilt für alle {activeTemplates.length} Übung{activeTemplates.length === 1 ? "" : "en"}. Im Tracking kannst du sie pro Übung anpassen.
             </div>
 
@@ -235,8 +224,8 @@ export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingS
                   background: M.cardHi,
                   border: "1px solid " + M.line2,
                   color: M.mut,
-                  fontSize: 12,
-                  lineHeight: 1.4,
+                  fontSize: TYPE.bodySm,
+                  lineHeight: 1.45,
                   marginBottom: 14,
                 }}
               >
@@ -257,8 +246,8 @@ export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingS
               }}
             >
               <div>
-                <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 16, color: M.fg }}>Sätze pro Übung</div>
-                <div style={{ fontSize: 12, color: M.mut, marginTop: 4 }}>Standard: {preferences.defaultSets}</div>
+                <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: TYPE.titleSm, color: M.fg }}>Sätze pro Übung</div>
+                <div style={{ fontSize: TYPE.bodySm, color: M.mut, marginTop: 4 }}>Standard: {preferences.defaultSets}</div>
               </div>
               <MStepper value={setCount} min={1} max={10} onChange={setSetCount} />
             </div>
@@ -272,10 +261,10 @@ export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingS
                 marginBottom: 16,
               }}
             >
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: M.mut, marginBottom: 8 }}>
+              <div style={{ fontSize: TYPE.caption, fontWeight: 700, letterSpacing: 1, color: M.mut, marginBottom: 8 }}>
                 ZUSAMMENFASSUNG
               </div>
-              <div style={{ color: M.fg, fontWeight: 600, fontSize: 14, marginBottom: 12 }}>
+              <div style={{ color: M.fg, fontWeight: 600, fontSize: TYPE.body, marginBottom: 12 }}>
                 {activeTemplates.length} Übung{activeTemplates.length === 1 ? "" : "en"} × {setCount} Sätze
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -283,7 +272,7 @@ export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingS
                   <div key={group}>
                     <div
                       style={{
-                        fontSize: 11,
+                        fontSize: TYPE.caption,
                         fontWeight: 700,
                         letterSpacing: 1,
                         color: M.mut,
@@ -346,7 +335,7 @@ export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingS
                   color: M.fg,
                   fontFamily: M.disp,
                   letterSpacing: 0.3,
-                  fontSize: 12,
+                  fontSize: TYPE.bodySm,
                 }}
               >
                 <Icon name="plus" size={14} stroke={2.6} /> Übung hinzufügen
@@ -356,15 +345,26 @@ export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingS
         )}
       </div>
 
-      {step === "sets" ? (
-        <div
-          style={{
-            flexShrink: 0,
-            padding: "10px 18px 14px",
-            borderTop: "1px solid " + M.line2,
-            background: M.bg,
-          }}
-        >
+      <div
+        style={{
+          flexShrink: 0,
+          padding: "10px 18px 14px",
+          borderTop: "1px solid " + M.line2,
+          background: M.bg,
+        }}
+      >
+        {step === "source" ? (
+          <MButton
+            type="button"
+            variant="secondary"
+            size="md"
+            fullWidth
+            onClick={() => setPickerOpen(true)}
+            style={{ fontFamily: M.disp, letterSpacing: 0.3 }}
+          >
+            <Icon name="plus" size={16} stroke={2.4} /> Übungen auswählen
+          </MButton>
+        ) : (
           <MButton
             type="button"
             variant="primary"
@@ -376,8 +376,8 @@ export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingS
           >
             Workout starten
           </MButton>
-        </div>
-      ) : null}
+        )}
+      </div>
 
       <ExercisePickerSheet
         open={pickerOpen}

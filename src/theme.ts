@@ -40,6 +40,18 @@ export const M = {
   body: "'Archivo', sans-serif",
 } as const;
 
+/** Typography scale — minimum 12px for readable UI text on mobile. */
+export const TYPE = {
+  micro: 11,
+  overline: 12,
+  caption: 13,
+  bodySm: 14,
+  body: 15,
+  titleSm: 18,
+  title: 22,
+  display: 28,
+} as const;
+
 /** Compact exercise list rows (Track, Plan, Bibliothek, Picker). */
 export const EXERCISE_ROW = {
   height: 56,
@@ -48,7 +60,7 @@ export const EXERCISE_ROW = {
   paddingX: 12,
   gap: 12,
   titleSize: 16,
-  metaSize: 12,
+  metaSize: 13,
   borderRadius: 12,
 } as const;
 
@@ -222,7 +234,7 @@ export const buttonBase: CSSProperties = {
   gap: 6,
   fontFamily: M.body,
   fontWeight: 600,
-  fontSize: 13,
+  fontSize: 14,
   lineHeight: 1,
   letterSpacing: 0.2,
   transition: buttonPressTransition,
@@ -230,10 +242,10 @@ export const buttonBase: CSSProperties = {
 };
 
 export const buttonSizes: Record<ButtonSizeToken, CSSProperties> = {
-  sm: { minHeight: 30, padding: "0 10px", borderRadius: 8, fontSize: 12 },
-  md: { minHeight: 36, padding: "0 14px", borderRadius: 9, fontSize: 13 },
-  lg: { minHeight: 40, padding: "0 18px", borderRadius: 9, fontSize: 14 },
-  icon: { width: 32, height: 32, padding: 0, borderRadius: 9, fontSize: 13 },
+  sm: { minHeight: 44, padding: "0 14px", borderRadius: 10, fontSize: 14 },
+  md: { minHeight: 48, padding: "0 18px", borderRadius: 11, fontSize: 15 },
+  lg: { minHeight: 52, padding: "0 22px", borderRadius: 11, fontSize: 16 },
+  icon: { width: 48, height: 48, padding: 0, borderRadius: 11, fontSize: 15 },
 };
 
 // Inline +/- buttons inside set steppers (Track, Builder).

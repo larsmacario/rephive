@@ -1,4 +1,5 @@
-import type { LibraryPlan, PlanDay, PlanDayBlock, PlanDayExercise } from "../../data";
+import type { LibraryPlan, PlanDay, PlanDayBlock, PlanDayExercise, PlanSummary } from "../../data";
+import { mergePlanSummaryWithTrainingWeekdays } from "../trainingWeekdays";
 import type { ExerciseMetric } from "../exerciseCatalog";
 import {
   assignBlockPositions,
@@ -48,13 +49,15 @@ export interface OfflineCreatePlanInput {
   sub?: string;
   days: CreatePlanDayInput[];
   activate?: boolean;
-  summary?: LibraryPlan["summary"];
+  summary?: PlanSummary | null;
+  trainingWeekdays?: number[];
 }
 
 export interface OfflineUpdatePlanInput {
   name: string;
   sub?: string;
   days: CreatePlanDayInput[];
+  trainingWeekdays?: number[];
 }
 
 function buildDayBlocks(
@@ -162,7 +165,8 @@ export function buildLibraryPlanFromCreateInput(
     isActive: input.activate ?? false,
     currentDay: 0,
     days,
-    summary: input.summary ?? null,
+    summary: mergePlanSummaryWithTrainingWeekdays(input.summary, input.trainingWeekdays),
+    trainingWeekdays: input.trainingWeekdays ?? input.summary?.inputs?.trainingWeekdays,
   };
 }
 
@@ -175,11 +179,15 @@ export function buildLibraryPlanFromUpdateInput(
   const totalExercises = days.reduce((sum, d) => sum + d.exercises.length, 0);
   const currentDay = existing.currentDay >= days.length ? 0 : existing.currentDay;
 
+  const trainingWeekdays = input.trainingWeekdays ?? existing.trainingWeekdays;
+
   return {
     ...existing,
     name: input.name,
     sub: input.sub ?? `${days.length} Tag${days.length === 1 ? "" : "e"} · ${totalExercises} Übung${totalExercises === 1 ? "" : "en"}`,
     currentDay,
     days,
+    trainingWeekdays,
+    summary: mergePlanSummaryWithTrainingWeekdays(existing.summary, trainingWeekdays),
   };
 }

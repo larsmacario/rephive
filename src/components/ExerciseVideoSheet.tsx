@@ -26,7 +26,7 @@ export function ExerciseVideoSheet({ open, exerciseName, youtubeUrl, onClose }: 
           }}
         >
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut, fontWeight: 700 }}>VIDEO</div>
+            <div style={{ fontSize: 13, letterSpacing: 1.2, color: M.mut, fontWeight: 700 }}>VIDEO</div>
             <div
               style={{
                 fontFamily: M.disp,
@@ -90,7 +90,7 @@ export function ExerciseVideoSheet({ open, exerciseName, youtubeUrl, onClose }: 
           </div>
         )}
 
-        <p style={{ color: M.mut2, fontSize: 12, lineHeight: 1.4, marginTop: 12, marginBottom: 0 }}>
+        <p style={{ color: M.mut2, fontSize: 13, lineHeight: 1.4, marginTop: 12, marginBottom: 0 }}>
           Manche Videos erlauben keine Wiedergabe in der App.
         </p>
       </div>

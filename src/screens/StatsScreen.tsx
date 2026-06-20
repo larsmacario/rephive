@@ -78,7 +78,7 @@ export function StatsScreen({ onBack, refreshKey = 0 }: StatsScreenProps) {
         <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
           <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
         </MButton>
-        <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>STATISTIK</span>
+        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>STATISTIK</span>
         <span style={{ width: 24 }} />
       </div>
 
@@ -101,7 +101,7 @@ export function StatsScreen({ onBack, refreshKey = 0 }: StatsScreenProps) {
                 onClick={() => setPeriod(p.id)}
                 variant={on ? "primary" : "ghost"}
                 size="sm"
-                style={{ flex: 1, fontSize: 11, letterSpacing: 0.1, ...(on ? null : { color: M.mut }) }}
+                style={{ flex: 1, fontSize: 13, letterSpacing: 0.1, ...(on ? null : { color: M.mut }) }}
               >
                 {p.label}
               </MButton>
@@ -148,7 +148,7 @@ export function StatsScreen({ onBack, refreshKey = 0 }: StatsScreenProps) {
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ fontSize: 11, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>
+                <span style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>
                   {data.chartTitle}
                 </span>
                 <span style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 16, color: M.acc }}>
@@ -206,7 +206,7 @@ export function StatsScreen({ onBack, refreshKey = 0 }: StatsScreenProps) {
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                      <span style={{ fontSize: 11, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>
+                      <span style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>
                         {cfg.label} (LETZTE 10)
                       </span>
                       <span style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 16, color: M.acc }}>
@@ -223,7 +223,7 @@ export function StatsScreen({ onBack, refreshKey = 0 }: StatsScreenProps) {
             <div style={{ marginTop: 20 }}>
               <div
                 style={{
-                  fontSize: 11,
+                  fontSize: 13,
                   letterSpacing: 1.4,
                   color: M.mut,
                   fontWeight: 700,
@@ -274,7 +274,7 @@ export function StatsScreen({ onBack, refreshKey = 0 }: StatsScreenProps) {
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 600, fontSize: 15, color: M.fg }}>{ex.name}</div>
-                        <div style={{ color: M.mut, fontSize: 12, marginTop: 2 }}>
+                        <div style={{ color: M.mut, fontSize: 13, marginTop: 2 }}>
                           in {ex.sessionCount} Session{ex.sessionCount === 1 ? "" : "s"}
                         </div>
                       </div>

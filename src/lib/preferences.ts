@@ -1,5 +1,6 @@
 import type { Json } from "./database.types";
 import { TIMER_DEFAULTS, type TimerCfg, type TimerMode } from "./engine";
+import { normalizeTimerSoundPackId, DEFAULT_TIMER_SOUND_PACK_ID } from "./timerSoundPacks";
 import { supabase } from "./supabase";
 
 export type TrainingStructure = "full_body" | "split";
@@ -17,6 +18,8 @@ export interface AnamnesisData {
   minutesPerSession?: number | null;
   trainingStructure?: TrainingStructure | null;
   trainingSplitDays?: TrainingSplitDays | null;
+  /** ISO-Wochentage 0=Mo … 6=So, sortiert */
+  trainingWeekdays?: number[];
   occupation?: "sedentary" | "standing" | "physical" | null;
   shiftWork?: boolean | null;
   sleepHours?: number | null;
@@ -93,6 +96,7 @@ export interface UserPreferences {
   restSeconds: number;
   autoRest: boolean;
   timerSounds: boolean;
+  timerSoundPack: string;
   defaultSets: number;
   defaultReps: number;
   weightIncrementUpperKg: number;
@@ -107,6 +111,8 @@ export interface UserPreferences {
   anamnesis: AnamnesisData | null;
   exerciseFeedback: Record<string, { rating: "like" | "dislike" | "pain"; note?: string }> | null;
   aiConsent: AiConsent | null;
+  /** Montag-Datum (yyyy-mm-dd) der Woche, in der der Wochenplaner ausgeblendet wurde */
+  weekPlannerDismissedWeek: string | null;
 }
 
 export type UserPreferencesUpdate = Omit<Partial<UserPreferences>, "timerDefaults"> & {
@@ -121,6 +127,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   restSeconds: 90,
   autoRest: true,
   timerSounds: true,
+  timerSoundPack: DEFAULT_TIMER_SOUND_PACK_ID,
   defaultSets: 3,
   defaultReps: 10,
   weightIncrementUpperKg: 2.5,
@@ -135,6 +142,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   anamnesis: null,
   exerciseFeedback: null,
   aiConsent: null,
+  weekPlannerDismissedWeek: null,
 };
 
 function mergeTimerDefaults(raw: unknown): Record<TimerMode, TimerCfg> {
@@ -163,6 +171,7 @@ export function mergePreferences(raw: Json | null | undefined): UserPreferences 
     autoRest: typeof obj.autoRest === "boolean" ? obj.autoRest : DEFAULT_PREFERENCES.autoRest,
     timerSounds:
       typeof obj.timerSounds === "boolean" ? obj.timerSounds : DEFAULT_PREFERENCES.timerSounds,
+    timerSoundPack: normalizeTimerSoundPackId(obj.timerSoundPack),
     defaultSets:
       typeof obj.defaultSets === "number" ? obj.defaultSets : DEFAULT_PREFERENCES.defaultSets,
     defaultReps:
@@ -207,6 +216,12 @@ export function mergePreferences(raw: Json | null | undefined): UserPreferences 
         ? (obj.exerciseFeedback as Record<string, { rating: "like" | "dislike" | "pain"; note?: string }>)
         : DEFAULT_PREFERENCES.exerciseFeedback,
     aiConsent: normalizeAiConsent(obj.aiConsent),
+    weekPlannerDismissedWeek:
+      typeof obj.weekPlannerDismissedWeek === "string"
+        ? obj.weekPlannerDismissedWeek
+        : obj.weekPlannerDismissedWeek === null
+          ? null
+          : DEFAULT_PREFERENCES.weekPlannerDismissedWeek,
   };
 }
 
@@ -215,6 +230,7 @@ export function preferencesToJson(prefs: UserPreferences): Json {
     restSeconds: prefs.restSeconds,
     autoRest: prefs.autoRest,
     timerSounds: prefs.timerSounds,
+    timerSoundPack: prefs.timerSoundPack,
     defaultSets: prefs.defaultSets,
     defaultReps: prefs.defaultReps,
     weightIncrementUpperKg: prefs.weightIncrementUpperKg,
@@ -229,6 +245,7 @@ export function preferencesToJson(prefs: UserPreferences): Json {
     anamnesis: prefs.anamnesis ? (prefs.anamnesis as unknown as Json) : null,
     exerciseFeedback: prefs.exerciseFeedback ? (prefs.exerciseFeedback as unknown as Json) : null,
     aiConsent: prefs.aiConsent ? (prefs.aiConsent as unknown as Json) : null,
+    weekPlannerDismissedWeek: prefs.weekPlannerDismissedWeek,
   };
 }
 

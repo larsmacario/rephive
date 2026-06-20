@@ -1,8 +1,9 @@
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import type { PointerEvent } from "react";
 import type { SaveSessionInput } from "../lib/db";
+import { useActiveTimer } from "../lib/activeTimer";
 import { M } from "../theme";
-import { IntervalTimerPanel } from "./IntervalTimerPanel";
+import { IntervalTimerWizard } from "./intervalTimer/IntervalTimerWizard";
 
 const DISMISS_OFFSET_PX = 72;
 const DISMISS_VELOCITY = 500;
@@ -16,8 +17,15 @@ export interface IntervalTimerSheetProps {
 
 export function IntervalTimerSheet({ open, onClose, onSaveSession }: IntervalTimerSheetProps) {
   const dragControls = useDragControls();
+  const { active: timerActive } = useActiveTimer();
+
+  const tryClose = () => {
+    if (timerActive) return;
+    onClose();
+  };
 
   const handleDragEnd = (_: unknown, info: { offset: { y: number }; velocity: { y: number } }) => {
+    if (timerActive) return;
     if (info.offset.y > DISMISS_OFFSET_PX || info.velocity.y > DISMISS_VELOCITY) {
       onClose();
     }
@@ -39,7 +47,7 @@ export function IntervalTimerSheet({ open, onClose, onSaveSession }: IntervalTim
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            onClick={onClose}
+            onClick={tryClose}
             style={{
               position: "fixed",
               inset: 0,
@@ -58,7 +66,7 @@ export function IntervalTimerSheet({ open, onClose, onSaveSession }: IntervalTim
         aria-modal={open}
         aria-hidden={!open}
         aria-label="Intervall-Timer"
-        drag={open ? "y" : false}
+        drag={open && !timerActive ? "y" : false}
         dragControls={dragControls}
         dragListener={false}
         dragConstraints={{ top: 0, bottom: 0 }}
@@ -94,7 +102,7 @@ export function IntervalTimerSheet({ open, onClose, onSaveSession }: IntervalTim
           style={{
             flexShrink: 0,
             padding: "4px 0 14px",
-            cursor: open ? "grab" : "default",
+            cursor: open && !timerActive ? "grab" : "default",
             touchAction: "none",
             display: "flex",
             justifyContent: "center",
@@ -104,10 +112,11 @@ export function IntervalTimerSheet({ open, onClose, onSaveSession }: IntervalTim
         </div>
         <div
           style={{
-            flex: "1 1 auto",
+            flex: 1,
             minHeight: 0,
-            overflowY: "auto",
-            WebkitOverflowScrolling: "touch",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
           }}
         >
           <div
@@ -116,12 +125,17 @@ export function IntervalTimerSheet({ open, onClose, onSaveSession }: IntervalTim
               fontWeight: 700,
               fontSize: 20,
               color: M.fg,
-              marginBottom: 12,
+              marginBottom: 4,
+              flexShrink: 0,
             }}
           >
             Intervall-Timer
           </div>
-          <IntervalTimerPanel onSaveSession={onSaveSession} variant="sheet" />
+          <IntervalTimerWizard
+            variant="sheet"
+            onSaveSession={onSaveSession}
+            onExit={tryClose}
+          />
         </div>
       </motion.div>
     </>

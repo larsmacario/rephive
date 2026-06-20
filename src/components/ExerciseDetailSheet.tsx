@@ -86,7 +86,7 @@ export function ExerciseDetailSheet({ open, exercise, onClose, onEdit }: Exercis
                   {exercise.nameEn}
                 </div>
               )}
-              <div style={{ fontSize: 12.5, color: M.mut, marginTop: 6, fontWeight: 600 }}>
+              <div style={{ fontSize: 14, color: M.mut, marginTop: 6, fontWeight: 600 }}>
                 {exercise.group} · {exercise.equip} · {metricShort(exercise.metric)}
               </div>
             </div>
@@ -109,7 +109,7 @@ export function ExerciseDetailSheet({ open, exercise, onClose, onEdit }: Exercis
           </div>
 
           <div>
-            <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 6 }}>
+            <div style={{ fontSize: 13, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 6 }}>
               BESCHREIBUNG
             </div>
             <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.55, color: M.fg, whiteSpace: "pre-wrap" }}>
@@ -119,7 +119,7 @@ export function ExerciseDetailSheet({ open, exercise, onClose, onEdit }: Exercis
 
           {steps.length > 0 && (
             <div>
-              <div style={{ fontSize: 11, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 8 }}>
+              <div style={{ fontSize: 13, letterSpacing: 1.2, color: M.mut, fontWeight: 700, marginBottom: 8 }}>
                 AUSFÜHRUNG
               </div>
               <ol

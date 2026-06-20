@@ -25,7 +25,7 @@ export function MusclePrioritySliderRow({ group, value, onChange }: MusclePriori
     >
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
         <span style={{ fontWeight: 700, fontSize: 15 }}>{group}</span>
-        <span style={{ fontSize: 12, color: M.brand, fontWeight: 600 }}>{musclePriorityLabel(value)}</span>
+        <span style={{ fontSize: 13, color: M.brand, fontWeight: 600 }}>{musclePriorityLabel(value)}</span>
       </div>
       <input
         type="range"
@@ -43,7 +43,7 @@ export function MusclePrioritySliderRow({ group, value, onChange }: MusclePriori
           display: "flex",
           justifyContent: "space-between",
           marginTop: 6,
-          fontSize: 10,
+          fontSize: 13,
           color: M.mut2,
           fontWeight: 500,
         }}

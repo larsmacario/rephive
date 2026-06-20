@@ -31,7 +31,7 @@ const inputStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = {
   display: "block",
   marginBottom: 8,
-  fontSize: 11,
+  fontSize: 13,
   letterSpacing: 1.2,
   color: M.mut,
   fontWeight: 700,
@@ -103,7 +103,7 @@ export function SupportScreen({ onBack }: SupportScreenProps) {
         <MButton type="button" onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
           <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
         </MButton>
-        <span style={{ fontSize: 12, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>SUPPORT</span>
+        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>SUPPORT</span>
         <span style={{ width: 24 }} />
       </div>
 

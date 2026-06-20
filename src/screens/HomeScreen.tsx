@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { brandSurface, M } from "../theme";
-import type { LibraryPlan, PlanDay } from "../data";
 import { planDayDisplayName } from "../data";
+import {
+  getCurrentCalendarWeek,
+  getCurrentWeekKey,
+  getPlanDayIndexForIsoWeekday,
+  getPlanTrainingWeekdays,
+  getTodayIsoWeekday,
+  weekdayLabelsFromTrainingWeekdays,
+} from "../lib/trainingWeekdays";
 import { useAuth } from "../lib/auth";
 import {
   type ActiveWorkoutDraft,
@@ -16,11 +22,11 @@ import { useBreakpoint } from "../lib/responsive";
 import { Icon } from "../components/Icon";
 import { usePreferences } from "../lib/preferences";
 import { WorkoutFinishSheet } from "../components/WorkoutFinishSheet";
-import { ConfirmSheet } from "../components/ConfirmSheet";
 import { MStat } from "../components/widgets";
 import { MButton } from "../components/MButton";
 import { floatNavContentInset } from "../components/FloatNav";
 import { UserAvatar } from "../components/UserAvatar";
+import { WeekPlannerSheet } from "../components/WeekPlannerSheet";
 
 export interface HomeScreenProps {
   onStart: (planDayId: string, planId?: string) => void;
@@ -29,37 +35,13 @@ export interface HomeScreenProps {
   onSaveActive: (draft: ActiveWorkoutDraft) => void | Promise<void>;
   onDiscardActive: () => void;
   onOpenPlans: () => void;
-  onAdvancePlan: (planId: string) => Promise<void>;
   onOpenTimer: () => void;
-  onOpenSettings: () => void;
   onOpenProfile: () => void;
-  onOpenHistory: () => void;
   onOpenStats: () => void;
   onOpenCalculator: () => void;
   onOpenBodyTracker: () => void;
-  onOpenAbout: () => void;
-  onOpenSupport: () => void;
-  onOpenAITrainingPlan?: () => void;
-  onOpenExercises?: () => void;
   refreshKey?: number;
   trackLoading?: boolean;
-}
-
-function getCurrentDay(plan: LibraryPlan): PlanDay | null {
-  if (plan.days.length === 0) return null;
-  const index = plan.currentDay % plan.days.length;
-  return plan.days[index] ?? null;
-}
-
-function getUpcomingDays(plan: LibraryPlan, count: number): { day: PlanDay; dayNumber: number }[] {
-  if (plan.days.length === 0) return [];
-  const result: { day: PlanDay; dayNumber: number }[] = [];
-  for (let i = 1; i <= count; i++) {
-    const index = (plan.currentDay + i) % plan.days.length;
-    const day = plan.days[index];
-    if (day) result.push({ day, dayNumber: index + 1 });
-  }
-  return result;
 }
 
 export function HomeScreen({
@@ -69,22 +51,15 @@ export function HomeScreen({
   onSaveActive,
   onDiscardActive,
   onOpenPlans,
-  onAdvancePlan,
   onOpenTimer,
-  onOpenSettings,
   onOpenProfile,
-  onOpenHistory,
   onOpenStats,
   onOpenCalculator,
   onOpenBodyTracker,
-  onOpenAbout,
-  onOpenSupport,
-  onOpenAITrainingPlan,
-  onOpenExercises,
   refreshKey = 0,
   trackLoading,
 }: HomeScreenProps) {
-  const { profile, signOut } = useAuth();
+  const { profile, user } = useAuth();
   const { preferences, updatePreferences } = usePreferences();
   const breakpoint = useBreakpoint();
   const isDesktop = breakpoint === "desktop";
@@ -93,12 +68,11 @@ export function HomeScreen({
   const { data: week, reload: reloadWeek } = useWeeklyVolume();
   const { data: stats, reload: reloadStats } = useHomeStats();
   const { data: measurements, reload: reloadMeasurements } = useBodyMeasurements(refreshKey);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [advancing, setAdvancing] = useState(false);
   const [finishSheet, setFinishSheet] = useState(false);
-  const [showSkipConfirm, setShowSkipConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [durationSec, setDurationSec] = useState(0);
+  const [selectedIsoWeekday, setSelectedIsoWeekday] = useState(() => getTodayIsoWeekday());
+  const [weekPlannerOpen, setWeekPlannerOpen] = useState(false);
 
   useEffect(() => {
     if (!activeWorkout) return;
@@ -116,6 +90,10 @@ export function HomeScreen({
     reloadStats();
     reloadMeasurements();
   }, [refreshKey, reloadPlan, reloadWeek, reloadStats, reloadMeasurements]);
+
+  useEffect(() => {
+    setSelectedIsoWeekday(getTodayIsoWeekday());
+  }, [activePlan?.id]);
 
   const latestMeasurement = useMemo(() => {
     if (!measurements || measurements.length === 0) return null;
@@ -135,23 +113,47 @@ export function HomeScreen({
 
   const weekData = week ?? [];
   const maxV = Math.max(...weekData.map((w) => w.v), 1);
-  const currentDay = activePlan ? getCurrentDay(activePlan) : null;
-  const upcomingDays = activePlan ? getUpcomingDays(activePlan, 3) : [];
+  const planTrainingWeekdays = activePlan ? getPlanTrainingWeekdays(activePlan) : undefined;
+  const weekdayLabels = weekdayLabelsFromTrainingWeekdays(planTrainingWeekdays);
+  const calendarWeek = useMemo(
+    () => getCurrentCalendarWeek(planTrainingWeekdays),
+    [planTrainingWeekdays],
+  );
+  const hasTrainingWeekdays = (planTrainingWeekdays?.length ?? 0) > 0;
+  const selectedPlanDayIndex =
+    activePlan && activePlan.days.length > 0
+      ? getPlanDayIndexForIsoWeekday(
+          selectedIsoWeekday,
+          planTrainingWeekdays,
+          activePlan.days.length,
+        )
+      : null;
+  const selectedPlanDay =
+    activePlan && selectedPlanDayIndex !== null
+      ? (activePlan.days[selectedPlanDayIndex] ?? null)
+      : null;
+  const selectedCalendarDay = calendarWeek.find((d) => d.isoWeekday === selectedIsoWeekday);
+  const isSelectedToday = selectedCalendarDay?.isToday ?? false;
+  const selectedDateLabel =
+    selectedCalendarDay && !isSelectedToday
+      ? selectedCalendarDay.date.toLocaleDateString("de-DE", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        })
+      : null;
+  const currentWeekKey = useMemo(() => getCurrentWeekKey(), []);
+  const isSunday = getTodayIsoWeekday() === 6;
+  const weekPlannerDismissed = preferences.weekPlannerDismissedWeek === currentWeekKey;
+  const showWeekPlannerCard = !!activePlan && isSunday && !weekPlannerDismissed;
 
-  const handleSkipWorkout = () => {
-    if (!activePlan) return;
-    setShowSkipConfirm(true);
+  const dismissWeekPlannerCard = () => {
+    updatePreferences({ weekPlannerDismissedWeek: currentWeekKey });
   };
 
-  const handleSkipWorkoutConfirm = async () => {
-    if (!activePlan) return;
-    setShowSkipConfirm(false);
-    setAdvancing(true);
-    try {
-      await onAdvancePlan(activePlan.id);
-    } finally {
-      setAdvancing(false);
-    }
+  const handleWeekPlannerSaved = async () => {
+    updatePreferences({ weekPlannerDismissedWeek: currentWeekKey });
+    await reloadPlan();
   };
 
   const handleSaveActive = async (feedback: Record<string, { rating: "like" | "dislike" | "pain" }>) => {
@@ -177,61 +179,6 @@ export function HomeScreen({
     onDiscardActive();
   };
 
-  const closeMenu = () => setMenuOpen(false);
-  const runFromMenu = (action: () => void) => {
-    closeMenu();
-    action();
-  };
-  const legalBaseUrl = (import.meta.env.VITE_LEGAL_BASE_URL ?? "https://rephive.app").replace(/\/$/, "");
-
-  const openExternalLegal = (path: string) => {
-    closeMenu();
-    window.open(`${legalBaseUrl}${path}`, "_blank", "noopener,noreferrer");
-  };
-
-  type PanelItem = { label: string; onClick: () => void; external?: boolean };
-
-  const panelSections: { title: string; items: PanelItem[] }[] = [
-    {
-      title: "KONTO",
-      items: [
-        { label: "Profil", onClick: () => runFromMenu(onOpenProfile) },
-        { label: "Verlauf", onClick: () => runFromMenu(onOpenHistory) },
-        { label: "Übungen", onClick: () => onOpenExercises && runFromMenu(onOpenExercises) },
-        { label: "Statistik", onClick: () => runFromMenu(onOpenStats) },
-        { label: "Einstellungen", onClick: () => runFromMenu(onOpenSettings) },
-      ],
-    },
-    {
-      title: "UEBERBLICK",
-      items: [{ label: "Ueber rephive", onClick: () => runFromMenu(onOpenAbout) }],
-    },
-    {
-      title: "HILFE",
-      items: [{ label: "Support", onClick: () => runFromMenu(onOpenSupport) }],
-    },
-    {
-      title: "RECHTLICHES",
-      items: [
-        {
-          label: "Impressum",
-          onClick: () => openExternalLegal("/impressum"),
-          external: true,
-        },
-        {
-          label: "AGB",
-          onClick: () => openExternalLegal("/agb"),
-          external: true,
-        },
-        {
-          label: "Datenschutz",
-          onClick: () => openExternalLegal("/datenschutz"),
-          external: true,
-        },
-      ],
-    },
-  ];
-
   const activeWorkoutCard =
     activeWorkout && activeMetrics ? (
       <div
@@ -243,7 +190,7 @@ export function HomeScreen({
           ...brandSurface("hero"),
         }}
       >
-        <div style={{ fontSize: 11, letterSpacing: 1.4, color: M.brand, fontWeight: 700 }}>
+        <div style={{ fontSize: 13, letterSpacing: 1.4, color: M.brand, fontWeight: 700 }}>
           AKTIVES WORKOUT · {fmtUp(durationSec)}
         </div>
         <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 28, lineHeight: 1, marginTop: 8 }}>
@@ -255,7 +202,7 @@ export function HomeScreen({
             alignItems: "center",
             gap: 16,
             marginTop: 14,
-            fontSize: 12.5,
+            fontSize: 14,
             color: M.mut,
             fontWeight: 600,
           }}
@@ -280,9 +227,39 @@ export function HomeScreen({
       </div>
     ) : null;
 
+  const weekPlannerCard = showWeekPlannerCard ? (
+    <div
+      style={{
+        marginTop: 18,
+        padding: "18px 18px 16px",
+        position: "relative",
+        overflow: "hidden",
+        ...brandSurface("hero"),
+      }}
+    >
+      <div style={{ fontSize: 13, letterSpacing: 1.4, color: M.brand, fontWeight: 700 }}>
+        NEUE WOCHE
+      </div>
+      <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 24, lineHeight: 1.1, marginTop: 8 }}>
+        Bereit für die Woche?
+      </div>
+      <div style={{ color: M.mut, fontSize: 14, marginTop: 10, lineHeight: 1.45 }}>
+        Plane jetzt deine Trainingstage — ordne deine Workouts den Wochentagen zu und starte motiviert in die neue Woche.
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+        <MButton onClick={() => setWeekPlannerOpen(true)} variant="primary" size="md" style={{ flex: 1 }}>
+          <Icon name="calendar" size={16} color={M.brandInk} /> Woche planen
+        </MButton>
+        <MButton onClick={dismissWeekPlannerCard} variant="secondary" size="md" style={{ flex: 1, background: M.panel }}>
+          Später
+        </MButton>
+      </div>
+    </div>
+  ) : null;
+
   const todayCard = planLoading && !activePlan ? (
     <div style={{ marginTop: 14, color: M.mut, fontSize: 14 }}>Plan wird geladen…</div>
-  ) : !activePlan || !currentDay ? (
+  ) : !activePlan ? (
     <div
       style={{
         marginTop: 14,
@@ -300,6 +277,25 @@ export function HomeScreen({
         <Icon name="layers" size={16} color={M.brandInk} /> Plan erstellen
       </MButton>
     </div>
+  ) : !selectedPlanDay ? (
+    <div
+      style={{
+        marginTop: 14,
+        borderRadius: 20,
+        padding: "18px 18px 16px",
+        background: M.card,
+        border: "1px solid " + M.line2,
+      }}
+    >
+      <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 24, lineHeight: 1.1 }}>Kein Training an diesem Tag</div>
+      {selectedDateLabel ? (
+        <div style={{ color: M.mut, fontSize: 14, marginTop: 10, lineHeight: 1.4 }}>{selectedDateLabel}</div>
+      ) : (
+        <div style={{ color: M.mut, fontSize: 14, marginTop: 10, lineHeight: 1.4 }}>
+          Wähle einen Trainingstag in der Woche oben.
+        </div>
+      )}
+    </div>
   ) : (
     <div
       style={{
@@ -310,11 +306,14 @@ export function HomeScreen({
         ...brandSurface("hero"),
       }}
     >
-      <div style={{ fontSize: 11, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>
-        {activePlan.name.toUpperCase()} · TAG {activePlan.currentDay + 1}
+      <div style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>
+        {activePlan.name.toUpperCase()} · TAG {(selectedPlanDayIndex ?? 0) + 1}
       </div>
-      <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 28, lineHeight: 1, marginTop: 8 }}>
-        {planDayDisplayName(currentDay)}
+      {selectedDateLabel ? (
+        <div style={{ fontSize: 13, color: M.mut, fontWeight: 600, marginTop: 6 }}>{selectedDateLabel}</div>
+      ) : null}
+      <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 28, lineHeight: 1, marginTop: selectedDateLabel ? 6 : 8 }}>
+        {planDayDisplayName(selectedPlanDay, weekdayLabels)}
       </div>
       <div
         style={{
@@ -322,73 +321,111 @@ export function HomeScreen({
           alignItems: "center",
           gap: 16,
           marginTop: 14,
-          fontSize: 12.5,
+          fontSize: 14,
           color: M.mut,
           fontWeight: 600,
         }}
       >
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <Icon name="dumbbell" size={15} stroke={2} color={M.mut} />
-          {currentDay.exercises.length} Übung{currentDay.exercises.length === 1 ? "" : "en"}
+          {selectedPlanDay.exercises?.length ?? 0} Übung{(selectedPlanDay.exercises?.length ?? 0) === 1 ? "" : "en"}
         </span>
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
         <MButton
-          disabled={trackLoading || currentDay.exercises.length === 0}
-          onClick={() => onStart(currentDay.id, activePlan.id)}
+          disabled={trackLoading || selectedPlanDay.exercises.length === 0}
+          onClick={() => onStart(selectedPlanDay.id, activePlan.id)}
           variant="primary"
           size="md"
           style={{ flex: 1 }}
         >
           <Icon name="play" size={16} color={M.brandInk} /> Training starten
         </MButton>
-        <MButton
-          disabled={advancing}
-          onClick={handleSkipWorkout}
-          aria-label="Tag überspringen"
-          variant="secondary"
-          size="icon"
-        >
-          <Icon name="skipFwd" size={16} stroke={2} color={M.mut2} />
-        </MButton>
       </div>
     </div>
   );
 
-  const planPreview =
-    activePlan && upcomingDays.length > 0 ? (
+  const weekStrip =
+    activePlan ? (
       <div
         style={{
           marginTop: 14,
           background: M.card,
           border: "1px solid " + M.line2,
           borderRadius: 18,
-          padding: "15px 16px 12px",
+          padding: "15px 16px 14px",
         }}
       >
-        <div style={{ fontSize: 11, letterSpacing: 1.4, color: M.mut, fontWeight: 700, marginBottom: 10 }}>
-          ALS NÄCHSTES IM PLAN
+        <div style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700, marginBottom: 12 }}>
+          DIESE WOCHE
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {upcomingDays.map(({ day, dayNumber }) => (
-            <div
-              key={`${day.id}-${dayNumber}`}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "8px 10px",
-                borderRadius: 10,
-                background: M.panel,
-                fontSize: 13,
-                fontWeight: 600,
-              }}
-            >
-              <span style={{ color: M.mut2, minWidth: 42 }}>Tag {dayNumber}</span>
-              <span style={{ color: M.fg, flex: 1 }}>{planDayDisplayName(day)}</span>
-              <Icon name="dumbbell" size={16} stroke={2} color={M.mut2} />
-            </div>
-          ))}
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 4 }}>
+          {calendarWeek.map((day) => {
+            const isSelected = selectedIsoWeekday === day.isoWeekday;
+            return (
+              <MButton
+                key={day.isoWeekday}
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedIsoWeekday(day.isoWeekday)}
+                aria-label={`${day.weekdayLabel}, ${day.dateNumber}.`}
+                aria-pressed={isSelected}
+                style={{
+                  flex: 1,
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 6,
+                  minWidth: 0,
+                  height: "auto",
+                  minHeight: 0,
+                  padding: "4px 0",
+                }}
+              >
+                <div
+                  style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: "50%",
+                    background: hasTrainingWeekdays && day.isTrainingDay ? M.brand : "transparent",
+                  }}
+                  aria-hidden
+                />
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: isSelected ? M.brand : day.isToday ? M.brand : M.mut2,
+                    letterSpacing: 0.2,
+                  }}
+                >
+                  {day.weekdayLabel}
+                </span>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    fontFamily: M.disp,
+                    background: isSelected ? M.brand : "transparent",
+                    color: isSelected ? M.brandInk : M.fg,
+                    border: isSelected
+                      ? "none"
+                      : day.isToday
+                        ? "1px solid " + M.brand
+                        : "1px solid " + M.line2,
+                  }}
+                >
+                  {day.dateNumber}
+                </div>
+              </MButton>
+            );
+          })}
         </div>
       </div>
     ) : null;
@@ -412,7 +449,7 @@ export function HomeScreen({
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <span style={{ fontSize: 11, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>VOLUMEN / WOCHE</span>
+        <span style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>VOLUMEN / WOCHE</span>
         <span style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 16, color: M.brand }}>
           {weekData.reduce((a, w) => a + w.v, 0) > 0 ? "●" : "—"}
         </span>
@@ -435,7 +472,7 @@ export function HomeScreen({
                 }}
               />
             </div>
-            <span style={{ fontSize: 10, color: M.mut2, fontWeight: 700 }}>{w.d}</span>
+            <span style={{ fontSize: 13, color: M.mut2, fontWeight: 700 }}>{w.d}</span>
           </div>
         ))}
       </div>
@@ -452,7 +489,7 @@ export function HomeScreen({
           marginBottom: 0,
         }}
       >
-        <span style={{ fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>STATISTIK</span>
+        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>STATISTIK</span>
         <MButton type="button" onClick={onOpenStats} variant="ghost" size="sm" style={{ padding: 0, color: M.fg }}>
           Alle anzeigen
           <Icon name="chevR" size={14} color={M.fg} stroke={2.2} />
@@ -495,7 +532,7 @@ export function HomeScreen({
       </div>
       <div style={{ flex: 1 }}>
         <div style={{ color: M.fg, fontWeight: 600, fontSize: 14 }}>Interval-Timer</div>
-        <div style={{ color: M.mut, fontSize: 12, marginTop: 1 }}>EMOM · AMRAP · TABATA · For Time</div>
+        <div style={{ color: M.mut, fontSize: 13, marginTop: 1 }}>EMOM · AMRAP · TABATA · For Time</div>
       </div>
       <Icon name="chevR" size={16} color={M.mut2} stroke={2.2} />
     </MButton>
@@ -520,7 +557,7 @@ export function HomeScreen({
       </div>
       <div style={{ flex: 1 }}>
         <div style={{ color: M.fg, fontWeight: 600, fontSize: 14 }}>1RM-Rechner</div>
-        <div style={{ color: M.mut, fontSize: 12, marginTop: 1 }}>One Rep Max kalkulieren</div>
+        <div style={{ color: M.mut, fontSize: 13, marginTop: 1 }}>One Rep Max kalkulieren</div>
       </div>
       <Icon name="chevR" size={16} color={M.mut2} stroke={2.2} />
     </MButton>
@@ -545,44 +582,10 @@ export function HomeScreen({
       </div>
       <div style={{ flex: 1 }}>
         <div style={{ color: M.fg, fontWeight: 600, fontSize: 14 }}>Körperwerte</div>
-        <div style={{ color: M.mut, fontSize: 12, marginTop: 1 }}>
+        <div style={{ color: M.mut, fontSize: 13, marginTop: 1 }}>
           {latestMeasurement
             ? `${latestMeasurement.weightKg} kg ${latestMeasurement.bodyFatPct ? `· ${latestMeasurement.bodyFatPct}% KFA` : ""}`
             : "Gewicht & Fettanteil tracken"}
-        </div>
-      </div>
-      <Icon name="chevR" size={16} color={M.mut2} stroke={2.2} />
-    </MButton>
-  );
-
-  const aiTrainingPlanLink = (
-    <MButton
-      onClick={onOpenAITrainingPlan}
-      variant="secondary"
-      size="md"
-      fullWidth
-      disabled={!isOnline}
-      style={homeCardLinkStyle}
-    >
-      <div
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 12,
-          background: M.brandSoft,
-          color: M.brand,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flex: "0 0 auto",
-        }}
-      >
-        <Icon name="sparkles" size={18} />
-      </div>
-      <div style={{ flex: 1 }}>
-        <div style={{ color: M.fg, fontWeight: 600, fontSize: 14 }}>KI Trainingsplan</div>
-        <div style={{ color: M.mut, fontSize: 12, marginTop: 1 }}>
-          {isOnline ? "Individuellen Plan mit KI erstellen" : "Nur mit Internetverbindung"}
         </div>
       </div>
       <Icon name="chevR" size={16} color={M.mut2} stroke={2.2} />
@@ -604,7 +607,7 @@ export function HomeScreen({
           <div style={{ fontSize: 13, color: M.mut, fontWeight: 600 }}>
             {todayLabel}
             {planStale && !isOnline && (
-              <span style={{ marginLeft: 8, fontSize: 11, color: M.mut2 }}>· Offline</span>
+              <span style={{ marginLeft: 8, fontSize: 13, color: M.mut2 }}>· Offline</span>
             )}
           </div>
           <div
@@ -621,9 +624,11 @@ export function HomeScreen({
           </div>
         </div>
         <MButton
-          onClick={() => setMenuOpen((o) => !o)}
+          onClick={onOpenProfile}
           variant="secondary"
           size="icon"
+          aria-label="Profil"
+          title="Profil"
           style={{ width: 48, height: 48, borderRadius: 24, background: M.card, border: "1px solid " + M.brandBorder, padding: 0, overflow: "hidden", flexShrink: 0 }}
         >
           <UserAvatar
@@ -634,193 +639,34 @@ export function HomeScreen({
           />
         </MButton>
       </div>
-      <AnimatePresence>
-        {menuOpen && (
-          <>
-            <motion.button
-              type="button"
-              aria-label="Menü schließen"
-              onClick={closeMenu}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-              style={{
-                position: "fixed",
-                inset: 0,
-                border: "none",
-                background: "rgba(0, 0, 0, 0.45)",
-                zIndex: 60,
-                cursor: "pointer",
-              }}
-            />
-            <motion.aside
-              role="dialog"
-              aria-modal="true"
-              aria-label="Profil-Menü"
-              initial={{ x: "100%" }}
-              animate={{ x: "0%" }}
-              exit={{ x: "100%" }}
-              transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-              style={{
-                position: "fixed",
-                top: 0,
-                right: 0,
-                bottom: 0,
-                width: isDesktop ? "40vw" : "100vw",
-                background: M.panel,
-                borderLeft: "1px solid " + M.line,
-                zIndex: 61,
-                display: "flex",
-                flexDirection: "column",
-                boxShadow: "-10px 0 26px rgba(0, 0, 0, 0.32)",
-              }}
-            >
-            <div
-              style={{
-                padding: "calc(env(safe-area-inset-top, 0px) + 20px) 20px 14px",
-                borderBottom: "1px solid " + M.line2,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 11, letterSpacing: 1.3, color: M.mut, fontWeight: 700 }}>KONTO</div>
-                <div
-                  style={{
-                    marginTop: 4,
-                    color: M.fg,
-                    fontFamily: M.disp,
-                    fontWeight: 700,
-                    fontSize: 22,
-                    lineHeight: 1,
-                  }}
-                >
-                  {displayName}
-                </div>
-              </div>
-              <MButton onClick={closeMenu} variant="secondary" size="icon" aria-label="Menü schließen">
-                <Icon name="x" size={16} stroke={2.3} color={M.mut} />
-              </MButton>
-            </div>
-            <div style={{ padding: "10px 12px calc(16px + env(safe-area-inset-bottom, 0px))", display: "grid", gap: 18, overflowY: "auto" }}>
-              {panelSections.map((section) => (
-                <section key={section.title}>
-                  <div
-                    style={{
-                      marginBottom: 6,
-                      padding: "0 13px",
-                      fontSize: 11,
-                      letterSpacing: 1.4,
-                      color: M.mut,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {section.title}
-                  </div>
-                  <div style={{ display: "grid", gap: 4 }}>
-                    {section.items.map((item) => (
-                      <button
-                        key={item.label}
-                        type="button"
-                        onClick={item.onClick}
-                        aria-label={
-                          item.external ? `${item.label} (öffnet externe Seite)` : undefined
-                        }
-                        style={{
-                          width: "60%",
-                          padding: "16px 13px",
-                          border: "none",
-                          borderRadius: 10,
-                          background: "transparent",
-                          color: M.fg,
-                          fontFamily: M.disp,
-                          fontSize: "clamp(30px, 3.8vw, 42px)",
-                          lineHeight: 1,
-                          fontWeight: 700,
-                          cursor: "pointer",
-                          textAlign: "left",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 10,
-                        }}
-                      >
-                        <span>{item.label}</span>
-                        {item.external ? (
-                          <Icon name="externalLink" size={14} stroke={2} color={M.mut2} />
-                        ) : null}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              ))}
-              <div
-                style={{
-                  padding: "2px 13px",
-                  fontSize: 12,
-                  color: M.mut2,
-                  fontWeight: 500,
-                  letterSpacing: 0.2,
-                }}
-              >
-                Version {__APP_VERSION__}
-              </div>
-            </div>
-            <div style={{ marginTop: "auto", padding: "10px 12px 18px", borderTop: "1px solid " + M.line2 }}>
-              <button
-                onClick={() => runFromMenu(signOut)}
-                style={{
-                  width: "60%",
-                  padding: "16px 13px",
-                  border: "none",
-                  borderRadius: 10,
-                  background: "transparent",
-                  color: M.fg,
-                  fontFamily: M.disp,
-                  fontSize: "clamp(30px, 3.8vw, 42px)",
-                  lineHeight: 1,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
-              >
-                Abmelden
-              </button>
-            </div>
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
 
       {isDesktop ? (
         <>
-          {activeWorkoutCard}
-          {statsBlock}
+          {weekStrip}
+          {weekPlannerCard}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16, alignItems: "start" }}>
             <div>
-              <div style={{ fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>HEUTE GEPLANT</div>
+              <div style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>HEUTE GEPLANT</div>
               {todayCard}
-              {planPreview}
             </div>
             <div>
-              <div style={{ fontSize: 11, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>SCHNELLZUGRIFF</div>
-              {aiTrainingPlanLink}
+              <div style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>SCHNELLZUGRIFF</div>
               {timerLink}
               {calculatorLink}
               {bodyTrackerLink}
             </div>
           </div>
+          {activeWorkoutCard}
+          {statsBlock}
         </>
       ) : (
         <>
-          {activeWorkoutCard}
-          {statsBlock}
+          {weekStrip}
+          {weekPlannerCard}
           <div
             style={{
               marginTop: 16,
-              fontSize: 11,
+              fontSize: 13,
               letterSpacing: 1.5,
               color: M.mut,
               fontWeight: 700,
@@ -829,11 +675,12 @@ export function HomeScreen({
             HEUTE GEPLANT
           </div>
           {todayCard}
-          {planPreview}
+          {activeWorkoutCard}
+          {statsBlock}
           <div
             style={{
               marginTop: 16,
-              fontSize: 11,
+              fontSize: 13,
               letterSpacing: 1.5,
               color: M.mut,
               fontWeight: 700,
@@ -841,7 +688,6 @@ export function HomeScreen({
           >
             SCHNELLZUGRIFF
           </div>
-          {aiTrainingPlanLink}
           {timerLink}
           {calculatorLink}
           {bodyTrackerLink}
@@ -860,14 +706,12 @@ export function HomeScreen({
         onDiscard={handleDiscardActive}
         onClose={() => setFinishSheet(false)}
       />
-      <ConfirmSheet
-        open={showSkipConfirm}
-        title="Tag überspringen?"
-        message={`Möchtest du „${currentDay ? planDayDisplayName(currentDay) : "diesen Tag"}“ wirklich überspringen? Der Plan springt zum nächsten Tag.`}
-        confirmLabel="TAG ÜBERSPRINGEN"
-        icon="skipFwd"
-        onConfirm={handleSkipWorkoutConfirm}
-        onCancel={() => setShowSkipConfirm(false)}
+      <WeekPlannerSheet
+        open={weekPlannerOpen}
+        plan={activePlan}
+        userId={user?.id ?? ""}
+        onClose={() => setWeekPlannerOpen(false)}
+        onSaved={handleWeekPlannerSaved}
       />
     </div>
   );

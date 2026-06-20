@@ -9,6 +9,7 @@ import { useAutopilotPrefill } from "../lib/useAutopilotPrefill";
 import { computeNextTarget, inferExerciseBlockFormat, inferTargetRepRange, isWorkingSetPr, resolveWeightIncrement } from "../lib/progressionEngine";
 import { usePreferences } from "../lib/preferences";
 import { useRestTimerSounds } from "../lib/useTimerSounds";
+import { DEFAULT_TIMER_SOUND_PACK_ID } from "../lib/timerSoundPacks";
 import { contentMaxWidth, useBreakpoint } from "../lib/responsive";
 import type { ActiveWorkoutSnapshot } from "../lib/activeWorkout";
 import {
@@ -25,7 +26,7 @@ import { Icon } from "../components/Icon";
 import { ExerciseListRow, ExerciseListRowDumbbellIcon } from "../components/ExerciseListRow";
 import { MStat } from "../components/widgets";
 import { WorkoutFinishSheet } from "../components/WorkoutFinishSheet";
-import { ExercisePickerSheet } from "../components/ExercisePickerSheet";
+import { AlertSheet } from "../components/AlertSheet";
 import { ExerciseHistorySheet } from "../components/ExerciseHistorySheet";
 import { ExerciseDetailSheet } from "../components/ExerciseDetailSheet";
 import { ExerciseVideoSheet } from "../components/ExerciseVideoSheet";
@@ -39,6 +40,10 @@ import type { Exercise } from "../lib/engine";
 import { MButton } from "../components/MButton";
 import { ConfirmSheet } from "../components/ConfirmSheet";
 import { TrackOverviewHeader } from "../components/track/TrackOverviewHeader";
+import { TrackSessionHeader } from "../components/track/TrackSessionHeader";
+import { HeartRateConnectSheet } from "../components/track/HeartRateConnectSheet";
+import { useHeartRateMonitor } from "../lib/heartRate/useHeartRateMonitor";
+import type { HeartRateSample } from "../lib/heartRate/heartRateZones";
 import { TrackExerciseRow } from "../components/track/TrackExerciseRow";
 import { TrackExerciseMenuSheet } from "../components/track/TrackExerciseMenuSheet";
 import { TrackExerciseDetail } from "../components/track/TrackExerciseDetail";
@@ -62,6 +67,7 @@ import {
 import { isWorkoutExpressEligible, findNextExpressTarget } from "../lib/expressTrackingFlow";
 import { EXPRESS_TRACKING_TAG } from "../lib/expressTracking";
 import { isOwnerLabsVisible, useOwnerLabs } from "../lib/ownerLabs";
+import { ExercisePickerSheet } from "../components/ExercisePickerSheet";
 
 export interface TrackScreenProps {
   session: Workout;
@@ -114,11 +120,15 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
     restSeconds: preferences.restSeconds,
     autoRest: preferences.autoRest,
   });
-  useRestTimerSounds(W.rest, W.restActive, preferences.timerSounds);
+  useRestTimerSounds(W.rest, W.restActive, preferences.timerSounds, DEFAULT_TIMER_SOUND_PACK_ID);
 
   const [view, setView] = useState<TrackView>("overview");
   const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [timerPaused, setTimerPaused] = useState(false);
+  const timerAccumSecRef = useRef(0);
+  const timerSegmentStartRef = useRef(startedAt);
+  const timerPausedRef = useRef(false);
   const [finishing, setFinishing] = useState(false);
   const [finishSheet, setFinishSheet] = useState(false);
   const [picker, setPicker] = useState(false);
@@ -134,6 +144,10 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
   const [timerSheetOpen, setTimerSheetOpen] = useState(false);
   const [timerMounted, setTimerMounted] = useState(false);
   const [skippedBlocks, setSkippedBlocks] = useState<TrainingBlockType[]>(session.skippedBlocks ?? []);
+  const [heartRateSheetOpen, setHeartRateSheetOpen] = useState(false);
+  const heartRate = useHeartRateMonitor();
+  const [hrSamples, setHrSamples] = useState<HeartRateSample[]>([]);
+  const lastHrSampleKeyRef = useRef<string | null>(null);
 
   const enabledBlocks = session.enabledBlocks ?? DEFAULT_ENABLED_BLOCKS;
   const useBlockLayout = Boolean(planDayId);
@@ -251,11 +265,59 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
   }, [view, pagerExercises, useExpressTrack]);
 
   useEffect(() => {
-    const tick = () => setElapsedSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+    timerAccumSecRef.current = 0;
+    timerSegmentStartRef.current = startedAt;
+    timerPausedRef.current = false;
+    setTimerPaused(false);
+    setElapsedSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+  }, [startedAt]);
+
+  useEffect(() => {
+    timerPausedRef.current = timerPaused;
+  }, [timerPaused]);
+
+  useEffect(() => {
+    if (timerPaused) return;
+    const tick = () => {
+      const next =
+        timerAccumSecRef.current +
+        Math.max(0, Math.floor((Date.now() - timerSegmentStartRef.current) / 1000));
+      setElapsedSec(next);
+    };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [startedAt]);
+  }, [startedAt, timerPaused]);
+
+  useEffect(() => {
+    if (timerPaused || heartRate.bpm == null) return;
+    const key = `${elapsedSec}:${heartRate.bpm}`;
+    if (lastHrSampleKeyRef.current === key) return;
+    lastHrSampleKeyRef.current = key;
+    setHrSamples((prev) => [...prev, { elapsedSec, bpm: heartRate.bpm! }]);
+  }, [elapsedSec, heartRate.bpm, timerPaused]);
+
+  const getWorkoutElapsedSec = () => {
+    if (timerPausedRef.current) return timerAccumSecRef.current;
+    return (
+      timerAccumSecRef.current +
+      Math.max(0, Math.floor((Date.now() - timerSegmentStartRef.current) / 1000))
+    );
+  };
+
+  const handleToggleTimerPause = () => {
+    if (timerPausedRef.current) {
+      timerSegmentStartRef.current = Date.now();
+      timerPausedRef.current = false;
+      setTimerPaused(false);
+      return;
+    }
+    const frozen = getWorkoutElapsedSec();
+    timerAccumSecRef.current = frozen;
+    setElapsedSec(frozen);
+    timerPausedRef.current = true;
+    setTimerPaused(true);
+  };
 
   useEffect(() => {
     if (activeExerciseIndex >= pagerExercises.length) {
@@ -410,13 +472,14 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
   };
 
   const handlePause = () => {
+    const elapsed = getWorkoutElapsedSec();
     onPause({
       session: {
         ...(JSON.parse(JSON.stringify(W.wo)) as Workout),
         enabledBlocks,
         skippedBlocks,
       },
-      startedAt,
+      startedAt: Date.now() - elapsed * 1000,
       planDayId,
       tags,
       planId,
@@ -499,7 +562,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div
           style={{
-            fontSize: 11,
+            fontSize: 13,
             fontWeight: 700,
             letterSpacing: 0.8,
             color: "#f97316",
@@ -520,7 +583,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
           ))}
         </div>
         {result ? (
-          <div style={{ fontSize: 12, color: M.brand, fontWeight: 600 }}>
+          <div style={{ fontSize: 13, color: M.brand, fontWeight: 600 }}>
             {formatMetconSessionResult(result)}
           </div>
         ) : (
@@ -611,8 +674,6 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
         onRemoveSet={(si) => W.removeSet(ex.id, si)}
         onAddSet={() => W.addSet(ex.id)}
         onWarmUpChange={(enabled) => W.toggleSetWarmUp(ex.id, enabled)}
-        onOpenHistory={() => setHistoryExercise(ex.name)}
-        onOpenNotes={() => setNoteTarget(ex)}
         onOpenMenu={() => {
           setMenuVariant("full");
           setMenuTarget(ex);
@@ -681,7 +742,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
               <MStat label="FORTSCHRITT" value={`${pct}%`} />
             </div>
             {hasAutopilotPrefills ? (
-              <div style={{ fontSize: 12, color: M.mut, marginTop: 10, lineHeight: 1.4 }}>
+              <div style={{ fontSize: 13, color: M.mut, marginTop: 10, lineHeight: 1.4 }}>
                 Auto-Pilot: Vorschläge aus deiner Historie — tippe ✓ zum Bestätigen.
               </div>
             ) : null}
@@ -760,7 +821,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
                               e.stopPropagation();
                               toggleSkipBlock(block);
                             }}
-                            style={{ color: M.mut2, fontSize: 11, padding: "4px 8px", flexShrink: 0 }}
+                            style={{ color: M.mut2, fontSize: 13, padding: "4px 8px", flexShrink: 0 }}
                           >
                             Heute überspringen
                           </MButton>
@@ -772,7 +833,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
                           ) : blockExercises.length > 0 ? (
                             renderOverviewSegmentList(blockExercises, indexOffset)
                           ) : (
-                            <div style={{ fontSize: 12, color: M.mut, fontWeight: 500, padding: "4px 2px 12px" }}>
+                            <div style={{ fontSize: 13, color: M.mut, fontWeight: 500, padding: "4px 2px 12px" }}>
                               Noch keine Übungen
                             </div>
                           )}
@@ -789,7 +850,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
                                 color: M.fg,
                                 fontFamily: M.disp,
                                 letterSpacing: 0.3,
-                                fontSize: 12,
+                                fontSize: 13,
                               }}
                             >
                               <Icon name="plus" size={14} stroke={2.6} /> Übung hinzufügen
@@ -804,7 +865,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
                               style={{
                                 marginTop: 8,
                                 color: M.mut,
-                                fontSize: 12,
+                                fontSize: 13,
                               }}
                             >
                               MetCon erneut ansehen
@@ -829,13 +890,13 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
                             e.stopPropagation();
                             toggleSkipBlock(block);
                           }}
-                          style={{ color: M.mut2, fontSize: 11, padding: "4px 8px", flexShrink: 0 }}
+                          style={{ color: M.mut2, fontSize: 13, padding: "4px 8px", flexShrink: 0 }}
                         >
                           Wieder aktivieren
                         </MButton>
                       }
                     >
-                      <div style={{ fontSize: 12, color: M.mut, fontWeight: 500 }}>
+                      <div style={{ fontSize: 13, color: M.mut, fontWeight: 500 }}>
                         Baustein für heute übersprungen
                       </div>
                     </PlanBlockSection>
@@ -859,6 +920,9 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
         <ExpressTrackingView
           exercises={pagerExercises}
           elapsedSec={elapsedSec}
+          restActive={W.restActive}
+          restSec={W.rest}
+          onSkipRest={W.stopRest}
           onBack={() => setView("overview")}
           onBumpSet={(exId, si, field, delta) => W.editSet(exId, si, field, delta)}
           onSetValues={(exId, si, kg, reps) => {
@@ -875,14 +939,6 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
               setMenuTarget(ex);
             }
           }}
-          onOpenHistory={(exId) => {
-            const ex = pagerExercises.find((e) => e.id === exId);
-            if (ex) setHistoryExercise(ex.name);
-          }}
-          onOpenNotes={(exId) => {
-            const ex = pagerExercises.find((e) => e.id === exId);
-            if (ex) setNoteTarget(ex);
-          }}
           onAllSetsDone={() => setView("complete")}
         />
       ) : view === "complete" && useExpressTrack ? (
@@ -894,13 +950,28 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
         />
       ) : (
         <TrackExerciseDetail
-          elapsedSec={elapsedSec}
           activeIndex={activeExerciseIndex}
           onIndexChange={setActiveExerciseIndex}
+          slides={exerciseSlides}
+          elapsedSec={elapsedSec}
           onBack={() => setView("overview")}
           onOpenOneRm={() => setOneRmOpen(true)}
           onOpenTimer={openTimerSheet}
-          slides={exerciseSlides}
+          metricsFooter={
+            <TrackSessionHeader
+              variant="exerciseFooter"
+              elapsedSec={elapsedSec}
+              heartRateBpm={heartRate.bpm}
+              heartRateConnected={heartRate.isConnected}
+              heartRateDeviceName={heartRate.deviceName}
+              heartRateSupported={heartRate.isSupported}
+              hrSamples={hrSamples}
+              birthDate={profile?.birth_date}
+              onOpenHeartRate={() => setHeartRateSheetOpen(true)}
+              timerPaused={timerPaused}
+              onToggleTimerPause={handleToggleTimerPause}
+            />
+          }
         />
       )}
 
@@ -915,7 +986,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
           gap: 10,
         }}
       >
-        {W.restActive ? (
+        {W.restActive && view !== "express" ? (
           <div
             style={{
               ...brandButtonStyle(),
@@ -1051,6 +1122,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
             : undefined
         }
         onHistory={() => menuTarget && setHistoryExercise(menuTarget.name)}
+        onNotes={() => menuTarget && setNoteTarget(menuTarget)}
         onEditSets={
           menuTarget && (menuVariant === "actions" || isCustom)
             ? () => openSetEditSheet(menuTarget.id)
@@ -1130,6 +1202,24 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
           onSaveSession={onSaveTimerSession}
         />
       ) : null}
+      <HeartRateConnectSheet
+        open={heartRateSheetOpen}
+        onClose={() => setHeartRateSheetOpen(false)}
+        status={heartRate.status}
+        bpm={heartRate.bpm}
+        deviceName={heartRate.deviceName}
+        isSupported={heartRate.isSupported}
+        isBusy={heartRate.isBusy}
+        onConnect={() => void heartRate.connect()}
+        onDisconnect={() => void heartRate.disconnect()}
+      />
+      <AlertSheet
+        open={!!heartRate.error}
+        title="Herzfrequenz"
+        message={heartRate.error ?? ""}
+        icon="alertCircle"
+        onClose={heartRate.clearError}
+      />
         </>
       )}
     </div>

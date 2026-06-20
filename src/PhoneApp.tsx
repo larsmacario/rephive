@@ -13,7 +13,6 @@ import {
   snapshotToDraft,
 } from "./lib/activeWorkout";
 import {
-  advancePlan,
   fetchPlanDayForTrackingCached,
   processSyncQueue,
   saveSession,
@@ -28,7 +27,8 @@ import type { WorkoutSet } from "./lib/engine";
 import { useAuth } from "./lib/auth";
 import { useBreakpoint } from "./lib/responsive";
 import { PhoneShell } from "./components/PhoneShell";
-import { FloatNav, FloatNavContentFade, floatNavContentInset, type Tab } from "./components/FloatNav";
+import { FloatNav, FloatNavContentFade, floatNavContentInset, type NavTabId, type Tab } from "./components/FloatNav";
+import { AppSidePanel } from "./components/AppSidePanel";
 import { ConfirmSheet } from "./components/ConfirmSheet";
 import { OfflineBanner } from "./components/OfflineBanner";
 import { TimerLeaveSheet } from "./components/TimerLeaveSheet";
@@ -147,13 +147,14 @@ export function PhoneApp() {
 }
 
 function PhoneAppInner() {
-  const { user, profileReady } = useAuth();
+  const { user } = useAuth();
   const { isOnline } = useNetwork();
   const { preferences } = usePreferences();
   const { active: timerActive } = useActiveTimer();
   const breakpoint = useBreakpoint();
   const navPlacement = breakpoint === "desktop" ? "left" : "bottom";
   const [tab, setTab] = useState<Tab>("home");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [route, setRoute] = useState<Route>(null);
   const [pendingTab, setPendingTab] = useState<Tab | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -320,13 +321,11 @@ function PhoneAppInner() {
     await handleSaveWorkout(buildPayloadFromDraft(draft));
   };
 
-  const handleAdvancePlan = async (planId: string) => {
-    if (!user) return;
-    await advancePlan(user.id, planId);
-    setRefreshKey((k) => k + 1);
-  };
-
-  const handleTab = (t: Tab) => {
+  const handleTab = (t: NavTabId) => {
+    if (t === "menu") {
+      setMenuOpen(true);
+      return;
+    }
     if (t === "ai-plan") {
       if (isOnline) goAITrainingPlanWizard();
       return;
@@ -473,21 +472,11 @@ function PhoneAppInner() {
         onSaveActive={handleSaveFromDraft}
         onDiscardActive={handleDiscardWorkout}
         onOpenPlans={() => setTab("plans")}
-        onAdvancePlan={handleAdvancePlan}
         onOpenTimer={() => setTab("timer")}
-        onOpenSettings={goSettings}
         onOpenProfile={() => setTab("profile")}
-        onOpenHistory={() => {
-          setRoute(null);
-          setTab("history");
-        }}
         onOpenStats={goStats}
         onOpenCalculator={goCalculator}
         onOpenBodyTracker={goBodyTracker}
-        onOpenAbout={goAbout}
-        onOpenSupport={goSupport}
-        onOpenAITrainingPlan={goAITrainingPlanWizard}
-        onOpenExercises={goExercises}
         trackLoading={trackLoading}
       />
     );
@@ -500,16 +489,14 @@ function PhoneAppInner() {
       />
     );
   } else if (tab === "timer") {
-    body = <TimerScreen onSaveSession={handleSaveTimerSession} />;
+    body = <TimerScreen onSaveSession={handleSaveTimerSession} onBack={() => handleTab("home")} />;
+    showNav = false;
   } else if (tab === "profile") {
     body = <ProfileScreen mode="tab" onBack={() => setTab("home")} />;
   } else {
     body = (
       <HistoryScreen refreshKey={refreshKey} onOpenSession={goSessionDetail} onOpenStats={goStats} />
     );
-  }
-  if (!profileReady) {
-    return null;
   }
 
   if (!preferences.onboarded) {
@@ -560,6 +547,20 @@ function PhoneAppInner() {
         icon="flag"
         onConfirm={handleReplaceDraftConfirm}
         onCancel={() => setReplaceDraftAction(null)}
+      />
+      <AppSidePanel
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        onOpenProfile={() => setTab("profile")}
+        onOpenHistory={() => {
+          setRoute(null);
+          setTab("history");
+        }}
+        onOpenStats={goStats}
+        onOpenSettings={goSettings}
+        onOpenAbout={goAbout}
+        onOpenSupport={goSupport}
+        onOpenExercises={goExercises}
       />
     </PhoneShell>
   );
