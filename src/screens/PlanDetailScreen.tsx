@@ -279,6 +279,8 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
           onIndexChange={setActiveSlideIndex}
           ariaLabel="Plan-Übersicht und Tage"
           tabLabel={tabLabel}
+          tabSize="lg"
+          tabListPadding="6px 22px 0"
         >
           {[summarySlide, ...daySlides]}
         </HorizontalSlidePager>

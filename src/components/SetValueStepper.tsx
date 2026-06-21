@@ -12,24 +12,9 @@ import {
 } from "../lib/exerciseSets";
 import { formatDistanceM, formatDurationSec } from "../lib/exerciseCatalog";
 import type { CSSProperties } from "react";
-import { M, mMini } from "../theme";
+import { M, mMini, mMiniLg } from "../theme";
 
-const MINI_LG: CSSProperties = {
-  width: 36,
-  height: 36,
-  borderRadius: 10,
-  border: "1px solid " + M.line,
-  background: M.bg,
-  color: M.fg,
-  fontSize: 20,
-  lineHeight: 1,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontFamily: M.body,
-  flexShrink: 0,
-};
+const MINI_LG: CSSProperties = mMiniLg;
 
 export interface SetValueStepperProps {
   label?: string;
@@ -45,6 +30,10 @@ export interface SetValueStepperProps {
   fullWidth?: boolean;
   /** Track-Karten: Label über dem Feld (stack) vs. darunter (inline). */
   labelOnTop?: boolean;
+  /** Plan-Builder: gleiche Zeilenhöhe/Breite für alle Metriken. */
+  uniformRow?: boolean;
+  /** SetTable-Zelle: große Buttons, flexibler Wert in schmaler Spalte. */
+  tableCell?: boolean;
   /** Gedämpfte Darstellung für Auto-Pilot-Vorschläge. */
   muted?: boolean;
 }
@@ -107,18 +96,23 @@ export function SetValueStepper({
   size = "md",
   fullWidth = false,
   labelOnTop = true,
+  uniformRow = false,
+  tableCell = false,
   muted = false,
 }: SetValueStepperProps) {
   const isLg = size === "lg";
-  const isTrackRow = fullWidth && isLg;
+  const isTrackRow = fullWidth && isLg && !uniformRow && !tableCell;
+  const isUniformRow = uniformRow && isLg;
+  const isTableCell = tableCell && isLg;
+  const isCardRow = isTrackRow || isUniformRow || isTableCell;
   const showLabelAbove = Boolean(label && isTrackRow && labelOnTop);
-  const resolvedFontSize = fontSize ?? (isTrackRow ? 28 : isLg ? 28 : 18);
+  const resolvedFontSize = fontSize ?? (isTrackRow ? 28 : isTableCell ? 22 : isLg ? 28 : 18);
   const miniBtn: CSSProperties = isTrackRow
-    ? { ...MINI_LG, width: 40, height: 40, fontSize: 20, borderRadius: 10 }
+    ? { ...MINI_LG, width: 44, height: 44, fontSize: 22, borderRadius: 11 }
     : isLg
       ? MINI_LG
       : mMini;
-  const rowGap = isTrackRow ? 12 : isLg ? 10 : 6;
+  const rowGap = isTrackRow ? 12 : isTableCell ? 6 : isLg ? 10 : 6;
   const formatters = useMemo(() => defaultFormatters(kind), [kind]);
   const [draft, setDraft] = useState("");
   const [focused, setFocused] = useState(false);
@@ -143,11 +137,15 @@ export function SetValueStepper({
   const trackInputWidth =
     kind === "reps" ? 48 : kind === "durationSec" || kind === "distanceM" ? 80 : 66;
 
-  const useFlexInput = isTrackRow && labelOnTop;
+  const useFlexInput = (isTrackRow && labelOnTop) || isTableCell;
 
   const displayWidth =
     minWidth ??
-    (useFlexInput
+    (isTableCell
+      ? undefined
+      : isUniformRow
+      ? 96
+      : useFlexInput && !isTableCell
       ? undefined
       : isTrackRow
         ? trackInputWidth
@@ -159,17 +157,24 @@ export function SetValueStepper({
               ? 80
               : 72
           : kind === "reps"
-            ? 32
+            ? 40
             : kind === "durationSec" || kind === "distanceM"
-              ? 52
-              : 48
+              ? 88
+              : 76
         : resolvedFontSize >= 20
           ? 34
           : 22);
 
+  const flexValueStyle: CSSProperties = {
+    flex: 1,
+    minWidth: isTableCell ? 44 : 0,
+    maxWidth: isTableCell ? 88 : undefined,
+    width: "auto",
+  };
+
   const inputStyle: CSSProperties = {
     ...(useFlexInput
-      ? { flex: 1, minWidth: 0, width: "auto" }
+      ? flexValueStyle
       : {
           width: displayWidth,
           minWidth: displayWidth,
@@ -180,19 +185,19 @@ export function SetValueStepper({
     fontSize: resolvedFontSize,
     fontVariantNumeric: "tabular-nums",
     textAlign: "center",
-    background: isTrackRow ? M.card : M.card,
+    background: isCardRow ? M.card : M.card,
     border: "1px solid " + M.line2,
-    borderRadius: isTrackRow ? 12 : isLg ? 10 : 8,
+    borderRadius: isCardRow ? 12 : isLg ? 11 : 8,
     color: muted ? M.mut : M.fg,
-    padding: isTrackRow ? "12px 14px" : isLg ? "4px 6px" : "2px 4px",
+    padding: isCardRow ? (isTableCell ? "8px 6px" : "12px 14px") : isLg ? "6px 8px" : "2px 4px",
     outline: "none",
-    minHeight: isTrackRow ? 52 : undefined,
+    minHeight: isCardRow ? (isTableCell ? 44 : 52) : undefined,
     boxSizing: "border-box",
   };
 
   const valueStyle: CSSProperties = {
     ...(useFlexInput
-      ? { flex: 1, minWidth: 0, width: "auto" }
+      ? flexValueStyle
       : {
           width: displayWidth,
           minWidth: displayWidth,
@@ -203,19 +208,19 @@ export function SetValueStepper({
     fontSize: resolvedFontSize,
     fontVariantNumeric: "tabular-nums",
     textAlign: "center",
-    display: isTrackRow ? "flex" : undefined,
-    alignItems: isTrackRow ? "center" : undefined,
-    justifyContent: isTrackRow ? "center" : undefined,
-    minHeight: isTrackRow ? 52 : undefined,
-    background: isTrackRow ? M.card : undefined,
-    border: isTrackRow ? "1px solid " + M.line2 : undefined,
-    borderRadius: isTrackRow ? 12 : undefined,
+    display: isCardRow ? "flex" : undefined,
+    alignItems: isCardRow ? "center" : undefined,
+    justifyContent: isCardRow ? "center" : undefined,
+    minHeight: isCardRow ? (isTableCell ? 44 : 52) : undefined,
+    background: isCardRow ? M.card : undefined,
+    border: isCardRow ? "1px solid " + M.line2 : undefined,
+    borderRadius: isCardRow ? 12 : undefined,
     boxSizing: "border-box",
     color: muted ? M.mut : M.fg,
   };
 
   return (
-    <div style={{ textAlign: "center", width: fullWidth ? "100%" : undefined }}>
+    <div style={{ textAlign: "center", width: fullWidth || isTableCell ? "100%" : undefined }}>
       {showLabelAbove ? (
         <div
           style={{
@@ -235,8 +240,16 @@ export function SetValueStepper({
           display: "flex",
           alignItems: "center",
           gap: rowGap,
-          justifyContent: isTrackRow && labelOnTop ? undefined : isTrackRow ? "center" : fullWidth ? "space-between" : undefined,
-          width: fullWidth ? "100%" : undefined,
+          justifyContent: isUniformRow || isTableCell
+            ? "center"
+            : isTrackRow && labelOnTop
+              ? undefined
+              : isTrackRow
+                ? "center"
+                : fullWidth
+                  ? "space-between"
+                  : undefined,
+          width: fullWidth || isTableCell ? "100%" : undefined,
         }}
       >
         <button type="button" onClick={dec} style={miniBtn} aria-label="Wert verringern">
@@ -271,11 +284,11 @@ export function SetValueStepper({
       {label && !showLabelAbove ? (
         <div
           style={{
-            fontSize: isLg ? 11 : 9,
+            fontSize: isLg ? 12 : 9,
             letterSpacing: 1,
             color: M.mut2,
             fontWeight: 700,
-            marginTop: isLg ? 6 : 2,
+            marginTop: isLg ? 8 : 2,
           }}
         >
           {label}

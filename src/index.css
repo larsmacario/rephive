@@ -11,7 +11,7 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: #000000;
+  background: #141414;
   color: #fafafa;
   font-family: "Archivo", system-ui, sans-serif;
   overscroll-behavior: none;
@@ -56,8 +56,8 @@ body {
     to right,
     var(--mom-brand) 0%,
     var(--mom-brand) var(--muscle-prio-pct, 50%),
-    rgba(255, 255, 255, 0.08) var(--muscle-prio-pct, 50%),
-    rgba(255, 255, 255, 0.08) 100%
+    rgba(255, 255, 255, 0.11) var(--muscle-prio-pct, 50%),
+    rgba(255, 255, 255, 0.11) 100%
   );
 }
 
@@ -68,7 +68,7 @@ body {
   margin-top: -5px;
   border-radius: 50%;
   background: var(--mom-brand);
-  border: 2px solid #000000;
+  border: 2px solid #141414;
   box-shadow: 0 0 0 1px rgba(126, 246, 123, 0.35);
 }
 
@@ -79,8 +79,8 @@ body {
     to right,
     var(--mom-brand) 0%,
     var(--mom-brand) var(--muscle-prio-pct, 50%),
-    rgba(255, 255, 255, 0.08) var(--muscle-prio-pct, 50%),
-    rgba(255, 255, 255, 0.08) 100%
+    rgba(255, 255, 255, 0.11) var(--muscle-prio-pct, 50%),
+    rgba(255, 255, 255, 0.11) 100%
   );
   border: none;
 }
@@ -90,7 +90,7 @@ body {
   height: 14px;
   border-radius: 50%;
   background: var(--mom-brand);
-  border: 2px solid #000000;
+  border: 2px solid #141414;
   box-shadow: 0 0 0 1px rgba(126, 246, 123, 0.35);
 }
 

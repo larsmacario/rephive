@@ -508,7 +508,11 @@ function PhoneAppInner() {
   }
 
   return (
-    <PhoneShell reserveBottomSafeArea={!(showNav && navPlacement === "bottom")}>
+    <PhoneShell
+      reserveBottomSafeArea={
+        showNav && navPlacement === "bottom" ? false : route?.kind === "planBuilder" ? false : true
+      }
+    >
       <div
         style={{
           flex: 1,

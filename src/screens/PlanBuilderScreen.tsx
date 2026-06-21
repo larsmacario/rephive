@@ -50,6 +50,9 @@ import { PlanDayWeekdayPicker } from "../components/PlanDayWeekdayPicker";
 import { MButton } from "../components/MButton";
 import { HorizontalSlidePager } from "../components/HorizontalSlidePager";
 
+/** Safe-area only — shell padding is disabled for plan builder. */
+const PLAN_BUILDER_FOOTER_PADDING = "max(8px, env(safe-area-inset-bottom, 0px))";
+
 interface BuilderExercise extends LibraryExercise {
   blockType: TrainingBlockType;
   setMode: SetMode;
@@ -449,7 +452,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
           flex: 1,
           minHeight: 0,
           minWidth: 0,
-          padding: "0 22px 8px",
+          padding: "0 22px 0",
           display: "flex",
           flexDirection: "column",
         }}
@@ -464,6 +467,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
               alignItems: "center",
               justifyContent: "center",
               gap: 10,
+              paddingBottom: PLAN_BUILDER_FOOTER_PADDING,
             }}
           >
             <MButton
@@ -499,6 +503,24 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
               activeIndex={activeDayIndex}
               onIndexChange={setActiveDayIndex}
               ariaLabel="Plan-Tage bearbeiten"
+              tabListPadding="6px 0 0"
+              tabSize="lg"
+              tabBarTrailing={
+                <MButton
+                  type="button"
+                  onClick={addDay}
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Tag hinzufügen"
+                  style={{
+                    border: "1.5px dashed " + M.line,
+                    color: M.fg,
+                    flexShrink: 0,
+                  }}
+                >
+                  <Icon name="plus" size={18} stroke={2.6} />
+                </MButton>
+              }
             >
               {days.map((day, index) => (
                 <div
@@ -586,33 +608,24 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
               ))}
             </HorizontalSlidePager>
 
-            <MButton
-              onClick={addDay}
-              variant="ghost"
-              size="md"
-              fullWidth
+            <div
               style={{
                 flexShrink: 0,
-                marginTop: 8,
-                border: "1.5px dashed " + M.line,
-                color: M.fg,
-                fontFamily: M.disp,
-                letterSpacing: 0.4,
+                paddingTop: 8,
+                paddingBottom: PLAN_BUILDER_FOOTER_PADDING,
               }}
             >
-              <Icon name="plus" size={16} stroke={2.6} /> Tag hinzufügen
-            </MButton>
-            <MButton
-              disabled={saving || days.length === 0}
-              onClick={handleSave}
-              variant="primary"
-              size="md"
-              fullWidth
-              loading={saving}
-              style={{ flexShrink: 0, marginTop: 8 }}
-            >
-              Speichern
-            </MButton>
+              <MButton
+                disabled={saving || days.length === 0}
+                onClick={handleSave}
+                variant="primary"
+                size="md"
+                fullWidth
+                loading={saving}
+              >
+                Speichern
+              </MButton>
+            </div>
           </>
         )}
       </div>

@@ -25,6 +25,14 @@ export interface BottomSheetProps {
   lockBodyScroll?: boolean;
 }
 
+const INTERACTIVE_SELECTOR =
+  "button, input, textarea, select, label, a, [contenteditable=true], [data-sheet-no-drag]";
+
+function isInteractiveSheetTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return Boolean(target.closest(INTERACTIVE_SELECTOR));
+}
+
 export function BottomSheet({
   open,
   onClose,
@@ -55,18 +63,25 @@ export function BottomSheet({
   };
 
   const startDrag = (e: PointerEvent) => {
+    if (isInteractiveSheetTarget(e.target)) return;
     dragControls.start(e);
   };
 
   const overlayStyle: CSSProperties = {
     position,
     inset: 0,
-    background: "rgba(5,7,5,.6)",
+    background: "rgba(20,20,20,.72)",
     backdropFilter: "blur(4px)",
     zIndex,
     display: "flex",
     flexDirection: "column",
     justifyContent: "flex-end",
+  };
+
+  const backdropTapStyle: CSSProperties = {
+    flex: 1,
+    minHeight: 0,
+    cursor: "pointer",
   };
 
   const panelStyle: CSSProperties = {
@@ -111,8 +126,8 @@ export function BottomSheet({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={BACKDROP_TRANSITION}
-          onClick={onClose}
         >
+          <div aria-hidden style={backdropTapStyle} onClick={onClose} />
           <motion.div
             role="dialog"
             aria-modal="true"
@@ -124,7 +139,7 @@ export function BottomSheet({
             dragElastic={{ top: 0, bottom: 0.6 }}
             dragSnapToOrigin
             onDragEnd={handleDragEnd}
-            onClick={(e) => e.stopPropagation()}
+            onPointerDown={startDrag}
             style={panelStyle}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
@@ -132,7 +147,6 @@ export function BottomSheet({
             transition={PANEL_TRANSITION}
           >
             <div
-              onPointerDown={startDrag}
               style={{
                 flexShrink: 0,
                 padding: "4px 0 14px",
@@ -140,6 +154,7 @@ export function BottomSheet({
                 touchAction: "none",
                 display: "flex",
                 justifyContent: "center",
+                pointerEvents: "none",
               }}
             >
               <div style={{ width: 40, height: 4, borderRadius: 2, background: M.line }} />

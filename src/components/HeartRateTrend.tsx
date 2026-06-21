@@ -345,7 +345,7 @@ export function HeartRateTrend({
                   x2={CHART_WIDTH - CHART_PAD_X}
                   y1={CHART_HEIGHT / 2}
                   y2={CHART_HEIGHT / 2}
-                  stroke="rgba(255,255,255,.08)"
+                  stroke={M.line}
                   strokeWidth={2}
                   strokeDasharray="4 6"
                 />

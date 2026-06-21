@@ -60,8 +60,10 @@ export function WarmUpSetToggle({ checked, onChange, layout = "full", size = "md
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 8,
-        marginTop: 10,
+        justifyContent: "center",
+        gap: isLg ? 10 : 8,
+        marginTop: isLg ? 14 : 10,
+        width: "100%",
         cursor: "pointer",
         userSelect: "none",
       }}
@@ -72,9 +74,16 @@ export function WarmUpSetToggle({ checked, onChange, layout = "full", size = "md
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
         aria-label="Satz 1 als Warm-up markieren"
-        style={{ width: 16, height: 16, accentColor: M.acc, cursor: "pointer" }}
+        style={{
+          width: isLg ? 20 : 16,
+          height: isLg ? 20 : 16,
+          accentColor: M.acc,
+          cursor: "pointer",
+        }}
       />
-      <span style={{ fontSize: 13, fontWeight: 600, color: checked ? M.acc : M.mut }}>S1 als Warm-up</span>
+      <span style={{ fontSize: isLg ? 15 : 13, fontWeight: 600, color: checked ? M.acc : M.mut }}>
+        S1 als Warm-up
+      </span>
     </label>
   );
 }

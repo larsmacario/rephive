@@ -11,6 +11,14 @@ import { ExerciseListRow, ExerciseListRowDumbbellIcon } from "./ExerciseListRow"
 import { PlanBlockSection } from "./PlanBlockSection";
 import { SupersetBlock } from "./SupersetBlock";
 
+const BUILDER_ADD_BUTTON_STYLE = {
+  border: "1.5px dashed " + M.line,
+  color: M.fg,
+  fontFamily: M.disp,
+  letterSpacing: 0.4,
+  fontSize: 15,
+} as const;
+
 export interface PlanDayExercisePreviewProps {
   exercises: PlanDayExercise[];
   blocks?: PlanDayBlock[];
@@ -188,46 +196,28 @@ export function PlanDayExercisePreview({
               <MButton
                 type="button"
                 variant="ghost"
-                size="sm"
+                size="md"
                 fullWidth
                 onClick={() => onAddExercise(block)}
-                style={{
-                  marginTop: 8,
-                  border: "1.5px dashed " + M.line,
-                  color: M.fg,
-                  fontFamily: M.disp,
-                  letterSpacing: 0.3,
-                  fontSize: 13,
-                }}
+                style={{ marginTop: 10, ...BUILDER_ADD_BUTTON_STYLE }}
               >
-                <Icon name="plus" size={14} stroke={2.6} /> Übung hinzufügen
+                <Icon name="plus" size={16} stroke={2.6} /> Übung hinzufügen
               </MButton>
             )}
           </PlanBlockSection>
         );
       })}
       {builderMode && optionalMetconLink?.visible && (
-        <button
+        <MButton
           type="button"
+          variant="ghost"
+          size="md"
+          fullWidth
           onClick={optionalMetconLink.onAdd}
-          style={{
-            marginTop: 4,
-            padding: "6px 2px",
-            border: "none",
-            background: "transparent",
-            color: M.mut,
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-            textAlign: "left",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-          }}
+          style={{ marginTop: 6, ...BUILDER_ADD_BUTTON_STYLE, color: M.mut }}
         >
-          <Icon name="plus" size={14} stroke={2.4} color={M.mut} />
-          MetCon hinzufügen
-        </button>
+          <Icon name="plus" size={16} stroke={2.6} /> MetCon hinzufügen
+        </MButton>
       )}
       {builderMode && disabledBlocks.length > 0 && onRestoreBlock && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
@@ -237,16 +227,16 @@ export function PlanDayExercisePreview({
               key={block}
               type="button"
               variant="ghost"
-              size="sm"
+              size="md"
               fullWidth
               onClick={() => onRestoreBlock(block)}
               style={{
-                border: "1.5px dashed " + M.line,
+                ...BUILDER_ADD_BUTTON_STYLE,
                 color: M.mut,
                 justifyContent: "flex-start",
               }}
             >
-              <Icon name="plus" size={14} stroke={2.6} /> {BLOCK_LABELS[block]} hinzufügen
+              <Icon name="plus" size={16} stroke={2.6} /> {BLOCK_LABELS[block]} hinzufügen
             </MButton>
           ))}
         </div>

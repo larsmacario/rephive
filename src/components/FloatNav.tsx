@@ -59,11 +59,11 @@ const tabButtonFocus: CSSProperties = {
 };
 
 const floatNavGlass: CSSProperties = {
-  background: "rgba(255,255,255,.05)",
+  background: "rgba(255,255,255,.08)",
   backdropFilter: "blur(24px) saturate(1.25)",
   WebkitBackdropFilter: "blur(24px) saturate(1.25)",
-  border: "1px solid rgba(255,255,255,.1)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,.06)",
+  border: "1px solid rgba(255,255,255,.12)",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,.08)",
 };
 
 /** Content inset so scroll areas clear the fixed nav on mobile/tablet. */
@@ -87,7 +87,7 @@ export function FloatNavContentFade() {
         height: floatNavContentInset("bottom"),
         pointerEvents: "none",
         zIndex: Z.nav - 1,
-        background: `linear-gradient(to top, ${M.bg} 0%, rgba(0,0,0,.55) 50%, transparent 100%)`,
+        background: `linear-gradient(to top, ${M.bg} 0%, rgba(20,20,20,.65) 50%, transparent 100%)`,
       }}
     />
   );

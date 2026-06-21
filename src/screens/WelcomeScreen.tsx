@@ -197,7 +197,7 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
           overflow: "hidden",
           background: `radial-gradient(ellipse 90% 50% at 50% 28%, color-mix(in oklab, var(--mom-brand, #7ef67b) 10%, transparent), transparent 62%),
             radial-gradient(ellipse 70% 40% at 50% 100%, color-mix(in oklab, #9ca3af 10%, transparent), transparent 60%),
-            linear-gradient(180deg, #111111 0%, ${M.bg} 38%, #080808 100%)`,
+            linear-gradient(180deg, #1c1c1c 0%, ${M.bg} 38%, #101010 100%)`,
         }}
       >
         <HoneycombBackdrop />

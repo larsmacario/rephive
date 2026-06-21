@@ -17,8 +17,9 @@ function setNumberLabel(index: number, warmUp?: boolean): string {
   return String(index + 1);
 }
 
-function individualActionsWidth(variant: "template" | "tracked"): number {
-  return variant === "tracked" ? 72 : 36;
+function individualActionsWidth(variant: "template" | "tracked", isLg: boolean): number {
+  if (variant === "tracked") return isLg ? 96 : 72;
+  return isLg ? 44 : 36;
 }
 
 function isSuggestedRow(set: SetTableSet): boolean {
@@ -30,6 +31,7 @@ export interface SetTableProps {
   metric?: ExerciseMetric;
   variant: "template" | "tracked";
   compact?: boolean;
+  size?: "md" | "lg";
   /** Neutral card wrapper (TrackScreen). */
   wrapped?: boolean;
   /** Hint shown once above the table (history / exercise note). */
@@ -49,6 +51,7 @@ export function SetTable({
   metric = DEFAULT_EXERCISE_METRIC,
   variant,
   compact = false,
+  size = "md",
   wrapped = false,
   hint,
   hintSuggested = false,
@@ -61,8 +64,12 @@ export function SetTable({
   addSetLabel = "+ Satz",
 }: SetTableProps) {
   const headers = setFieldHeaders(metric);
-  const valueFontSize = compact ? 17 : 21;
-  const actionsWidth = individualActionsWidth(variant);
+  const isLg = size === "lg";
+  const valueFontSize = compact ? 17 : isLg ? 24 : 21;
+  const setColWidth = isLg ? 36 : 34;
+  const warmUpColWidth = isLg ? 52 : WARMUP_COLUMN_WIDTH;
+  const actionBtnSize = isLg ? 44 : 32;
+  const actionsWidth = individualActionsWidth(variant, isLg);
   const warmUpChecked = Boolean(sets[0]?.warmUp);
   const canRemove = sets.length > 1;
 
@@ -85,18 +92,18 @@ export function SetTable({
       <div
         style={{
           display: "flex",
-          fontSize: 13,
+          fontSize: isLg ? 12 : 13,
           letterSpacing: 1.2,
           color: M.mut2,
           fontWeight: 700,
-          padding: wrapped ? "0 0 8px" : "4px 4px 8px",
+          padding: wrapped ? "0 0 8px" : isLg ? "6px 6px 10px" : "4px 4px 8px",
         }}
       >
         {headers.map((h) => (
           <span
             key={h.key}
             style={{
-              width: h.key === "set" ? 34 : undefined,
+              width: h.key === "set" ? setColWidth : undefined,
               flex: h.key === "set" ? undefined : 1,
               textAlign: h.key === "set" ? "left" : "center",
             }}
@@ -104,7 +111,7 @@ export function SetTable({
             {h.label}
           </span>
         ))}
-        <span style={{ width: WARMUP_COLUMN_WIDTH, textAlign: "center" }}>W-UP</span>
+        <span style={{ width: warmUpColWidth, textAlign: "center" }}>W-UP</span>
         <span style={{ width: actionsWidth }} />
       </div>
 
@@ -113,7 +120,8 @@ export function SetTable({
         const rowStyle: CSSProperties = {
           display: "flex",
           alignItems: "center",
-          padding: wrapped ? "8px 0" : "6px 4px",
+          minHeight: isLg ? 68 : undefined,
+          padding: wrapped ? (isLg ? "10px 0" : "8px 0") : isLg ? "10px 6px" : "6px 4px",
           borderTop: "1px solid " + (suggested ? "rgba(200,255,0,.22)" : M.line2),
           ...(suggested
             ? {
@@ -130,7 +138,8 @@ export function SetTable({
           <div key={si} style={rowStyle}>
             <span
               style={{
-                width: 34,
+                width: setColWidth,
+                flexShrink: 0,
                 fontFamily: M.disp,
                 fontWeight: 700,
                 fontSize: valueFontSize,
@@ -143,14 +152,15 @@ export function SetTable({
               set={s}
               metric={metric}
               compact={compact}
+              size={size}
               muted={suggested}
               onBump={(field, delta) => onBumpSet(si, field, delta)}
               onSetValue={(field, value) => onSetValue(si, field, value)}
             />
             {si === 0 ? (
-              <WarmUpSetToggle layout="compact" checked={warmUpChecked} onChange={onWarmUpChange} />
+              <WarmUpSetToggle layout="compact" size={size} checked={warmUpChecked} onChange={onWarmUpChange} />
             ) : (
-              <span style={{ width: WARMUP_COLUMN_WIDTH, flexShrink: 0 }} />
+              <span style={{ width: warmUpColWidth, flexShrink: 0 }} />
             )}
             <div
               style={{
@@ -168,9 +178,9 @@ export function SetTable({
                   onClick={() => onToggleDone(si)}
                   aria-label={s.done ? "Satz wieder öffnen" : suggested ? "Vorschlag bestätigen" : "Satz abschließen"}
                   style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 9,
+                    width: actionBtnSize,
+                    height: actionBtnSize,
+                    borderRadius: isLg ? 11 : 9,
                     border: s.done ? "none" : "1.5px solid " + (suggested ? M.brandBorder : M.line),
                     background: s.done ? M.acc : suggested ? M.brandSoft : "transparent",
                     color: s.done ? M.accInk : suggested ? M.brand : M.mut,
@@ -180,7 +190,7 @@ export function SetTable({
                     justifyContent: "center",
                   }}
                 >
-                  <Icon name="check" size={17} stroke={2.6} />
+                  <Icon name="check" size={isLg ? 20 : 17} stroke={2.6} />
                 </button>
               ) : null}
               <button
@@ -189,9 +199,9 @@ export function SetTable({
                 disabled={!canRemove}
                 aria-label="Satz entfernen"
                 style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 9,
+                  width: actionBtnSize,
+                  height: actionBtnSize,
+                  borderRadius: isLg ? 11 : 9,
                   border: "1px solid " + M.line2,
                   background: "transparent",
                   color: M.mut2,
@@ -202,7 +212,7 @@ export function SetTable({
                   justifyContent: "center",
                 }}
               >
-                <Icon name="minus" size={16} stroke={2.2} />
+                <Icon name="minus" size={isLg ? 18 : 16} stroke={2.2} />
               </button>
             </div>
           </div>
@@ -214,14 +224,15 @@ export function SetTable({
         onClick={onAddSet}
         style={{
           width: "100%",
-          marginTop: 8,
-          padding: "8px 0",
-          borderRadius: 10,
+          marginTop: isLg ? 12 : 8,
+          padding: isLg ? "12px 0" : "8px 0",
+          minHeight: isLg ? 48 : undefined,
+          borderRadius: isLg ? 12 : 10,
           border: "1px dashed " + M.line,
           background: "transparent",
           color: M.mut,
           fontWeight: 600,
-          fontSize: 13,
+          fontSize: isLg ? 15 : 13,
           cursor: "pointer",
           fontFamily: M.body,
         }}

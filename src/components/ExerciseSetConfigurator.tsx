@@ -1,4 +1,4 @@
-import { M, mMini } from "../theme";
+import { M, mMini, mMiniLg } from "../theme";
 import {
   addIndividualSet,
   bumpUniformField,
@@ -6,6 +6,7 @@ import {
   removeIndividualSet,
   setIndividualSetValue,
   setSetWarmUp,
+  setUniformCount,
   setUniformField,
   switchToIndividual,
   switchToUniform,
@@ -17,8 +18,11 @@ import {
 import type { ExerciseMetric } from "../lib/exerciseCatalog";
 import { DEFAULT_EXERCISE_METRIC } from "../lib/exerciseCatalog";
 import { SetMetricFields } from "./SetMetricFields";
+import { SetValueStepper } from "./SetValueStepper";
 import { WarmUpSetToggle } from "./WarmUpSetToggle";
 import { SetTable } from "./SetTable";
+
+const UNIFORM_ROW_WIDTH = "min(300px, 100%)";
 
 type ConfigSet = TemplateSet | TrackedSet;
 
@@ -120,6 +124,7 @@ export function ExerciseSetConfigurator({
   const template = sets[0] ?? { reps: 10, kg: 0 };
   const warmUpChecked = Boolean(sets[0]?.warmUp);
   const singleSetOnly = maxSets === 1;
+  const uiSize = compact ? "md" : "lg";
 
   const toggleWarmUp = (enabled: boolean) => {
     onChange(setMode, setSetWarmUp(sets, enabled));
@@ -130,37 +135,100 @@ export function ExerciseSetConfigurator({
       {!singleSetOnly && <SetModeToggle setMode={setMode} onChange={handleModeChange} />}
 
       {setMode === "uniform" || singleSetOnly ? (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: compact ? "flex-start" : "center",
-            gap: compact ? 8 : 10,
-            flexWrap: "wrap",
-          }}
-        >
-          {!singleSetOnly && (
-            <UniformStepper label="SÄTZE" value={count} onDec={() => bumpUniform("count", -1)} onInc={() => bumpUniform("count", 1)} />
-          )}
-          {!singleSetOnly && (
-            <span style={{ color: M.mut2, fontFamily: M.disp, fontSize: compact ? 14 : 16 }}>×</span>
-          )}
-          <SetMetricFields
-            set={template}
-            metric={metric}
-            layout="inline"
-            compact={compact}
-            onBump={(field, delta) => bumpUniform(field, delta)}
-            onSetValue={(field, value) => onChange("uniform", setUniformField(sets, field, value, metric))}
-          />
-          {!singleSetOnly && <WarmUpSetToggle layout="full" checked={warmUpChecked} onChange={toggleWarmUp} />}
-        </div>
+        compact ? (
+          <div style={{ width: "100%" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-end",
+                justifyContent: "flex-start",
+                gap: 8,
+                flexWrap: "wrap",
+                width: "100%",
+              }}
+            >
+              {!singleSetOnly && (
+                <>
+                  <UniformStepper
+                    label="SÄTZE"
+                    value={count}
+                    size={uiSize}
+                    onDec={() => bumpUniform("count", -1)}
+                    onInc={() => bumpUniform("count", 1)}
+                  />
+                  <span
+                    style={{
+                      color: M.mut2,
+                      fontFamily: M.disp,
+                      fontSize: 14,
+                      lineHeight: 1,
+                      paddingBottom: 6,
+                    }}
+                  >
+                    ×
+                  </span>
+                </>
+              )}
+              <SetMetricFields
+                set={template}
+                metric={metric}
+                layout="inline"
+                compact={compact}
+                size={uiSize}
+                onBump={(field, delta) => bumpUniform(field, delta)}
+                onSetValue={(field, value) => onChange("uniform", setUniformField(sets, field, value, metric))}
+              />
+            </div>
+            {!singleSetOnly && (
+              <WarmUpSetToggle layout="full" size={uiSize} checked={warmUpChecked} onChange={toggleWarmUp} />
+            )}
+          </div>
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 14,
+            }}
+          >
+            {!singleSetOnly && (
+              <div style={{ width: UNIFORM_ROW_WIDTH }}>
+                <SetValueStepper
+                  label="SÄTZE"
+                  value={count}
+                  step={1}
+                  min={1}
+                  kind="reps"
+                  onChange={(value) => onChange("uniform", setUniformCount(sets, value, metric))}
+                  size="lg"
+                  uniformRow
+                  fullWidth
+                  editable
+                />
+              </div>
+            )}
+            <SetMetricFields
+              set={template}
+              metric={metric}
+              layout="uniformStack"
+              size="lg"
+              onBump={(field, delta) => bumpUniform(field, delta)}
+              onSetValue={(field, value) => onChange("uniform", setUniformField(sets, field, value, metric))}
+            />
+            {!singleSetOnly && (
+              <WarmUpSetToggle layout="full" size="lg" checked={warmUpChecked} onChange={toggleWarmUp} />
+            )}
+          </div>
+        )
       ) : (
         <SetTable
           sets={sets}
           metric={metric}
           variant={variant}
           compact={compact}
+          size={uiSize}
           onBumpSet={(si, field, delta) => editSet(si, field, delta)}
           onSetValue={(si, field, value) => setField(si, field, value)}
           onToggleDone={variant === "tracked" ? toggleDone : undefined}
@@ -178,35 +246,50 @@ function UniformStepper({
   value,
   onDec,
   onInc,
+  size = "md",
 }: {
   label: string;
   value: number;
   onDec: () => void;
   onInc: () => void;
+  size?: "md" | "lg";
 }) {
+  const isLg = size === "lg";
+  const btn = isLg ? mMiniLg : mMini;
+
   return (
     <div style={{ textAlign: "center" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-        <button type="button" onClick={onDec} style={mMini}>
+      <div style={{ display: "flex", alignItems: "center", gap: isLg ? 8 : 5 }}>
+        <button type="button" onClick={onDec} style={btn} aria-label={`${label} verringern`}>
           –
         </button>
         <span
           style={{
             fontFamily: M.disp,
             fontWeight: 700,
-            fontSize: 18,
-            minWidth: 22,
+            fontSize: isLg ? 26 : 18,
+            minWidth: isLg ? 28 : 22,
             textAlign: "center",
             fontVariantNumeric: "tabular-nums",
           }}
         >
           {value}
         </span>
-        <button type="button" onClick={onInc} style={mMini}>
+        <button type="button" onClick={onInc} style={btn} aria-label={`${label} erhöhen`}>
           +
         </button>
       </div>
-      <div style={{ fontSize: 13, letterSpacing: 1, color: M.mut2, fontWeight: 700, marginTop: 2 }}>{label}</div>
+      <div
+        style={{
+          fontSize: isLg ? 12 : 13,
+          letterSpacing: 1,
+          color: M.mut2,
+          fontWeight: 700,
+          marginTop: isLg ? 8 : 2,
+        }}
+      >
+        {label}
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 
-// rephive — design tokens (dark monochrome premium, Saira Condensed display / Archivo body).
+// rephive — design tokens (charcoal premium, Saira Condensed display / Archivo body).
 export const APP_NAME = "rephive";
 /** PWA home-screen label (max. ~12 Zeichen empfohlen). */
 export const APP_NAME_SHORT = "rephive";
@@ -10,17 +10,17 @@ export const LOGO_ICON = "/bee-without-bg.svg";
 export const LOGO_WORDMARK = "/logo.png";
 
 export const M = {
-  bg: "#000000",
-  panel: "#121212",
-  card: "#1a1a1a",
-  cardHi: "#222222",
-  line: "rgba(255,255,255,.08)",
-  line2: "rgba(255,255,255,.05)",
+  bg: "#141414",
+  panel: "#1c1c1c",
+  card: "#262626",
+  cardHi: "#323232",
+  line: "rgba(255,255,255,.11)",
+  line2: "rgba(255,255,255,.07)",
   fg: "#fafafa",
   mut: "rgba(255,255,255,.58)",
   mut2: "rgba(255,255,255,.32)",
   acc: "var(--mom-acc, #fafafa)",
-  accSoft: "rgba(255,255,255,.08)",
+  accSoft: "rgba(255,255,255,.10)",
   accInk: "#0a0a0a",
   brand: "var(--mom-brand, #7ef67b)",
   brandStrong: "#7ef67b",
@@ -31,9 +31,9 @@ export const M = {
   brandButtonGlow: "0 4px 24px rgba(126,246,123,.35), 0 0 48px rgba(126,246,123,.12)",
   brandGlow: "0 0 20px rgba(126,246,123,.22)",
   brandGradient:
-    "linear-gradient(160deg, color-mix(in oklab, var(--mom-brand, #7ef67b) 14%, #1a1a1a), #111111)",
+    "linear-gradient(160deg, color-mix(in oklab, var(--mom-brand, #7ef67b) 14%, #262626), #1c1c1c)",
   brandGradientSubtle:
-    "linear-gradient(160deg, color-mix(in oklab, var(--mom-brand, #7ef67b) 8%, #1a1a1a), #141414)",
+    "linear-gradient(160deg, color-mix(in oklab, var(--mom-brand, #7ef67b) 8%, #262626), #202020)",
   rest: "#525252",
   prep: "#a3a3a3",
   disp: "'Saira Condensed', sans-serif",
@@ -263,4 +263,22 @@ export const mMini: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   fontFamily: M.body,
+};
+
+/** Larger stepper buttons — 44px touch target (Plan Builder, Session Edit). */
+export const mMiniLg: CSSProperties = {
+  width: 44,
+  height: 44,
+  borderRadius: 11,
+  border: "1px solid " + M.line,
+  background: M.bg,
+  color: M.fg,
+  fontSize: 22,
+  lineHeight: 1,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontFamily: M.body,
+  flexShrink: 0,
 };

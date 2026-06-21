@@ -307,6 +307,22 @@ export function bumpUniformField<T extends TemplateSet>(
   return sets.map((s) => bumpSetField(s, field, delta, metric)) as T[];
 }
 
+export function setUniformCount<T extends TemplateSet>(
+  sets: T[],
+  target: number,
+  metric: ExerciseMetric = "weight_reps",
+): T[] {
+  const next = Math.max(1, Math.round(target));
+  let current: T[] = sets.length ? [...sets] : ([createEmptySet(metric)] as T[]);
+  while (current.length < next) {
+    current = bumpUniformField(current, "count", 1, metric);
+  }
+  while (current.length > next) {
+    current = bumpUniformField(current, "count", -1, metric);
+  }
+  return current;
+}
+
 export function setUniformField<T extends TemplateSet>(
   sets: T[],
   field: SetField,

@@ -10,7 +10,7 @@ import {
   TIME_STEP_SEC,
 } from "../lib/exerciseCatalog";
 import { KG_STEP, type SetField } from "../lib/exerciseSets";
-import { M, mMini } from "../theme";
+import { M, mMini, mMiniLg } from "../theme";
 import { SetValueStepper } from "./SetValueStepper";
 
 export interface SetMetricFieldsProps {
@@ -19,7 +19,7 @@ export interface SetMetricFieldsProps {
   onBump: (field: SetField, delta: number) => void;
   onSetValue?: (field: SetField, value: number) => void;
   compact?: boolean;
-  layout?: "inline" | "cells" | "stack";
+  layout?: "inline" | "cells" | "stack" | "uniformStack";
   size?: "md" | "lg";
   /** Breite des Metrik-Blocks (z. B. „80%“ in Track-Karten). */
   areaWidth?: string;
@@ -67,7 +67,13 @@ function fieldMin(field: SetField): number {
   return DISTANCE_STEP_M;
 }
 
-function fieldMinWidth(field: SetField, compact: boolean): number {
+function fieldMinWidth(field: SetField, compact: boolean, isLg: boolean): number {
+  if (isLg) {
+    if (field === "reps") return 40;
+    if (field === "kg") return 76;
+    if (field === "durationSec" || field === "distanceM") return 88;
+    return 64;
+  }
   if (field === "reps") return compact ? 28 : 32;
   if (field === "kg") return 48;
   if (field === "durationSec" || field === "distanceM") return compact ? 44 : 52;
@@ -113,6 +119,8 @@ export function SetMetricFields({
     withLabel = false,
     stretch = false,
     labelOnTop = stretch,
+    uniformRow = false,
+    tableCell = false,
   ) => (
     <SetValueStepper
       label={
@@ -129,39 +137,42 @@ export function SetMetricFields({
       onChange={(val) => onSetValue!(field, val)}
       editable
       size={size}
-      fullWidth={stretch}
+      fullWidth={stretch || uniformRow}
       labelOnTop={labelOnTop}
-      fontSize={compact ? 17 : isLg ? 28 : 18}
-      minWidth={fieldMinWidth(field, compact)}
+      fontSize={compact ? 17 : tableCell ? 22 : isLg ? 28 : 18}
+      minWidth={tableCell ? undefined : uniformRow ? 96 : fieldMinWidth(field, compact, isLg)}
+      uniformRow={uniformRow}
+      tableCell={tableCell}
       muted={muted}
     />
   );
 
-  const renderField = (field: SetField) => {
+  const renderField = (field: SetField, useLgButtons = false) => {
     if (onSetValue) return renderEditableField(field);
 
     const isTime = field === "durationSec";
     const isDist = field === "distanceM";
     const display = fieldDisplay(set, field, metric);
+    const btn = useLgButtons ? mMiniLg : mMini;
 
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-        <button type="button" onClick={() => onBump(field, -1)} style={mMini}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: useLgButtons ? 6 : 6 }}>
+        <button type="button" onClick={() => onBump(field, -1)} style={btn}>
           –
         </button>
         <span
           style={{
             fontFamily: M.disp,
             fontWeight: 700,
-            fontSize: isTime || isDist ? (compact ? 14 : 16) : fontSize,
+            fontSize: isTime || isDist ? (compact ? 14 : useLgButtons ? 18 : 16) : fontSize,
             fontVariantNumeric: "tabular-nums",
-            minWidth: isTime || isDist ? 44 : 22,
+            minWidth: isTime || isDist ? (useLgButtons ? 52 : 44) : useLgButtons ? 32 : 22,
             textAlign: "center",
           }}
         >
           {display}
         </span>
-        <button type="button" onClick={() => onBump(field, 1)} style={mMini}>
+        <button type="button" onClick={() => onBump(field, 1)} style={btn}>
           +
         </button>
       </div>
@@ -199,6 +210,36 @@ export function SetMetricFields({
     );
   }
 
+  if (layout === "uniformStack") {
+    const rowWidth = "min(300px, 100%)";
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 14,
+          width: "100%",
+        }}
+      >
+        {fields.map((field) => (
+          <div key={field} style={{ width: rowWidth }}>
+            {onSetValue ? (
+              renderEditableField(field, true, false, false, true)
+            ) : (
+              <div style={{ textAlign: "center" }}>
+                {renderField(field)}
+                <div style={{ fontSize: 13, letterSpacing: 1, color: M.mut2, fontWeight: 700, marginTop: 2 }}>
+                  {fieldLabel(field, spec)}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (layout === "inline") {
     return (
       <div
@@ -220,8 +261,8 @@ export function SetMetricFields({
                   fontFamily: M.disp,
                   fontSize: compact ? 14 : isLg ? 18 : 16,
                   lineHeight: 1,
-                  paddingBottom: isLg ? 12 : 6,
-                  margin: isLg ? "0 4px" : undefined,
+                  paddingBottom: isLg ? 16 : compact ? 6 : 6,
+                  margin: isLg ? "0 2px" : undefined,
                 }}
               >
                 ×
@@ -246,8 +287,20 @@ export function SetMetricFields({
   return (
     <>
       {fields.map((field) => (
-        <div key={field} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {renderField(field)}
+        <div
+          key={field}
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minWidth: 0,
+            padding: isLg ? "0 4px" : undefined,
+          }}
+        >
+          {onSetValue
+            ? renderEditableField(field, false, false, false, false, isLg)
+            : renderField(field, isLg)}
         </div>
       ))}
     </>

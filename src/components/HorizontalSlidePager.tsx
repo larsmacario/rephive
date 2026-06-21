@@ -22,6 +22,11 @@ export interface HorizontalSlidePagerProps {
   tabLabel?: (index: number, count: number) => string;
   showIndicators?: boolean;
   indicatorVariant?: "tabs" | "dots";
+  tabListPadding?: string;
+  /** Größere Tag-Tabs für Plan Builder (44px Touch-Ziel). */
+  tabSize?: "md" | "lg";
+  /** z. B. „+“-Button rechts neben den Tag-Tabs. */
+  tabBarTrailing?: ReactNode;
 }
 
 export function HorizontalSlidePager({
@@ -34,7 +39,11 @@ export function HorizontalSlidePager({
   showIndicators = true,
   indicatorVariant = "tabs",
   footerBeforeIndicators,
+  tabListPadding = "10px 12px 4px",
+  tabSize = "md",
+  tabBarTrailing,
 }: HorizontalSlidePagerProps) {
+  const isLgTabs = tabSize === "lg";
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const axisLockRef = useRef<"x" | "y" | null>(null);
   const activeIndexRef = useRef(activeIndex);
@@ -193,16 +202,16 @@ export function HorizontalSlidePager({
           ariaLabel={ariaLabel}
         />
       ) : null}
-      {showIndicators && count > 1 && indicatorVariant === "tabs" ? (
+      {showIndicators && indicatorVariant === "tabs" && (count > 1 || tabBarTrailing) ? (
         <div
           role="tablist"
           aria-label="Plan-Navigation"
           style={{
             flexShrink: 0,
-            padding: "10px 12px 4px",
+            padding: tabListPadding,
             display: "flex",
             flexWrap: "wrap",
-            gap: "6px 14px",
+            gap: isLgTabs ? "8px 12px" : "6px 14px",
             alignItems: "center",
             justifyContent: "center",
             maxWidth: "100%",
@@ -222,23 +231,26 @@ export function HorizontalSlidePager({
                 onClick={() => goTo(i)}
                 style={{
                   border: "none",
-                  padding: "4px 2px",
+                  padding: isLgTabs ? "10px 16px" : "4px 2px",
+                  minHeight: isLgTabs ? 44 : undefined,
+                  boxSizing: "border-box",
                   background: "transparent",
                   cursor: "pointer",
                   flexShrink: 0,
                   fontFamily: M.disp,
-                  fontSize: 13,
+                  fontSize: isLgTabs ? 16 : 13,
                   fontWeight: isActive ? 700 : 600,
                   color: isActive ? M.brand : M.mut2,
                   textDecoration: isActive ? "underline" : "none",
-                  textUnderlineOffset: 4,
-                  letterSpacing: 0.2,
+                  textUnderlineOffset: isLgTabs ? 5 : 4,
+                  letterSpacing: isLgTabs ? 0.3 : 0.2,
                 }}
               >
                 {label}
               </button>
             );
           })}
+          {tabBarTrailing}
         </div>
       ) : null}
     </div>

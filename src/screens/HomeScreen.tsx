@@ -467,7 +467,7 @@ export function HomeScreen({
                     ? i === weekData.length - 1
                       ? M.brand
                       : M.brandSoft
-                    : "rgba(255,255,255,.08)",
+                    : M.line,
                   opacity: w.v ? (i === weekData.length - 1 ? 1 : 0.45) : 1,
                 }}
               />
