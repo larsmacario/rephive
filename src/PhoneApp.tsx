@@ -507,10 +507,15 @@ function PhoneAppInner() {
     );
   }
 
+  const ownBottomSafeArea =
+    route?.kind === "planBuilder" ||
+    route?.kind === "planDetail" ||
+    route?.kind === "expressTrackingSetup";
+
   return (
     <PhoneShell
       reserveBottomSafeArea={
-        showNav && navPlacement === "bottom" ? false : route?.kind === "planBuilder" ? false : true
+        !(showNav && navPlacement === "bottom") && !ownBottomSafeArea
       }
     >
       <div

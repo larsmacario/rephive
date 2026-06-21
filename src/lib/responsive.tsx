@@ -67,6 +67,12 @@ export function useShortViewport(threshold = 740): boolean {
 /** Horizontal padding used by tab screens — nav aligns to the same inset. */
 export const CONTENT_HORIZONTAL_PADDING = 22;
 
+/** Fixed bottom padding for scroll areas when PhoneShell reserves safe-area. */
+export const SCROLL_BOTTOM_PADDING = 24;
+
+/** Bottom padding for fixed footer bars that own safe-area (shell padding off). */
+export const FOOTER_BAR_PADDING_BOTTOM = "max(10px, env(safe-area-inset-bottom, 0px))";
+
 /** Max content width per breakpoint for centered layouts. */
 export function contentMaxWidth(bp: Breakpoint): number | undefined {
   if (bp === "mobile") return undefined;

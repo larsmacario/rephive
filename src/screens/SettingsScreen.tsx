@@ -7,6 +7,7 @@ import { Icon } from "../components/Icon";
 import { TimerConfigPanel } from "../components/TimerConfigPanel";
 import { MStepper, MSwitch } from "../components/widgets";
 import { MButton } from "../components/MButton";
+import { SCROLL_BOTTOM_PADDING } from "../lib/responsive";
 import { BottomSheet } from "../components/BottomSheet";
 import { AiConsentStep } from "../components/AiConsentStep";
 import { OwnerLabsSection } from "../components/settings/OwnerLabsSection";
@@ -139,7 +140,7 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
         </span>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 22px 24px" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: `0 22px ${SCROLL_BOTTOM_PADDING}px` }}>
         <Section title="TRAINING">
           <SettingRow label="Pausenzeit" hint="Pause nach abgehaktem Satz">
             <MStepper

@@ -8,6 +8,7 @@ import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { TrendLineChart } from "../components/TrendLineChart";
 import { buildWeightSeries } from "../lib/bodyChart";
 import { MButton } from "../components/MButton";
+import { SCROLL_BOTTOM_PADDING } from "../lib/responsive";
 import {
   useBodyMeasurements,
   createBodyMeasurement,
@@ -527,7 +528,7 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
-          padding: "0 22px 24px",
+          padding: `0 22px ${SCROLL_BOTTOM_PADDING}px`,
         }}
       >
         {activeTab === "werte" && (

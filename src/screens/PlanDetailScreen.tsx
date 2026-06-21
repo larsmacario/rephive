@@ -7,6 +7,7 @@ import { weekdayLabelsFromSummary } from "../lib/trainingWeekdays";
 import { Icon } from "../components/Icon";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { PlanAdviceCollapsible } from "../components/PlanAdviceCollapsible";
+import { FOOTER_BAR_PADDING_BOTTOM } from "../lib/responsive";
 import { HorizontalSlidePager } from "../components/HorizontalSlidePager";
 import { PlanDaySlide } from "../components/PlanDaySlide";
 import { OneRmPercentInfoCard } from "../components/OneRmPercentInfoCard";
@@ -288,7 +289,8 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
 
       <div
         style={{
-          padding: "10px 22px 14px",
+          padding: "10px 22px 0",
+          paddingBottom: FOOTER_BAR_PADDING_BOTTOM,
           display: "flex",
           flexDirection: "row",
           alignItems: "stretch",

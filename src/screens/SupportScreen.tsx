@@ -4,6 +4,7 @@ import { Icon } from "../components/Icon";
 import { useAuth } from "../lib/auth";
 import { submitSupportRequest, type SupportCategory } from "../lib/support";
 import { MButton } from "../components/MButton";
+import { SCROLL_BOTTOM_PADDING } from "../lib/responsive";
 
 const CATEGORIES = [
   { id: "bug", label: "Bug" },
@@ -112,7 +113,7 @@ export function SupportScreen({ onBack }: SupportScreenProps) {
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
-          padding: "4px 22px calc(28px + env(safe-area-inset-bottom, 0px))",
+          padding: `4px 22px ${SCROLL_BOTTOM_PADDING}px`,
         }}
       >
         {sent ? (

@@ -7,6 +7,7 @@ import { MStat } from "../components/widgets";
 import { TrendLineChart } from "../components/TrendLineChart";
 import { useBodyMeasurements } from "../lib/db";
 import { MButton } from "../components/MButton";
+import { SCROLL_BOTTOM_PADDING } from "../lib/responsive";
 
 const PERIODS: { id: StatsPeriod; label: string }[] = [
   { id: "d7", label: "7 Tage" },
@@ -115,7 +116,7 @@ export function StatsScreen({ onBack, refreshKey = 0 }: StatsScreenProps) {
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
-          padding: "0 22px 24px",
+          padding: `0 22px ${SCROLL_BOTTOM_PADDING}px`,
         }}
       >
         {loading && <div style={{ color: M.mut, fontSize: 14 }}>Statistiken werden geladen…</div>}

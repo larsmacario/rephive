@@ -49,9 +49,7 @@ import { PlanDaySlide } from "../components/PlanDaySlide";
 import { PlanDayWeekdayPicker } from "../components/PlanDayWeekdayPicker";
 import { MButton } from "../components/MButton";
 import { HorizontalSlidePager } from "../components/HorizontalSlidePager";
-
-/** Safe-area only — shell padding is disabled for plan builder. */
-const PLAN_BUILDER_FOOTER_PADDING = "max(8px, env(safe-area-inset-bottom, 0px))";
+import { FOOTER_BAR_PADDING_BOTTOM } from "../lib/responsive";
 
 interface BuilderExercise extends LibraryExercise {
   blockType: TrainingBlockType;
@@ -467,7 +465,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
               alignItems: "center",
               justifyContent: "center",
               gap: 10,
-              paddingBottom: PLAN_BUILDER_FOOTER_PADDING,
+              paddingBottom: FOOTER_BAR_PADDING_BOTTOM,
             }}
           >
             <MButton
@@ -612,7 +610,7 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
               style={{
                 flexShrink: 0,
                 paddingTop: 8,
-                paddingBottom: PLAN_BUILDER_FOOTER_PADDING,
+                paddingBottom: FOOTER_BAR_PADDING_BOTTOM,
               }}
             >
               <MButton

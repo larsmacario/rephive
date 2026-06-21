@@ -7,7 +7,7 @@ import { BirthDateField } from "../components/BirthDateField";
 import { AppLogo } from "../components/AppLogo";
 import { MButton } from "../components/MButton";
 import { createBodyMeasurement } from "../lib/db";
-import { useBreakpoint } from "../lib/responsive";
+import { useBreakpoint, FOOTER_BAR_PADDING_BOTTOM } from "../lib/responsive";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -163,7 +163,14 @@ export function OnboardingWizard() {
         alignItems: "center",
         justifyContent: "space-between",
         boxSizing: "border-box",
-        padding: breakpoint === "desktop" ? "40px 24px" : "24px 22px",
+        ...(breakpoint === "desktop"
+          ? { padding: "40px 24px" }
+          : {
+              paddingTop: 24,
+              paddingLeft: 22,
+              paddingRight: 22,
+              paddingBottom: FOOTER_BAR_PADDING_BOTTOM,
+            }),
         fontFamily: M.body,
       }}
     >

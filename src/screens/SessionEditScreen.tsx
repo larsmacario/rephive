@@ -8,6 +8,7 @@ import { Icon } from "../components/Icon";
 import { MTag } from "../components/widgets";
 import { SessionExerciseEditor } from "../components/SessionExerciseEditor";
 import { MButton } from "../components/MButton";
+import { SCROLL_BOTTOM_PADDING } from "../lib/responsive";
 
 export interface SessionEditScreenProps {
   sessionId: string;
@@ -162,7 +163,7 @@ export function SessionEditScreen({ sessionId, onBack, onSave }: SessionEditScre
 
       {saveError && <div style={{ padding: "0 22px 8px", color: "#ff8a8a", fontSize: 13 }}>{saveError}</div>}
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 22px 16px", display: "flex", flexDirection: "column", gap: 18 }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: `0 22px ${SCROLL_BOTTOM_PADDING}px`, display: "flex", flexDirection: "column", gap: 18 }}>
         <div>
           <div style={fieldLabel}>NAME</div>
           <input value={name} onChange={(e) => setName(e.target.value)} style={fieldInput} />

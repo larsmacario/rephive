@@ -1,4 +1,5 @@
 import { M } from "../theme";
+import { SCROLL_BOTTOM_PADDING } from "../lib/responsive";
 import { Icon } from "../components/Icon";
 import { MButton } from "../components/MButton";
 import {
@@ -81,7 +82,7 @@ export function AboutScreen({ onBack }: AboutScreenProps) {
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
-          padding: "8px 22px calc(32px + env(safe-area-inset-bottom, 0px))",
+          padding: `8px 22px ${SCROLL_BOTTOM_PADDING}px`,
         }}
       >
         <div style={{ textAlign: "center", marginBottom: 28 }}>

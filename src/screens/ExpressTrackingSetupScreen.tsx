@@ -9,6 +9,7 @@ import { SwipeRevealRow } from "../components/SwipeRevealRow";
 import { ExerciseListRowDumbbellIcon, ExerciseListRowText } from "../components/ExerciseListRow";
 import { useExercises, fetchRecentExpressTrackingSessions } from "../lib/db";
 import { usePreferences } from "../lib/preferences";
+import { FOOTER_BAR_PADDING_BOTTOM } from "../lib/responsive";
 import {
   buildExpressTrackingWorkout,
   extractExpressTemplatesFromSession,
@@ -348,7 +349,8 @@ export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingS
       <div
         style={{
           flexShrink: 0,
-          padding: "10px 18px 14px",
+          padding: "10px 18px 0",
+          paddingBottom: FOOTER_BAR_PADDING_BOTTOM,
           borderTop: "1px solid " + M.line2,
           background: M.bg,
         }}

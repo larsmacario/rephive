@@ -15,7 +15,7 @@ import {
   type TrainingSplitDays,
   type TrainingStructure,
 } from "../lib/preferences";
-import { useBreakpoint } from "../lib/responsive";
+import { useBreakpoint, SCROLL_BOTTOM_PADDING } from "../lib/responsive";
 import { MUSCLE_GROUP_SECTIONS } from "../lib/exerciseCatalog";
 import { normalizeMusclePriorities, type MusclePriorities } from "../lib/musclePriorities";
 import { MusclePrioritySliderRow } from "../components/MusclePrioritySliderRow";
@@ -606,7 +606,14 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
         alignItems: "center",
         justifyContent: "space-between",
         boxSizing: "border-box",
-        padding: breakpoint === "desktop" ? "40px 24px" : "24px 22px",
+        ...(breakpoint === "desktop"
+          ? { padding: "40px 24px" }
+          : {
+              paddingTop: 24,
+              paddingLeft: 22,
+              paddingRight: 22,
+              paddingBottom: SCROLL_BOTTOM_PADDING,
+            }),
         fontFamily: M.body,
         overflowY: scrollableMain ? "hidden" : "auto",
       }}

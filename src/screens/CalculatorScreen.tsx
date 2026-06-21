@@ -1,6 +1,7 @@
 import { M } from "../theme";
 import { Icon } from "../components/Icon";
 import { OneRmCalculatorBody } from "../components/OneRmCalculatorBody";
+import { SCROLL_BOTTOM_PADDING } from "../lib/responsive";
 
 export interface CalculatorScreenProps {
   onBack: () => void;
@@ -34,7 +35,7 @@ export function CalculatorScreen({ onBack }: CalculatorScreenProps) {
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
-          padding: "0 22px calc(24px + env(safe-area-inset-bottom, 0px))",
+          padding: `0 22px ${SCROLL_BOTTOM_PADDING}px`,
         }}
       >
         <OneRmCalculatorBody />
