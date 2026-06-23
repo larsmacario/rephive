@@ -21,6 +21,7 @@ import { SetMetricFields } from "./SetMetricFields";
 import { SetValueStepper } from "./SetValueStepper";
 import { WarmUpSetToggle } from "./WarmUpSetToggle";
 import { SetTable } from "./SetTable";
+import { useBreakpoint } from "../lib/responsive";
 
 const UNIFORM_ROW_WIDTH = "min(300px, 100%)";
 
@@ -92,6 +93,7 @@ export function ExerciseSetConfigurator({
   compact = false,
   maxSets,
 }: ExerciseSetConfiguratorProps) {
+  const isMobile = useBreakpoint() === "mobile";
   const handleModeChange = (mode: SetMode) => {
     if (mode === setMode) return;
     const next = mode === "uniform" ? switchToUniform(sets) : switchToIndividual(sets);
@@ -229,6 +231,7 @@ export function ExerciseSetConfigurator({
           variant={variant}
           compact={compact}
           size={uiSize}
+          stacked={isMobile && !compact}
           onBumpSet={(si, field, delta) => editSet(si, field, delta)}
           onSetValue={(si, field, value) => setField(si, field, value)}
           onToggleDone={variant === "tracked" ? toggleDone : undefined}

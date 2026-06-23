@@ -31,6 +31,8 @@ export interface SetTableProps {
   metric?: ExerciseMetric;
   variant: "template" | "tracked";
   compact?: boolean;
+  /** Mobile Plan Builder: metrics use their own large, full-width controls. */
+  stacked?: boolean;
   size?: "md" | "lg";
   /** Neutral card wrapper (TrackScreen). */
   wrapped?: boolean;
@@ -51,6 +53,7 @@ export function SetTable({
   metric = DEFAULT_EXERCISE_METRIC,
   variant,
   compact = false,
+  stacked = false,
   size = "md",
   wrapped = false,
   hint,
@@ -89,34 +92,122 @@ export function SetTable({
         </div>
       ) : null}
 
-      <div
-        style={{
-          display: "flex",
-          fontSize: isLg ? 12 : 13,
-          letterSpacing: 1.2,
-          color: M.mut2,
-          fontWeight: 700,
-          padding: wrapped ? "0 0 8px" : isLg ? "6px 6px 10px" : "4px 4px 8px",
-        }}
-      >
-        {headers.map((h) => (
-          <span
-            key={h.key}
-            style={{
-              width: h.key === "set" ? setColWidth : undefined,
-              flex: h.key === "set" ? undefined : 1,
-              textAlign: h.key === "set" ? "left" : "center",
-            }}
-          >
-            {h.label}
-          </span>
-        ))}
-        <span style={{ width: warmUpColWidth, textAlign: "center" }}>W-UP</span>
-        <span style={{ width: actionsWidth }} />
-      </div>
+      {!stacked && (
+        <div
+          style={{
+            display: "flex",
+            fontSize: isLg ? 12 : 13,
+            letterSpacing: 1.2,
+            color: M.mut2,
+            fontWeight: 700,
+            padding: wrapped ? "0 0 8px" : isLg ? "6px 6px 10px" : "4px 4px 8px",
+          }}
+        >
+          {headers.map((h) => (
+            <span
+              key={h.key}
+              style={{
+                width: h.key === "set" ? setColWidth : undefined,
+                flex: h.key === "set" ? undefined : 1,
+                textAlign: h.key === "set" ? "left" : "center",
+              }}
+            >
+              {h.label}
+            </span>
+          ))}
+          <span style={{ width: warmUpColWidth, textAlign: "center" }}>W-UP</span>
+          <span style={{ width: actionsWidth }} />
+        </div>
+      )}
 
       {sets.map((s, si) => {
         const suggested = isSuggestedRow(s);
+
+        if (stacked) {
+          return (
+            <div
+              key={si}
+              style={{
+                marginTop: si === 0 ? 0 : 10,
+                padding: "12px",
+                border: "1px solid " + (suggested ? M.brandBorder : M.line2),
+                borderRadius: 14,
+                background: suggested ? M.brandSoft : M.card,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", minHeight: 44, marginBottom: 10 }}>
+                <span
+                  style={{
+                    flex: 1,
+                    fontFamily: M.disp,
+                    fontWeight: 700,
+                    fontSize: 22,
+                    color: s.done ? M.acc : si === 0 && s.warmUp ? M.acc : suggested ? M.brand : M.fg,
+                  }}
+                >
+                  Satz {setNumberLabel(si, s.warmUp)}
+                </span>
+                {si === 0 && (
+                  <WarmUpSetToggle layout="compact" size="lg" checked={warmUpChecked} onChange={onWarmUpChange} />
+                )}
+                {variant === "tracked" && onToggleDone ? (
+                  <button
+                    type="button"
+                    onClick={() => onToggleDone(si)}
+                    aria-label={s.done ? "Satz wieder öffnen" : suggested ? "Vorschlag bestätigen" : "Satz abschließen"}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      marginLeft: 8,
+                      borderRadius: 11,
+                      border: s.done ? "none" : "1.5px solid " + (suggested ? M.brandBorder : M.line),
+                      background: s.done ? M.acc : suggested ? M.brandSoft : "transparent",
+                      color: s.done ? M.accInk : suggested ? M.brand : M.mut,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Icon name="check" size={20} stroke={2.6} />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => onRemove(si)}
+                  disabled={!canRemove}
+                  aria-label="Satz entfernen"
+                  style={{
+                    width: 44,
+                    height: 44,
+                    marginLeft: 8,
+                    borderRadius: 11,
+                    border: "1px solid " + M.line2,
+                    background: "transparent",
+                    color: M.mut2,
+                    cursor: canRemove ? "pointer" : "not-allowed",
+                    opacity: canRemove ? 1 : 0.4,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Icon name="minus" size={18} stroke={2.2} />
+                </button>
+              </div>
+              <SetMetricFields
+                set={s}
+                metric={metric}
+                layout="stack"
+                size="lg"
+                onBump={(field, delta) => onBumpSet(si, field, delta)}
+                onSetValue={(field, value) => onSetValue(si, field, value)}
+                muted={suggested}
+              />
+            </div>
+          );
+        }
+
         const rowStyle: CSSProperties = {
           display: "flex",
           alignItems: "center",
