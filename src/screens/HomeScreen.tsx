@@ -407,7 +407,7 @@ export function HomeScreen({
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
         <MButton onClick={() => setWeekPlannerOpen(true)} variant="primary" size="md" style={{ flex: 1 }}>
-          <Icon name="calendar" size={16} color={M.brandInk} /> Woche planen
+          Woche planen
         </MButton>
         <MButton onClick={dismissWeekPlannerCard} variant="secondary" size="md" style={{ flex: 1, background: M.panel }}>
           Später
@@ -694,7 +694,7 @@ export function HomeScreen({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <span style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>PROTEIN / WOCHE</span>
           <span style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 16, color: M.brand }}>
-            Heute {proteinLoggedTodayG}/{proteinTargetG} g
+            {proteinLoggedTodayG}/{proteinTargetG} g
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 84, marginTop: 12, position: "relative" }}>
@@ -765,7 +765,7 @@ export function HomeScreen({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <span style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>WASSER / WOCHE</span>
           <span style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 16, color: M.brand }}>
-            Heute {formatWaterAmount(waterLoggedTodayMl)}/{formatWaterAmount(waterTargetMl)}
+            {formatWaterAmount(waterLoggedTodayMl)}/{formatWaterAmount(waterTargetMl)}
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 84, marginTop: 12, position: "relative" }}>

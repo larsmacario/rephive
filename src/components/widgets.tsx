@@ -160,7 +160,18 @@ export function MStat({
         padding: "12px 13px",
       }}
     >
-      <div style={{ fontSize: 13, letterSpacing: 1.4, color: M.brand, fontWeight: 700 }}>{label}</div>
+      <div
+        style={{
+          fontSize: 13,
+          letterSpacing: 1.4,
+          color: M.brand,
+          fontWeight: 700,
+          lineHeight: 1.25,
+          minHeight: "2.5em",
+        }}
+      >
+        {label}
+      </div>
       <div
         style={{
           fontFamily: M.disp,
