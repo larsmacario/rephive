@@ -17,9 +17,23 @@ import {
   getDraftMetrics,
 } from "../lib/activeWorkout";
 import { fmtUp } from "../lib/engine";
-import { useActivePlan, useHomeStats, useWeeklyVolume, useBodyMeasurements, sumProteinToday, useProteinLogsToday, useProteinLogsSince, useSessions } from "../lib/db";
-import { computeRecoveryContext, computeWeeklyRecoveryStats, getWeekStartMonday } from "../lib/recoveryEngine";
-import { useRecoveryTarget } from "../lib/recoveryTarget";
+import {
+  createWaterLog,
+  sumProteinToday,
+  sumWaterToday,
+  useActivePlan,
+  useBodyMeasurements,
+  useHomeStats,
+  useProteinLogsSince,
+  useProteinLogsToday,
+  useSessions,
+  useWaterLogsLastSevenDays,
+  useWaterLogsToday,
+  useWeeklyVolume,
+} from "../lib/db";
+import { computeRecoveryContext, computeWeeklyRecoveryStats, aggregateProteinByWeekday, getWeekStartMonday } from "../lib/recoveryEngine";
+import { useRecoveryTargets } from "../lib/recoveryTarget";
+import { aggregateWaterLastSevenDays, formatWaterAmount, shouldShowHydrationHint, toLocalDateKey } from "../lib/hydration";
 import { useNetwork } from "../lib/offline/networkStatus";
 import { Icon } from "../components/Icon";
 import { ScreenScroll } from "../components/ScreenScroll";
@@ -29,6 +43,7 @@ import { MStat } from "../components/widgets";
 import { MButton } from "../components/MButton";
 import { UserAvatar } from "../components/UserAvatar";
 import { WeekPlannerSheet } from "../components/WeekPlannerSheet";
+import { AlertSheet } from "../components/AlertSheet";
 
 export interface HomeScreenProps {
   onStart: (planDayId: string, planId?: string) => void;
@@ -42,7 +57,7 @@ export interface HomeScreenProps {
   onOpenStats: () => void;
   onOpenCalculator: () => void;
   onOpenBodyTracker: () => void;
-  onOpenRecovery: () => void;
+  onOpenRecovery: (section?: "protein" | "water") => void;
   refreshKey?: number;
   trackLoading?: boolean;
 }
@@ -71,7 +86,15 @@ export function HomeScreen({
   const { data: stats, reload: reloadStats } = useHomeStats();
   const { data: measurements, reload: reloadMeasurements } = useBodyMeasurements(refreshKey);
   const { data: proteinLogsToday, reload: reloadProteinLogs } = useProteinLogsToday(refreshKey);
-  const { proteinTargetG } = useRecoveryTarget();
+  const [waterRefreshKey, setWaterRefreshKey] = useState(0);
+  const {
+    data: waterLogsToday,
+    loading: waterLogsLoading,
+    error: waterLogsError,
+    reload: reloadWaterLogs,
+  } = useWaterLogsToday(refreshKey + waterRefreshKey);
+  const { data: waterLogsWeek, reload: reloadWaterWeek } = useWaterLogsLastSevenDays(refreshKey + waterRefreshKey);
+  const { proteinTargetG, waterTargetMl, loading: recoveryTargetsLoading } = useRecoveryTargets();
   const weekStartMonday = useMemo(() => getWeekStartMonday(), []);
   const { data: proteinLogsWeek } = useProteinLogsSince(weekStartMonday, refreshKey);
   const { data: sessions } = useSessions();
@@ -84,6 +107,9 @@ export function HomeScreen({
   const [durationSec, setDurationSec] = useState(0);
   const [selectedIsoWeekday, setSelectedIsoWeekday] = useState(() => getTodayIsoWeekday());
   const [weekPlannerOpen, setWeekPlannerOpen] = useState(false);
+  const [hydrationBusy, setHydrationBusy] = useState(false);
+  const [hydrationAlert, setHydrationAlert] = useState<string | null>(null);
+  const [hydrationNow, setHydrationNow] = useState(() => new Date());
 
   useEffect(() => {
     if (!activeWorkout) return;
@@ -93,6 +119,11 @@ export function HomeScreen({
     return () => clearInterval(id);
   }, [activeWorkout?.startedAt]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setHydrationNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const activeMetrics = activeWorkout ? getDraftMetrics(activeWorkout) : null;
 
   useEffect(() => {
@@ -101,7 +132,9 @@ export function HomeScreen({
     reloadStats();
     reloadMeasurements();
     reloadProteinLogs();
-  }, [refreshKey, reloadPlan, reloadWeek, reloadStats, reloadMeasurements, reloadProteinLogs]);
+    reloadWaterLogs();
+    reloadWaterWeek();
+  }, [refreshKey, reloadPlan, reloadWeek, reloadStats, reloadMeasurements, reloadProteinLogs, reloadWaterLogs, reloadWaterWeek]);
 
   useEffect(() => {
     if (finishSheet) {
@@ -133,6 +166,28 @@ export function HomeScreen({
 
   const weekData = week ?? [];
   const maxV = Math.max(...weekData.map((w) => w.v), 1);
+  const proteinWeekData = useMemo(
+    () => aggregateProteinByWeekday(proteinLogsWeek ?? []),
+    [proteinLogsWeek],
+  );
+  const maxProteinV = Math.max(...proteinWeekData.map((w) => w.v), proteinTargetG, 1);
+  const proteinChartBarHeight = 64;
+  const proteinGoalLineBottom =
+    proteinTargetG > 0 ? (proteinTargetG / maxProteinV) * proteinChartBarHeight : 0;
+  const showProteinGoalLine = proteinTargetG > 0 && proteinGoalLineBottom >= 2;
+  const waterWeekData = useMemo(
+    () => aggregateWaterLastSevenDays(waterLogsWeek ?? []),
+    [waterLogsWeek],
+  );
+  const maxWaterV = Math.max(...waterWeekData.map((day) => day.amountMl), waterTargetMl, 1);
+  const waterChartBarHeight = 64;
+  const waterGoalLineBottom =
+    waterTargetMl > 0 ? (waterTargetMl / maxWaterV) * waterChartBarHeight : 0;
+  const showWaterGoalLine = waterTargetMl > 0 && waterGoalLineBottom >= 2;
+  const todayChartIdx = useMemo(() => {
+    const day = new Date().getDay();
+    return day === 0 ? 6 : day - 1;
+  }, []);
   const planTrainingWeekdays = activePlan ? getPlanTrainingWeekdays(activePlan) : undefined;
   const weekdayLabels = weekdayLabelsFromTrainingWeekdays(planTrainingWeekdays);
   const calendarWeek = useMemo(
@@ -183,6 +238,36 @@ export function HomeScreen({
   };
 
   const proteinLoggedTodayG = useMemo(() => sumProteinToday(proteinLogsToday ?? []), [proteinLogsToday]);
+  const waterLoggedTodayMl = useMemo(() => sumWaterToday(waterLogsToday ?? []), [waterLogsToday]);
+  const showHydrationHint =
+    !waterLogsLoading &&
+    !waterLogsError &&
+    !recoveryTargetsLoading &&
+    shouldShowHydrationHint({
+      now: hydrationNow,
+      loggedMl: waterLoggedTodayMl,
+      targetMl: waterTargetMl,
+      dismissedDate: preferences.hydrationHintDismissedDate,
+      isOnline,
+    });
+
+  const addWaterFromHint = async () => {
+    if (!user || hydrationBusy) return;
+    setHydrationBusy(true);
+    try {
+      await createWaterLog(user.id, { amountMl: 250, source: "home_hint" });
+      setWaterRefreshKey((key) => key + 1);
+      reloadWaterLogs();
+    } catch (cause) {
+      setHydrationAlert(cause instanceof Error ? cause.message : "Wasser konnte nicht gespeichert werden.");
+    } finally {
+      setHydrationBusy(false);
+    }
+  };
+
+  const dismissHydrationHint = () => {
+    updatePreferences({ hydrationHintDismissedDate: toLocalDateKey() }, true);
+  };
 
   const draftRecoveryContext = useMemo(() => {
     if (!activeWorkout || !activeMetrics) return null;
@@ -351,7 +436,7 @@ export function HomeScreen({
           : "Nach dem Training reicht oft ein Tap im Finish-Dialog."}
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-        <MButton onClick={onOpenRecovery} variant="primary" size="md" style={{ flex: 1 }}>
+        <MButton onClick={() => onOpenRecovery("protein")} variant="primary" size="md" style={{ flex: 1 }}>
           Recovery öffnen
         </MButton>
         <MButton onClick={dismissRecoveryWeekCard} variant="secondary" size="md" style={{ flex: 1, background: M.panel }}>
@@ -583,6 +668,137 @@ export function HomeScreen({
     </div>
   );
 
+  const proteinChart = (
+    <MButton
+      type="button"
+      variant="ghost"
+      onClick={() => onOpenRecovery("protein")}
+      style={{
+        marginTop: 14,
+        width: "100%",
+        height: "auto",
+        minHeight: 0,
+        padding: 0,
+        display: "block",
+        textAlign: "left",
+      }}
+    >
+      <div
+        style={{
+          background: M.card,
+          border: "1px solid " + M.line2,
+          borderRadius: 18,
+          padding: "15px 16px 12px",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <span style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>PROTEIN / WOCHE</span>
+          <span style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 16, color: M.brand }}>
+            Heute {proteinLoggedTodayG}/{proteinTargetG} g
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 84, marginTop: 12, position: "relative" }}>
+          {showProteinGoalLine ? (
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 20,
+                height: proteinChartBarHeight,
+                pointerEvents: "none",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  bottom: proteinGoalLineBottom,
+                  borderTop: `1px dashed ${M.mut}`,
+                  opacity: 0.55,
+                }}
+              />
+            </div>
+          ) : null}
+          {proteinWeekData.map((w, i) => (
+            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <div style={{ width: "100%", height: proteinChartBarHeight, display: "flex", alignItems: "flex-end" }}>
+                <div
+                  style={{
+                    width: "100%",
+                    height: (w.v ? Math.max(8, (w.v / maxProteinV) * proteinChartBarHeight) : 3) + "px",
+                    borderRadius: 5,
+                    background: w.v
+                      ? i === todayChartIdx
+                        ? M.brand
+                        : M.brandSoft
+                      : M.line,
+                    opacity: w.v ? (i === todayChartIdx ? 1 : 0.45) : 1,
+                  }}
+                />
+              </div>
+              <span style={{ fontSize: 13, color: M.mut2, fontWeight: 700 }}>{w.d}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </MButton>
+  );
+
+  const waterChart = (
+    <MButton
+      type="button"
+      variant="ghost"
+      onClick={() => onOpenRecovery("water")}
+      style={{
+        marginTop: 14,
+        width: "100%",
+        height: "auto",
+        minHeight: 0,
+        padding: 0,
+        display: "block",
+        textAlign: "left",
+      }}
+    >
+      <div style={{ background: M.card, border: `1px solid ${M.line2}`, borderRadius: 18, padding: "15px 16px 12px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <span style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700 }}>WASSER / WOCHE</span>
+          <span style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 16, color: M.brand }}>
+            Heute {formatWaterAmount(waterLoggedTodayMl)}/{formatWaterAmount(waterTargetMl)}
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 84, marginTop: 12, position: "relative" }}>
+          {showWaterGoalLine ? (
+            <div style={{ position: "absolute", left: 0, right: 0, bottom: 20, height: waterChartBarHeight, pointerEvents: "none" }}>
+              <div style={{ position: "absolute", left: 0, right: 0, bottom: waterGoalLineBottom, borderTop: `1px dashed ${M.mut}`, opacity: 0.55 }} />
+            </div>
+          ) : null}
+          {waterWeekData.map((day, index) => (
+            <div key={day.dateKey} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <div title={formatWaterAmount(day.amountMl)} style={{ width: "100%", height: waterChartBarHeight, display: "flex", alignItems: "flex-end" }}>
+                <div
+                  style={{
+                    width: "100%",
+                    height: `${day.amountMl ? Math.max(8, (day.amountMl / maxWaterV) * waterChartBarHeight) : 3}px`,
+                    borderRadius: 5,
+                    background: day.amountMl
+                      ? index === waterWeekData.length - 1
+                        ? M.brand
+                        : M.brandSoft
+                      : M.line,
+                    opacity: day.amountMl ? (index === waterWeekData.length - 1 ? 1 : 0.45) : 1,
+                  }}
+                />
+              </div>
+              <span style={{ fontSize: 13, color: M.mut2, fontWeight: 700 }}>{day.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </MButton>
+  );
+
   const statsBlock = (
     <div style={{ marginTop: activeWorkout ? 16 : 18 }}>
       <div
@@ -601,6 +817,8 @@ export function HomeScreen({
       </div>
       {statsRow}
       {volumeChart}
+      {proteinChart}
+      {waterChart}
     </div>
   );
 
@@ -696,15 +914,10 @@ export function HomeScreen({
     </MButton>
   );
 
-  const recoverySubtitle =
-    proteinLoggedTodayG > 0
-      ? `${proteinLoggedTodayG} / ${proteinTargetG} g`
-      : proteinTargetG > 0
-        ? "Protein im Blick"
-        : "Ziel aus Plan oder Profil";
+  const recoverySubtitle = `Protein ${proteinLoggedTodayG}/${proteinTargetG} g · Wasser ${formatWaterAmount(waterLoggedTodayMl)}/${formatWaterAmount(waterTargetMl)}`;
 
   const recoveryLink = (
-    <MButton onClick={onOpenRecovery} variant="secondary" size="md" fullWidth style={homeCardLinkStyle}>
+    <MButton onClick={() => onOpenRecovery("protein")} variant="secondary" size="md" fullWidth style={homeCardLinkStyle}>
       <div
         style={{
           width: 40,
@@ -718,7 +931,7 @@ export function HomeScreen({
           flex: "0 0 auto",
         }}
       >
-        <Icon name="flame" size={18} stroke={2} />
+        <Icon name="heart" size={18} stroke={2} />
       </div>
       <div style={{ flex: 1 }}>
         <div style={{ color: M.fg, fontWeight: 600, fontSize: 14 }}>Recovery</div>
@@ -727,6 +940,32 @@ export function HomeScreen({
       <Icon name="chevR" size={16} color={M.mut2} stroke={2.2} />
     </MButton>
   );
+
+  const hydrationHint = showHydrationHint ? (
+    <div style={{ marginTop: 18, padding: "18px 18px 14px", borderRadius: 20, background: M.card, border: `1px solid ${M.line2}`, flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, color: M.brand, fontSize: 13, letterSpacing: 1.3, fontWeight: 700 }}>
+        <Icon name="droplet" size={17} color={M.brand} stroke={2} />
+        HYDRATION
+      </div>
+      <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 22, lineHeight: 1.15, marginTop: 8 }}>
+        Heute fehlen noch {formatWaterAmount(Math.max(0, waterTargetMl - waterLoggedTodayMl))}
+      </div>
+      <div style={{ color: M.mut, fontSize: 14, marginTop: 8, lineHeight: 1.45 }}>
+        Du hast bisher {formatWaterAmount(waterLoggedTodayMl)} von {formatWaterAmount(waterTargetMl)} erreicht.
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+        <MButton type="button" variant="primary" size="md" disabled={hydrationBusy} onClick={() => void addWaterFromHint()} style={{ flex: 1 }}>
+          +250 ml
+        </MButton>
+        <MButton type="button" variant="secondary" size="md" onClick={() => onOpenRecovery("water")} style={{ flex: 1 }}>
+          Öffnen
+        </MButton>
+      </div>
+      <MButton type="button" variant="ghost" size="sm" fullWidth onClick={dismissHydrationHint} style={{ marginTop: 6, color: M.mut }}>
+        Für heute ausblenden
+      </MButton>
+    </div>
+  ) : null;
 
   return (
     <ScreenScroll page>
@@ -770,6 +1009,7 @@ export function HomeScreen({
 
       {weekStrip}
       {weekPlannerCard}
+      {hydrationHint}
       <div
         style={{
           marginTop: 16,
@@ -820,6 +1060,12 @@ export function HomeScreen({
         userId={user?.id ?? ""}
         onClose={() => setWeekPlannerOpen(false)}
         onSaved={handleWeekPlannerSaved}
+      />
+      <AlertSheet
+        open={!!hydrationAlert}
+        title="Speichern fehlgeschlagen"
+        message={hydrationAlert ?? ""}
+        onClose={() => setHydrationAlert(null)}
       />
     </ScreenScroll>
   );

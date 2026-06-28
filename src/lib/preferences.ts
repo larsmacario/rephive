@@ -1,6 +1,7 @@
 import type { Json } from "./database.types";
 import { TIMER_DEFAULTS, type TimerCfg, type TimerMode } from "./engine";
 import { normalizeTimerSoundPackId, DEFAULT_TIMER_SOUND_PACK_ID } from "./timerSoundPacks";
+import { normalizeWaterQuickAmounts, type WaterQuickAmounts } from "./hydration";
 import { supabase } from "./supabase";
 
 export type TrainingStructure = "full_body" | "split";
@@ -115,6 +116,12 @@ export interface UserPreferences {
   weekPlannerDismissedWeek: string | null;
   /** Montag-Datum (yyyy-mm-dd) der Woche, in der die Recovery-Wochenkarte ausgeblendet wurde */
   recoveryWeekDismissedWeek: string | null;
+  /** Persönliches Wasserziel; null verwendet Plan/Profil/Fallback. */
+  waterTargetMl: number | null;
+  /** Drei frei konfigurierbare Schnellmengen im Wasser-Tracker. */
+  waterQuickAmountsMl: WaterQuickAmounts;
+  /** Lokales Datum (yyyy-mm-dd), für das der Hydration-Hinweis ausgeblendet wurde. */
+  hydrationHintDismissedDate: string | null;
 }
 
 export type UserPreferencesUpdate = Omit<Partial<UserPreferences>, "timerDefaults"> & {
@@ -146,6 +153,9 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   aiConsent: null,
   weekPlannerDismissedWeek: null,
   recoveryWeekDismissedWeek: null,
+  waterTargetMl: null,
+  waterQuickAmountsMl: normalizeWaterQuickAmounts(null),
+  hydrationHintDismissedDate: null,
 };
 
 function mergeTimerDefaults(raw: unknown): Record<TimerMode, TimerCfg> {
@@ -231,6 +241,19 @@ export function mergePreferences(raw: Json | null | undefined): UserPreferences 
         : obj.recoveryWeekDismissedWeek === null
           ? null
           : DEFAULT_PREFERENCES.recoveryWeekDismissedWeek,
+    waterTargetMl:
+      typeof obj.waterTargetMl === "number" && obj.waterTargetMl >= 1000 && obj.waterTargetMl <= 6000
+        ? Math.round(obj.waterTargetMl / 50) * 50
+        : obj.waterTargetMl === null
+          ? null
+          : DEFAULT_PREFERENCES.waterTargetMl,
+    waterQuickAmountsMl: normalizeWaterQuickAmounts(obj.waterQuickAmountsMl),
+    hydrationHintDismissedDate:
+      typeof obj.hydrationHintDismissedDate === "string"
+        ? obj.hydrationHintDismissedDate
+        : obj.hydrationHintDismissedDate === null
+          ? null
+          : DEFAULT_PREFERENCES.hydrationHintDismissedDate,
   };
 }
 
@@ -256,6 +279,9 @@ export function preferencesToJson(prefs: UserPreferences): Json {
     aiConsent: prefs.aiConsent ? (prefs.aiConsent as unknown as Json) : null,
     weekPlannerDismissedWeek: prefs.weekPlannerDismissedWeek,
     recoveryWeekDismissedWeek: prefs.recoveryWeekDismissedWeek,
+    waterTargetMl: prefs.waterTargetMl,
+    waterQuickAmountsMl: prefs.waterQuickAmountsMl,
+    hydrationHintDismissedDate: prefs.hydrationHintDismissedDate,
   };
 }
 

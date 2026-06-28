@@ -15,6 +15,7 @@ const ICON_PATHS: Record<string, string> = {
   reset: "M4 4v6h6M20 20v-6h-6M19 9a8 8 0 0 0-14-3M5 15a8 8 0 0 0 14 3",
   flag: "M5 21V4M5 4h12l-2 4 2 4H5",
   flame: "M12 3c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5-1-8z",
+  droplet: "M12 2S5 10 5 15a7 7 0 0 0 14 0c0-5-7-13-7-13zM9 16c.4 1.4 1.4 2.2 3 2.5",
   dumbbell: "M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10",
   timer: "M12 8v5l3 2M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM9 2h6",
   list: "M8 6h12M8 12h12M8 18h12M3.5 6h.01M3.5 12h.01M3.5 18h.01",

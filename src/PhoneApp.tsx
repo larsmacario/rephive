@@ -47,7 +47,7 @@ import { ProfileScreen } from "./screens/ProfileScreen";
 import { StatsScreen } from "./screens/StatsScreen";
 import { CalculatorScreen } from "./screens/CalculatorScreen";
 import { BodyTrackerScreen } from "./screens/BodyTrackerScreen";
-import { RecoveryScreen } from "./screens/RecoveryScreen";
+import { RecoveryScreen, type RecoverySection } from "./screens/RecoveryScreen";
 import { AboutScreen } from "./screens/AboutScreen";
 import { SupportScreen } from "./screens/SupportScreen";
 import { ActiveTimerProvider, useActiveTimer } from "./lib/activeTimer";
@@ -76,7 +76,7 @@ type Route =
   | { kind: "stats" }
   | { kind: "calculator" }
   | { kind: "bodyTracker" }
-  | { kind: "recovery" }
+  | { kind: "recovery"; section?: RecoverySection }
   | { kind: "about" }
   | { kind: "support" }
   | { kind: "aiTrainingPlanWizard" }
@@ -271,7 +271,7 @@ function PhoneAppInner() {
     console.log("goBodyTracker triggered, setting route to bodyTracker");
     setRoute({ kind: "bodyTracker" });
   };
-  const goRecovery = () => setRoute({ kind: "recovery" });
+  const goRecovery = (section: RecoverySection = "protein") => setRoute({ kind: "recovery", section });
   const goAbout = () => setRoute({ kind: "about" });
   const goSupport = () => setRoute({ kind: "support" });
   const goAITrainingPlanWizard = () => setRoute({ kind: "aiTrainingPlanWizard" });
@@ -449,7 +449,7 @@ function PhoneAppInner() {
     body = <BodyTrackerScreen onBack={() => close("home")} />;
     showNav = false;
   } else if (route?.kind === "recovery") {
-    body = <RecoveryScreen onBack={() => close("home")} />;
+    body = <RecoveryScreen onBack={() => close("home")} initialSection={route.section} />;
     showNav = false;
   } else if (route?.kind === "about") {
     body = <AboutScreen onBack={() => close("home")} />;

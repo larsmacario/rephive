@@ -52,6 +52,7 @@ import {
   patchPlanSummaryJsonWithTrainingWeekdays,
 } from "./trainingWeekdays";
 import { activityFactor, ageFromBirthDate } from "./nutrition";
+import { getLocalDayBounds, getRollingSevenDayStart, sumWaterLogs } from "./hydration";
 
 /** Entfernt KI-typische Präfixe wie „Tag 1 – …“ aus Workout-Namen. */
 export function sanitizeAiWorkoutName(name: string): string {
@@ -1731,11 +1732,7 @@ function mapProteinLogRow(row: DbProteinLog): ProteinLog {
 }
 
 function localDayBounds(date: Date = new Date()): { start: string; end: string } {
-  const start = new Date(date);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 1);
-  return { start: start.toISOString(), end: end.toISOString() };
+  return getLocalDayBounds(date);
 }
 
 export function sumProteinToday(logs: ProteinLog[]): number {
@@ -1812,6 +1809,100 @@ export function useProteinLogsSince(since: Date | null, refreshKey = 0) {
     if (!user || !since) return [];
     return fetchProteinLogsSince(user.id, since);
   }, [user?.id, since?.getTime(), refreshKey]);
+}
+
+export type WaterLogSource = "quick" | "manual" | "home_hint";
+
+export interface WaterLog {
+  id: string;
+  userId: string;
+  amountMl: number;
+  source: WaterLogSource;
+  loggedAt: string;
+  createdAt: string;
+}
+
+type DbWaterLog = Tables<"water_logs">;
+
+function mapWaterLogRow(row: DbWaterLog): WaterLog {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    amountMl: row.amount_ml,
+    source: row.source as WaterLogSource,
+    loggedAt: row.logged_at,
+    createdAt: row.created_at,
+  };
+}
+
+export function sumWaterToday(logs: WaterLog[]): number {
+  return sumWaterLogs(logs);
+}
+
+export async function fetchWaterLogsForDay(userId: string, date: Date = new Date()): Promise<WaterLog[]> {
+  const { start, end } = localDayBounds(date);
+  const { data, error } = await supabase
+    .from("water_logs")
+    .select("*")
+    .eq("user_id", userId)
+    .gte("logged_at", start)
+    .lt("logged_at", end)
+    .order("logged_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapWaterLogRow);
+}
+
+export async function fetchWaterLogsSince(userId: string, since: Date): Promise<WaterLog[]> {
+  const { data, error } = await supabase
+    .from("water_logs")
+    .select("*")
+    .eq("user_id", userId)
+    .gte("logged_at", since.toISOString())
+    .order("logged_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapWaterLogRow);
+}
+
+export interface WaterLogInput {
+  amountMl: number;
+  source: WaterLogSource;
+  loggedAt?: string;
+}
+
+export async function createWaterLog(userId: string, input: WaterLogInput): Promise<string> {
+  const { data, error } = await supabase
+    .from("water_logs")
+    .insert({
+      user_id: userId,
+      amount_ml: input.amountMl,
+      source: input.source,
+      ...(input.loggedAt ? { logged_at: input.loggedAt } : {}),
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id;
+}
+
+export async function deleteWaterLog(id: string): Promise<void> {
+  const { error } = await supabase.from("water_logs").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export function useWaterLogsToday(refreshKey = 0) {
+  const { user } = useAuth();
+  return useAsync(async () => {
+    if (!user) return [];
+    return fetchWaterLogsForDay(user.id);
+  }, [user?.id, refreshKey]);
+}
+
+export function useWaterLogsLastSevenDays(refreshKey = 0) {
+  const { user } = useAuth();
+  return useAsync(async () => {
+    if (!user) return [];
+    return fetchWaterLogsSince(user.id, getRollingSevenDayStart());
+  }, [user?.id, refreshKey]);
 }
 
 export type FoodProductSource = "user_photo" | "manual";
@@ -2592,4 +2683,3 @@ registerSyncHandlers({
 });
 
 export { processSyncQueue, getSyncPendingCount } from "./offline/syncEngine";
-

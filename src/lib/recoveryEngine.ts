@@ -128,6 +128,28 @@ export function getWeekStartMonday(referenceDate: Date = new Date()): Date {
   return monday;
 }
 
+const WEEKDAY_CHART_LABELS = ["M", "D", "M", "D", "F", "S", "S"] as const;
+
+export function aggregateProteinByWeekday(
+  logs: { loggedAt: string; proteinG: number }[],
+  referenceDate: Date = new Date(),
+): { d: string; v: number }[] {
+  const weekStart = getWeekStartMonday(referenceDate);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
+
+  const totals = [0, 0, 0, 0, 0, 0, 0];
+  for (const log of logs) {
+    const d = new Date(log.loggedAt);
+    if (d < weekStart || d >= weekEnd) continue;
+    let idx = d.getDay() - 1;
+    if (idx < 0) idx = 6;
+    totals[idx] += log.proteinG;
+  }
+
+  return WEEKDAY_CHART_LABELS.map((label, i) => ({ d: label, v: totals[i] }));
+}
+
 export interface WeeklyRecoveryStats {
   trainingDays: number;
   loggedDays: number;
