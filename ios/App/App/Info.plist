@@ -25,7 +25,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>rephive benötigt Zugriff auf die Kamera, damit du Fortschrittsfotos direkt im Body Tracker aufnehmen kannst.</string>
+	<string>rephive nutzt die Kamera für Fortschrittsfotos im Body Tracker, Barcode-Scan beim Protein-Logging und Etikett-Fotos zur Nährwert-Erkennung (Fotos werden nicht gespeichert).</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>rephive benötigt Zugriff auf deine Fotos, damit du Fortschrittsbilder im Body Tracker speichern und vergleichen kannst.</string>
 	<key>NSMicrophoneUsageDescription</key>

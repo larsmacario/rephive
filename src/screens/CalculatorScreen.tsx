@@ -1,7 +1,6 @@
-import { M } from "../theme";
-import { Icon } from "../components/Icon";
 import { OneRmCalculatorBody } from "../components/OneRmCalculatorBody";
 import { SCROLL_BOTTOM_PADDING } from "../lib/responsive";
+import { ScreenBackHeader } from "../components/ScreenScroll";
 
 export interface CalculatorScreenProps {
   onBack: () => void;
@@ -10,25 +9,7 @@ export interface CalculatorScreenProps {
 export function CalculatorScreen({ onBack }: CalculatorScreenProps) {
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div
-        style={{
-          padding: "2px 22px 12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Zurück"
-          style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex" }}
-        >
-          <Icon name="chevL" size={24} stroke={2.2} />
-        </button>
-        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>1RM RECHNER</span>
-        <span style={{ width: 24 }} />
-      </div>
+      <ScreenBackHeader onBack={onBack} title="1RM RECHNER" />
 
       <div
         style={{

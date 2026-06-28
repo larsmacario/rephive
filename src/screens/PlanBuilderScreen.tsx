@@ -50,6 +50,7 @@ import { PlanDayWeekdayPicker } from "../components/PlanDayWeekdayPicker";
 import { MButton } from "../components/MButton";
 import { HorizontalSlidePager } from "../components/HorizontalSlidePager";
 import { FOOTER_BAR_PADDING_BOTTOM } from "../lib/responsive";
+import { ScreenBackHeader } from "../components/ScreenScroll";
 
 interface BuilderExercise extends LibraryExercise {
   blockType: TrainingBlockType;
@@ -407,22 +408,11 @@ export function PlanBuilderScreen({ planId, onBack, onSave }: PlanBuilderScreenP
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div
-        style={{
-          padding: "2px 22px 12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
-          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
-        </MButton>
-        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>
-          {isEditing ? "PLAN BEARBEITEN" : "NEUER PLAN"}
-        </span>
-        <div style={{ width: 32 }} aria-hidden />
-      </div>
+      <ScreenBackHeader
+        onBack={onBack}
+        title={isEditing ? "PLAN BEARBEITEN" : "NEUER PLAN"}
+        trailing={<span style={{ width: 32 }} aria-hidden />}
+      />
 
       {error && <div style={{ padding: "0 22px 8px", color: "#ff8a8a", fontSize: 13 }}>{error}</div>}
 

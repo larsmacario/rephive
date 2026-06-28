@@ -7,6 +7,7 @@ import { MuscleGroupSelect } from "../components/MuscleGroupSelect";
 import { EXERCISE_ROW, exerciseRowEllipsis, exerciseRowStyle, M } from "../theme";
 import { CatalogStandardLock } from "../components/CatalogStandardLock";
 import { Icon } from "../components/Icon";
+import { ScreenBackHeader } from "../components/ScreenScroll";
 import { ExerciseListRowText } from "../components/ExerciseListRow";
 import { AlertSheet } from "../components/AlertSheet";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
@@ -79,32 +80,21 @@ export function ExercisesScreen({ refreshKey = 0, onBack }: ExercisesScreenProps
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" }}>
-      <div
-        style={{
-          padding: "4px 22px 12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-        }}
-      >
-        {onBack ? (
-          <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
-            <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
+      <ScreenBackHeader
+        onBack={onBack}
+        title="ÜBUNGEN"
+        backHidden={!onBack}
+        trailing={
+          <MButton onClick={openCreate} variant="primary" size="icon" aria-label="Übung erstellen">
+            <Icon name="plus" size={18} stroke={2.6} color={M.accInk} />
           </MButton>
-        ) : null}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 30, lineHeight: 1 }}>Übungen</div>
-          <div style={{ fontSize: 14, color: M.mut, marginTop: 3, fontWeight: 600 }}>
-            {loading ? "…" : `${list.length} Übungen · ${ownedCount} eigene`}
-          </div>
-        </div>
-        <MButton onClick={openCreate} variant="primary" size="icon" aria-label="Übung erstellen">
-          <Icon name="plus" size={18} stroke={2.6} color={M.accInk} />
-        </MButton>
-      </div>
+        }
+      />
 
       <div style={{ padding: "0 22px 10px" }}>
+        <div style={{ fontSize: 14, color: M.mut, marginBottom: 10, fontWeight: 600 }}>
+          {loading ? "…" : `${list.length} Übungen · ${ownedCount} eigene`}
+        </div>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}

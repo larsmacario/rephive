@@ -1,6 +1,7 @@
 import { useDragControls, motion, AnimatePresence } from "framer-motion";
 import { useEffect } from "react";
 import type { CSSProperties, ReactNode, PointerEvent } from "react";
+import { contentColumnStyle, useBreakpoint } from "../lib/responsive";
 import { M } from "../theme";
 
 const DISMISS_OFFSET_PX = 72;
@@ -45,6 +46,8 @@ export function BottomSheet({
   fitContent = true,
   lockBodyScroll = false,
 }: BottomSheetProps) {
+  const breakpoint = useBreakpoint();
+  const columnStyle = contentColumnStyle(breakpoint);
   const dragControls = useDragControls();
 
   useEffect(() => {
@@ -85,6 +88,7 @@ export function BottomSheet({
   };
 
   const panelStyle: CSSProperties = {
+    ...columnStyle,
     background: M.panel,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,

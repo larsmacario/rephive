@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
 export const BREAKPOINTS = {
   tablet: 768,
@@ -67,6 +67,16 @@ export function useShortViewport(threshold = 740): boolean {
 /** Horizontal padding used by tab screens — nav aligns to the same inset. */
 export const CONTENT_HORIZONTAL_PADDING = 22;
 
+/** Standard push/tab screen header inset (top, horizontal, bottom). */
+export function screenHeaderPadding(): string {
+  return `4px ${CONTENT_HORIZONTAL_PADDING}px 12px`;
+}
+
+/** Horizontal-only page inset for footers, errors, tab bars. */
+export function screenHorizontalPadding(): string {
+  return `0 ${CONTENT_HORIZONTAL_PADDING}px`;
+}
+
 /** Fixed bottom padding for scroll areas when PhoneShell reserves safe-area. */
 export const SCROLL_BOTTOM_PADDING = 24;
 
@@ -78,4 +88,19 @@ export function contentMaxWidth(bp: Breakpoint): number | undefined {
   if (bp === "mobile") return undefined;
   if (bp === "tablet") return 720;
   return 960;
+}
+
+/** Shared width/centering for app content columns and bottom sheets. */
+export function contentColumnStyle(bp: Breakpoint): CSSProperties {
+  const maxW = contentMaxWidth(bp);
+  return {
+    width: "100%",
+    maxWidth: maxW,
+    marginLeft: maxW ? "auto" : undefined,
+    marginRight: maxW ? "auto" : undefined,
+  };
+}
+
+export function useContentColumnStyle(): CSSProperties {
+  return contentColumnStyle(useBreakpoint());
 }

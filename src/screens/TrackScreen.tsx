@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { brandButtonStyle, M } from "../theme";
 import type { LibraryExercise } from "../data";
-import { fmt, useWorkout, type Workout, type WorkoutSet } from "../lib/engine";
+import { fmt, resolveExerciseRestSeconds, useWorkout, type Workout, type WorkoutSet } from "../lib/engine";
 
-import { useExercises } from "../lib/db";
+import { useExercises, sumProteinToday, useProteinLogsToday } from "../lib/db";
+import { computeRecoveryContext } from "../lib/recoveryEngine";
+import { useRecoveryTarget } from "../lib/recoveryTarget";
 import { useAuth } from "../lib/auth";
 import { useAutopilotPrefill } from "../lib/useAutopilotPrefill";
 import { computeNextTarget, inferExerciseBlockFormat, inferTargetRepRange, isWorkingSetPr, resolveWeightIncrement } from "../lib/progressionEngine";
 import { usePreferences } from "../lib/preferences";
 import { useRestTimerSounds } from "../lib/useTimerSounds";
 import { DEFAULT_TIMER_SOUND_PACK_ID } from "../lib/timerSoundPacks";
-import { contentMaxWidth, useBreakpoint } from "../lib/responsive";
+import { useContentColumnStyle, CONTENT_HORIZONTAL_PADDING } from "../lib/responsive";
 import type { ActiveWorkoutSnapshot } from "../lib/activeWorkout";
 import {
   BLOCK_LABELS,
@@ -112,8 +114,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
   const { flags: labFlags } = useOwnerLabs(profile);
   const expressLabOn = isOwnerLabsVisible(profile) && labFlags.frictionKillerTurbo;
   const [setEditSheetExerciseId, setSetEditSheetExerciseId] = useState<string | null>(null);
-  const breakpoint = useBreakpoint();
-  const maxW = contentMaxWidth(breakpoint);
+  const columnStyle = useContentColumnStyle();
   const { preferences, updatePreferences } = usePreferences();
   const { data: library, loading: libraryLoading, reload: reloadExercises } = useExercises();
   const W = useWorkout(session, {
@@ -131,6 +132,11 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
   const timerPausedRef = useRef(false);
   const [finishing, setFinishing] = useState(false);
   const [finishSheet, setFinishSheet] = useState(false);
+  const [recoveryDismissed, setRecoveryDismissed] = useState(false);
+  const [loggedRecoveryLabel, setLoggedRecoveryLabel] = useState<string | null>(null);
+  const [proteinRefreshKey, setProteinRefreshKey] = useState(0);
+  const { data: proteinLogsToday } = useProteinLogsToday(proteinRefreshKey);
+  const { proteinTargetG } = useRecoveryTarget();
   const [picker, setPicker] = useState(false);
   const [pickerTargetBlock, setPickerTargetBlock] = useState<TrainingBlockType | null>(null);
   const [historyExercise, setHistoryExercise] = useState<string | null>(null);
@@ -173,8 +179,59 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
 
   const visibleDoneSets = visibleExercises.reduce((a, e) => a + e.sets.filter((s) => s.done).length, 0);
   const visibleTotalSets = visibleExercises.reduce((a, e) => a + e.sets.length, 0);
+  const visibleVolumeKg = visibleExercises.reduce(
+    (a, e) =>
+      a + e.sets.filter((s) => s.done).reduce((b, s) => b + setVolumeKg(s, e.metric ?? "weight_reps"), 0),
+    0,
+  );
   const pct = visibleTotalSets ? Math.round((visibleDoneSets / visibleTotalSets) * 100) : 0;
   const exLibrary = library ?? [];
+
+  useEffect(() => {
+    if (finishSheet) {
+      setRecoveryDismissed(false);
+      setLoggedRecoveryLabel(null);
+    }
+  }, [finishSheet]);
+
+  const proteinLoggedTodayG = useMemo(() => sumProteinToday(proteinLogsToday ?? []), [proteinLogsToday]);
+
+  const recoveryContext = useMemo(
+    () =>
+      computeRecoveryContext({
+        doneSets: visibleDoneSets,
+        volumeKg: visibleVolumeKg,
+        blockTypes: visibleExercises.map((e) => e.blockType ?? "strength"),
+        proteinLoggedTodayG,
+        proteinTargetG,
+      }),
+    [visibleDoneSets, visibleVolumeKg, visibleExercises, proteinLoggedTodayG, proteinTargetG],
+  );
+
+  const handleRecoveryLogged = (label: string) => {
+    setLoggedRecoveryLabel(label);
+  };
+
+  const handleRecoveryRefresh = () => {
+    setProteinRefreshKey((k) => k + 1);
+  };
+
+  const finishRecovery =
+    finishSheet &&
+    !recoveryDismissed &&
+    recoveryContext.showPostWorkoutBlock &&
+    user
+      ? {
+          sessionLine: recoveryContext.sessionSummaryLine,
+          remainingG: recoveryContext.remainingG,
+          suggestionPresetIds: recoveryContext.postWorkoutSuggestions.map((s) => s.presetId),
+          userId: user.id,
+          onLogged: handleRecoveryLogged,
+          onRefresh: handleRecoveryRefresh,
+          onDismiss: () => setRecoveryDismissed(true),
+          loggedSuggestionLabel: loggedRecoveryLabel,
+        }
+      : null;
 
   const { loading: prefillLoading, prefills } = useAutopilotPrefill(
     user?.id,
@@ -659,7 +716,11 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
       <TrackExerciseSlide
         key={ex.id}
         exercise={ex}
-        restSeconds={preferences.restSeconds}
+        restSeconds={resolveExerciseRestSeconds(ex, W.wo, preferences.restSeconds)}
+        onRestSecondsChange={(seconds, scope) => {
+          if (scope === "workout") W.setSessionRestSeconds(seconds);
+          else W.setExerciseRestSeconds(ex.id, seconds);
+        }}
         historyHint={insight?.hint ?? undefined}
         trendLabel={insight?.trendLabel ?? undefined}
         progressionBadge={insight?.progressionNote}
@@ -693,8 +754,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
         display: "flex",
         flexDirection: "column",
         width: "100%",
-        maxWidth: maxW,
-        margin: maxW ? "0 auto" : undefined,
+        ...columnStyle,
         position: "relative",
       }}
     >
@@ -735,7 +795,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
             onSessionNameChange={W.setName}
             onPause={handlePause}
           />
-          <div style={{ padding: "0 18px 12px" }}>
+          <div style={{ padding: `0 ${CONTENT_HORIZONTAL_PADDING}px 12px` }}>
             <div style={{ display: "flex", gap: 10 }}>
               <MStat label="SÄTZE" value={`${visibleDoneSets}/${visibleTotalSets}`} />
               <MStat label="VOLUMEN" value={`${(W.volume / 1000).toFixed(1)}t`} />
@@ -756,7 +816,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
               overscrollBehavior: "contain",
             }}
           >
-            <div style={{ padding: "0 18px 16px" }}>
+            <div style={{ padding: `0 ${CONTENT_HORIZONTAL_PADDING}px 16px` }}>
               {W.wo.exercises.length === 0 && (
                 <div
                   style={{
@@ -978,7 +1038,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
       <div
         style={{
           flexShrink: 0,
-          padding: "10px 18px 14px",
+          padding: `10px ${CONTENT_HORIZONTAL_PADDING}px 14px`,
           borderTop: "1px solid " + M.line2,
           background: M.bg,
           display: "flex",
@@ -991,7 +1051,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
             style={{
               ...brandButtonStyle(),
               borderRadius: 16,
-              padding: "13px 18px",
+              padding: `13px ${CONTENT_HORIZONTAL_PADDING}px`,
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
@@ -1061,6 +1121,7 @@ export function TrackScreen({ session, startedAt, planDayId, tags, planId, expre
         volumeKg={W.volume}
         busy={finishing}
         exercises={W.wo.exercises.map((e) => e.name)}
+        recovery={finishRecovery}
         onSave={handleSave}
         onDiscard={handleDiscard}
         onClose={() => setFinishSheet(false)}

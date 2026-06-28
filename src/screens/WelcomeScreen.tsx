@@ -334,7 +334,6 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
             variant="primary"
             size="lg"
             fullWidth
-            style={{ maxWidth: 400 }}
           >
             Los geht&apos;s
             <ArrowIcon />

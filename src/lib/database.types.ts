@@ -129,6 +129,102 @@ export type Database = {
           }
         ]
       }
+      food_products: {
+        Row: {
+          basis: string
+          carbs_per_100g: number | null
+          created_at: string
+          created_by: string | null
+          ean: string
+          fat_per_100g: number | null
+          kcal_per_100g: number | null
+          name: string
+          protein_per_100g: number
+          serving_g: number | null
+          source: string
+          verified: boolean
+        }
+        Insert: {
+          basis?: string
+          carbs_per_100g?: number | null
+          created_at?: string
+          created_by?: string | null
+          ean: string
+          fat_per_100g?: number | null
+          kcal_per_100g?: number | null
+          name: string
+          protein_per_100g: number
+          serving_g?: number | null
+          source: string
+          verified?: boolean
+        }
+        Update: {
+          basis?: string
+          carbs_per_100g?: number | null
+          created_at?: string
+          created_by?: string | null
+          ean?: string
+          fat_per_100g?: number | null
+          kcal_per_100g?: number | null
+          name?: string
+          protein_per_100g?: number
+          serving_g?: number | null
+          source?: string
+          verified?: boolean
+        }
+        Relationships: []
+      }
+      protein_logs: {
+        Row: {
+          amount_g: number | null
+          created_at: string
+          ean: string | null
+          id: string
+          label: string | null
+          logged_at: string
+          protein_g: number
+          source: string
+          user_id: string
+        }
+        Insert: {
+          amount_g?: number | null
+          created_at?: string
+          ean?: string | null
+          id?: string
+          label?: string | null
+          logged_at?: string
+          protein_g: number
+          source: string
+          user_id: string
+        }
+        Update: {
+          amount_g?: number | null
+          created_at?: string
+          ean?: string | null
+          id?: string
+          label?: string | null
+          logged_at?: string
+          protein_g?: number
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protein_logs_ean_fkey"
+            columns: ["ean"]
+            isOneToOne: false
+            referencedRelation: "food_products"
+            referencedColumns: ["ean"]
+          },
+          {
+            foreignKeyName: "protein_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       exercises: {
         Row: {
           category: string

@@ -6,6 +6,7 @@ import { BLOCK_ACCENT, BLOCK_ORDER } from "../../lib/planBlocks";
 import { M } from "../../theme";
 import { Icon } from "../Icon";
 import { MButton } from "../MButton";
+import { RestDurationControl } from "../RestDurationControl";
 import { SetTable } from "../SetTable";
 
 function blockBadgeForExercise(exercise: Exercise): { index: number; accent: string } {
@@ -25,6 +26,7 @@ function fmtRestSec(sec: number): string {
 export interface TrackExerciseSlideProps {
   exercise: Exercise;
   restSeconds: number;
+  onRestSecondsChange?: (seconds: number, scope: "exercise" | "workout") => void;
   historyHint?: string;
   trendLabel?: string;
   progressionBadge?: string;
@@ -45,6 +47,7 @@ export interface TrackExerciseSlideProps {
 export function TrackExerciseSlide({
   exercise,
   restSeconds,
+  onRestSecondsChange,
   historyHint,
   trendLabel,
   progressionBadge,
@@ -117,18 +120,30 @@ export function TrackExerciseSlide({
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 4 }}>
-            <div
-              style={{
-                flex: 1,
-                minWidth: 0,
-                fontFamily: M.disp,
-                fontWeight: 700,
-                fontSize: 20,
-                lineHeight: 1.15,
-                color: M.fg,
-              }}
-            >
-              {exercise.name}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontFamily: M.disp,
+                  fontWeight: 700,
+                  fontSize: 20,
+                  lineHeight: 1.15,
+                  color: M.fg,
+                }}
+              >
+                {exercise.name}
+              </div>
+              {onRestSecondsChange ? (
+                <RestDurationControl
+                  value={restSeconds}
+                  onChangeExercise={(seconds) => onRestSecondsChange(seconds, "exercise")}
+                  onChangeWorkout={(seconds) => onRestSecondsChange(seconds, "workout")}
+                />
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 13, color: M.mut }}>
+                  <Icon name="clock" size={14} stroke={2} color={M.mut2} />
+                  Pausendauer · {fmtRestSec(restSeconds)}
+                </div>
+              )}
             </div>
             {onOpenMenu ? (
               <MButton type="button" variant="ghost" size="icon" onClick={onOpenMenu} aria-label="Übungsmenü" style={{ flexShrink: 0, color: M.mut2 }}>
@@ -142,10 +157,6 @@ export function TrackExerciseSlide({
           {trendLabel ? (
             <div style={{ fontSize: 13, color: M.mut, marginTop: 4 }}>{trendLabel}</div>
           ) : null}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 13, color: M.mut }}>
-            <Icon name="clock" size={14} stroke={2} color={M.mut2} />
-            Pausendauer · {fmtRestSec(restSeconds)}
-          </div>
         </div>
       </div>
 
@@ -184,7 +195,9 @@ export function TrackExerciseSlide({
         sets={exercise.sets}
         metric={exercise.metric}
         variant="tracked"
-        wrapped
+        stacked
+        size="lg"
+        collapseWhenDone
         hint={tableHint}
         hintSuggested={hintSuggested}
         onBumpSet={onBumpSet}

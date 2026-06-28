@@ -1,4 +1,4 @@
-import { contentMaxWidth, useBreakpoint } from "../lib/responsive";
+import { CONTENT_HORIZONTAL_PADDING, useContentColumnStyle } from "../lib/responsive";
 import type { SaveSessionInput } from "../lib/db";
 import { IntervalTimerWizard } from "../components/intervalTimer/IntervalTimerWizard";
 
@@ -8,8 +8,7 @@ export interface TimerScreenProps {
 }
 
 export function TimerScreen({ onSaveSession, onBack }: TimerScreenProps) {
-  const breakpoint = useBreakpoint();
-  const maxW = contentMaxWidth(breakpoint);
+  const columnStyle = useContentColumnStyle();
 
   return (
     <div
@@ -18,10 +17,8 @@ export function TimerScreen({ onSaveSession, onBack }: TimerScreenProps) {
         display: "flex",
         flexDirection: "column",
         minHeight: 0,
-        width: "100%",
-        maxWidth: maxW,
-        margin: maxW ? "0 auto" : undefined,
-        padding: "0 22px",
+        ...columnStyle,
+        padding: `0 ${CONTENT_HORIZONTAL_PADDING}px`,
         boxSizing: "border-box",
       }}
     >

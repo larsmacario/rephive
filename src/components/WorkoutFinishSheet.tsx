@@ -4,6 +4,19 @@ import { fmtUp } from "../lib/engine";
 import { Icon } from "./Icon";
 import { BottomSheet } from "./BottomSheet";
 import { MButton } from "./MButton";
+import { ProteinPresetLogSheet } from "./ProteinPresetLogSheet";
+import { formatPresetChipLabel, getRecoveryPreset } from "../lib/recoveryEngine";
+
+export interface WorkoutFinishRecoveryProps {
+  sessionLine: string;
+  remainingG: number;
+  suggestionPresetIds: string[];
+  userId: string;
+  onLogged: (label: string) => void;
+  onRefresh: () => void;
+  onDismiss: () => void;
+  loggedSuggestionLabel?: string | null;
+}
 
 export interface WorkoutFinishSheetProps {
   open?: boolean;
@@ -14,6 +27,7 @@ export interface WorkoutFinishSheetProps {
   volumeKg: number;
   busy?: boolean;
   exercises?: string[];
+  recovery?: WorkoutFinishRecoveryProps | null;
   onSave: (feedback: Record<string, { rating: "like" | "dislike" | "pain" }>) => void;
   onDiscard: () => void;
   onClose: () => void;
@@ -80,6 +94,7 @@ export function WorkoutFinishSheet({
   volumeKg,
   busy,
   exercises = [],
+  recovery,
   onSave,
   onDiscard,
   onClose,
@@ -87,7 +102,10 @@ export function WorkoutFinishSheet({
   const [feedback, setFeedback] = useState<Record<string, { rating: "like" | "dislike" | "pain" }>>({});
   const [canScroll, setCanScroll] = useState(false);
   const [atBottom, setAtBottom] = useState(false);
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const activePreset = activePresetId ? getRecoveryPreset(activePresetId) ?? null : null;
 
   const exerciseList = uniqueExercises(exercises);
 
@@ -345,6 +363,69 @@ export function WorkoutFinishSheet({
         </div>
       )}
 
+      {recovery ? (
+        <div style={{ flexShrink: 0, marginBottom: 12 }}>
+          <div
+            style={{
+              padding: "12px 14px",
+              borderRadius: 16,
+              background: M.card,
+              border: "1px solid " + M.line2,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 13,
+                letterSpacing: 1.2,
+                color: M.mut,
+                fontWeight: 700,
+                textTransform: "uppercase",
+              }}
+            >
+              Recovery
+            </div>
+            <div style={{ fontSize: 13, color: M.mut, marginTop: 6, fontWeight: 600 }}>{recovery.sessionLine}</div>
+            <div style={{ fontSize: 14, color: M.fg, marginTop: 8, lineHeight: 1.45 }}>
+              {recovery.remainingG > 0
+                ? `Für heute noch ~${recovery.remainingG} g Protein offen.`
+                : "Protein-Ziel für heute erreicht — optional trotzdem loggen."}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+              {recovery.suggestionPresetIds.map((presetId) => {
+                const preset = getRecoveryPreset(presetId);
+                if (!preset) return null;
+                const logged = recovery.loggedSuggestionLabel === preset.label;
+                return (
+                  <MButton
+                    key={presetId}
+                    type="button"
+                    variant={logged ? "primary" : "secondary"}
+                    size="sm"
+                    disabled={logged}
+                    onClick={() => setActivePresetId(presetId)}
+                    style={{ borderRadius: 999 }}
+                  >
+                    {logged ? `${formatPresetChipLabel(preset)} ✓` : formatPresetChipLabel(preset)}
+                  </MButton>
+                );
+              })}
+            </div>
+            {!recovery.loggedSuggestionLabel ? (
+              <MButton
+                type="button"
+                variant="ghost"
+                size="md"
+                fullWidth
+                onClick={recovery.onDismiss}
+                style={{ marginTop: 8 }}
+              >
+                Später
+              </MButton>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       <div style={{ flexShrink: 0 }}>
         <div
           style={{
@@ -418,6 +499,23 @@ export function WorkoutFinishSheet({
           Abbrechen
         </MButton>
       </div>
+
+      {recovery ? (
+        <ProteinPresetLogSheet
+          open={!!activePreset}
+          preset={activePreset}
+          onClose={() => setActivePresetId(null)}
+          onSaved={() => {
+            if (activePreset) {
+              recovery.onLogged(activePreset.label);
+              recovery.onRefresh();
+            }
+            setActivePresetId(null);
+          }}
+          userId={recovery.userId}
+          logSource="post_workout"
+        />
+      ) : null}
     </BottomSheet>
   );
 }

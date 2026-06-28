@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { M } from "../theme";
 import { type StatsPeriod, useStatsOverview } from "../lib/stats";
 import { buildMetricSeries, type BodyMetricKey } from "../lib/bodyChart";
-import { Icon } from "../components/Icon";
 import { MStat } from "../components/widgets";
 import { TrendLineChart } from "../components/TrendLineChart";
 import { useBodyMeasurements } from "../lib/db";
 import { MButton } from "../components/MButton";
 import { SCROLL_BOTTOM_PADDING } from "../lib/responsive";
+import { ScreenBackHeader } from "../components/ScreenScroll";
 
 const PERIODS: { id: StatsPeriod; label: string }[] = [
   { id: "d7", label: "7 Tage" },
@@ -68,20 +68,7 @@ export function StatsScreen({ onBack, refreshKey = 0 }: StatsScreenProps) {
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div
-        style={{
-          padding: "2px 22px 12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
-          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
-        </MButton>
-        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>STATISTIK</span>
-        <span style={{ width: 24 }} />
-      </div>
+      <ScreenBackHeader onBack={onBack} title="STATISTIK" />
 
       <div style={{ padding: "0 22px 10px" }}>
         <div

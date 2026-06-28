@@ -58,6 +58,8 @@ export interface Exercise {
   muscleGroup?: string;
   metric: ExerciseMetric;
   sets: WorkoutSet[];
+  /** Session-only override for rest after sets on this exercise. */
+  restSeconds?: number;
   /** Session-only: 1-tap perceived effort after exercise. */
   perceivedEffort?: import("./progressionEngine").PerceivedEffort;
 }
@@ -67,6 +69,8 @@ export interface Workout {
   enabledBlocks?: TrainingBlockType[];
   skippedBlocks?: TrainingBlockType[];
   blocks?: PlanDayBlock[];
+  /** Session-only default rest for exercises without their own override. */
+  sessionRestSeconds?: number;
   /** Session-only MetCon scores keyed by block id */
   metconResults?: Record<string, MetconSessionResult>;
   exercises: Exercise[];
@@ -94,6 +98,14 @@ export function fmtUp(s: number): string {
   const m = Math.floor(s / 60);
   const ss = s % 60;
   return m + ":" + String(ss).padStart(2, "0");
+}
+
+export function resolveExerciseRestSeconds(
+  exercise: Pick<Exercise, "restSeconds">,
+  workout: Pick<Workout, "sessionRestSeconds">,
+  defaultRestSeconds: number,
+): number {
+  return exercise.restSeconds ?? workout.sessionRestSeconds ?? defaultRestSeconds;
 }
 
 /** Zero-padded MM:SS for timer UI — keeps digit columns aligned while ticking. */
@@ -414,10 +426,27 @@ export function useWorkout(initial: Workout, opts?: WorkoutOptions) {
     if (
       autoRestEnabled &&
       markingDone &&
-      shouldStartRestAfterSet(wo.exercises, exId, si)
+      ex &&
+      shouldStartRestAfterSet(wo.exercises, exId, si) &&
+      !restTimer.current
     ) {
-      startRest(restSeconds);
+      startRest(resolveExerciseRestSeconds(ex, wo, restSeconds));
     }
+  };
+
+  const setExerciseRestSeconds = (exId: string, seconds: number) => {
+    setWo((w) => ({
+      ...w,
+      exercises: w.exercises.map((e) => (e.id !== exId ? e : { ...e, restSeconds: seconds })),
+    }));
+  };
+
+  const setSessionRestSeconds = (seconds: number) => {
+    setWo((w) => ({
+      ...w,
+      sessionRestSeconds: seconds,
+      exercises: w.exercises.map(({ restSeconds: _restSeconds, ...e }) => e),
+    }));
   };
 
   const linkExerciseWithPrevious = (exId: string) => {
@@ -613,6 +642,8 @@ export function useWorkout(initial: Workout, opts?: WorkoutOptions) {
     startRest,
     stopRest,
     toggleSet,
+    setExerciseRestSeconds,
+    setSessionRestSeconds,
     linkExerciseWithPrevious,
     unlinkExerciseFromSuperset,
     editSet,

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { M } from "../../theme";
 import { useAuth } from "../../lib/auth";
+import { useContentColumnStyle } from "../../lib/responsive";
 import { AppLogo } from "../../components/AppLogo";
 import { MButton } from "../../components/MButton";
 
@@ -36,6 +37,7 @@ type AuthFlowProps = {
 
 export function AuthFlow({ initialStep = "login" }: AuthFlowProps) {
   const auth = useAuth();
+  const columnStyle = useContentColumnStyle();
   const [step, setStep] = useState<AuthStep>(initialStep);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -128,7 +130,7 @@ export function AuthFlow({ initialStep = "login" }: AuthFlowProps) {
         boxSizing: "border-box",
       }}
     >
-      <div style={{ width: "100%", maxWidth: 400 }}>
+      <div style={columnStyle}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 28 }}>
           <AppLogo size={52} />
         </div>

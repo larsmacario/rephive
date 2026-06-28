@@ -4,11 +4,11 @@ import type { SessionExercise } from "../data";
 import { sessionMetrics } from "../lib/engine";
 import { updateSession, useExercises, useSession } from "../lib/db";
 import { usePreferences } from "../lib/preferences";
-import { Icon } from "../components/Icon";
 import { MTag } from "../components/widgets";
 import { SessionExerciseEditor } from "../components/SessionExerciseEditor";
 import { MButton } from "../components/MButton";
 import { SCROLL_BOTTOM_PADDING } from "../lib/responsive";
+import { ScreenBackHeader } from "../components/ScreenScroll";
 
 export interface SessionEditScreenProps {
   sessionId: string;
@@ -137,29 +137,22 @@ export function SessionEditScreen({ sessionId, onBack, onSave }: SessionEditScre
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div
-        style={{
-          padding: "2px 22px 12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
-          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
-        </MButton>
-        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>SESSION BEARBEITEN</span>
-        <MButton
-          disabled={saving || exercises.length === 0}
-          onClick={handleSave}
-          variant="ghost"
-          size="sm"
-          loading={saving}
-          style={{ fontFamily: M.disp, color: M.fg, letterSpacing: 0.4 }}
-        >
-          Speichern
-        </MButton>
-      </div>
+      <ScreenBackHeader
+        onBack={onBack}
+        title="SESSION BEARBEITEN"
+        trailing={
+          <MButton
+            disabled={saving || exercises.length === 0}
+            onClick={handleSave}
+            variant="ghost"
+            size="sm"
+            loading={saving}
+            style={{ fontFamily: M.disp, color: M.fg, letterSpacing: 0.4 }}
+          >
+            Speichern
+          </MButton>
+        }
+      />
 
       {saveError && <div style={{ padding: "0 22px 8px", color: "#ff8a8a", fontSize: 13 }}>{saveError}</div>}
 

@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import type { PointerEvent } from "react";
 import type { SaveSessionInput } from "../lib/db";
 import { useActiveTimer } from "../lib/activeTimer";
+import { contentColumnStyle, useBreakpoint } from "../lib/responsive";
 import { M } from "../theme";
 import { IntervalTimerWizard } from "./intervalTimer/IntervalTimerWizard";
 
@@ -16,6 +17,8 @@ export interface IntervalTimerSheetProps {
 }
 
 export function IntervalTimerSheet({ open, onClose, onSaveSession }: IntervalTimerSheetProps) {
+  const breakpoint = useBreakpoint();
+  const columnStyle = contentColumnStyle(breakpoint);
   const dragControls = useDragControls();
   const { active: timerActive } = useActiveTimer();
 
@@ -82,8 +85,7 @@ export function IntervalTimerSheet({ open, onClose, onSaveSession }: IntervalTim
           right: 0,
           bottom: 0,
           zIndex: 30,
-          margin: "0 auto",
-          maxWidth: 480,
+          ...columnStyle,
           maxHeight: "min(92dvh, 92vh)",
           background: M.panel,
           borderTopLeftRadius: 24,

@@ -27,6 +27,7 @@ import {
   TRAINING_WEEKDAY_LABELS,
 } from "../lib/trainingWeekdays";
 import { MButton } from "../components/MButton";
+import { ScreenBackHeader } from "../components/ScreenScroll";
 import { AiConsentStep } from "../components/AiConsentStep";
 
 function formatSleepHours(hours: number): string {
@@ -620,32 +621,20 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
     >
       {/* Header und Progressbar */}
       {step < 13 && (
-        <div style={{ width: "100%", maxWidth: 460, flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <button
-              onClick={onBack}
-              style={{
-                background: "none",
-                border: "none",
-                color: M.mut,
-                cursor: "pointer",
-                padding: 0,
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                fontFamily: M.disp,
-                fontWeight: 700,
-                fontSize: 14,
-              }}
-            >
-              <Icon name="chevL" size={16} color={M.mut} /> ABBRECHEN
-            </button>
-            {step > 0 && (
+        <div style={{ width: "100%", flexShrink: 0 }}>
+          <ScreenBackHeader
+            onBack={onBack}
+            title="KI-PLAN"
+            backAriaLabel="Abbrechen"
+            style={{ padding: 0, marginBottom: step > 0 ? 8 : 16 }}
+          />
+          {step > 0 && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
               <div style={{ fontSize: 13, color: M.mut, fontWeight: 600 }}>
                 Schritt {step} von {stepsCount - 1}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Progress Bar Line */}
           {step > 0 && (
@@ -668,7 +657,6 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
       <div
         style={{
           width: "100%",
-          maxWidth: 460,
           flex: 1,
           minWidth: 0,
           minHeight: 0,
@@ -1825,7 +1813,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
 
       {/* Footer-Navigationsbar */}
       {step === 0 && (
-        <div style={{ width: "100%", maxWidth: 460, flexShrink: 0 }}>
+        <div style={{ width: "100%", flexShrink: 0 }}>
           <MButton type="button" onClick={nextStep} variant="primary" size="md" fullWidth>
             JETZT STARTEN <Icon name="chevR" size={16} color={M.brandInk} />
           </MButton>
@@ -1833,7 +1821,7 @@ export function AITrainingPlanWizard({ onBack, onPlanGenerated }: AITrainingPlan
       )}
 
       {step > 0 && step < 12 && (
-        <div style={{ width: "100%", maxWidth: 460, flexShrink: 0, display: "flex", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ width: "100%", flexShrink: 0, display: "flex", justifyContent: "space-between", gap: 12 }}>
           <MButton type="button" onClick={prevStep} variant="secondary" size="md">
             <Icon name="chevL" size={16} /> ZURÜCK
           </MButton>

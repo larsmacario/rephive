@@ -9,6 +9,7 @@ import { TrendLineChart } from "../components/TrendLineChart";
 import { buildWeightSeries } from "../lib/bodyChart";
 import { MButton } from "../components/MButton";
 import { SCROLL_BOTTOM_PADDING } from "../lib/responsive";
+import { ScreenBackHeader } from "../components/ScreenScroll";
 import {
   useBodyMeasurements,
   createBodyMeasurement,
@@ -473,22 +474,10 @@ export function BodyTrackerScreen({ onBack }: BodyTrackerScreenProps) {
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" }}>
       {/* Header */}
-      <div
-        style={{
-          padding: "2px 22px 12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
-          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
-        </MButton>
-        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>
-          {editingId ? "EINTRAG BEARBEITEN" : "KÖRPERWERTE"}
-        </span>
-        <span style={{ width: 24 }} />
-      </div>
+      <ScreenBackHeader
+        onBack={onBack}
+        title={editingId ? "EINTRAG BEARBEITEN" : "KÖRPERWERTE"}
+      />
 
       <div style={{ padding: "0 22px 12px" }}>
         <div

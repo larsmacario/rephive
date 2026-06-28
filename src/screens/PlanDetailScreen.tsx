@@ -7,7 +7,8 @@ import { weekdayLabelsFromSummary } from "../lib/trainingWeekdays";
 import { Icon } from "../components/Icon";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { PlanAdviceCollapsible } from "../components/PlanAdviceCollapsible";
-import { FOOTER_BAR_PADDING_BOTTOM } from "../lib/responsive";
+import { CONTENT_HORIZONTAL_PADDING, FOOTER_BAR_PADDING_BOTTOM } from "../lib/responsive";
+import { ScreenBackHeader, screenFooterPadding } from "../components/ScreenScroll";
 import { HorizontalSlidePager } from "../components/HorizontalSlidePager";
 import { PlanDaySlide } from "../components/PlanDaySlide";
 import { OneRmPercentInfoCard } from "../components/OneRmPercentInfoCard";
@@ -102,7 +103,6 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
         display: "flex",
         flexDirection: "column",
         minHeight: 0,
-        padding: "0 22px",
         boxSizing: "border-box",
       }}
     >
@@ -235,7 +235,6 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
           display: "flex",
           flexDirection: "column",
           minHeight: 0,
-          padding: "0 22px",
           boxSizing: "border-box",
         }}
       >
@@ -255,24 +254,25 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <ScreenBackHeader onBack={onBack} title="PLAN" />
+
+      {actionError && (
+        <div style={{ padding: `0 ${CONTENT_HORIZONTAL_PADDING}px 8px`, color: "#ff8a8a", fontSize: 13 }}>
+          {actionError}
+        </div>
+      )}
+
       <div
         style={{
-          padding: "2px 22px 12px",
+          flex: 1,
+          minHeight: 0,
+          minWidth: 0,
           display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          flexDirection: "column",
+          padding: `0 ${CONTENT_HORIZONTAL_PADDING}px 8px`,
+          boxSizing: "border-box",
         }}
       >
-        <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: M.mut, display: "flex" }}>
-          <Icon name="chevL" size={24} stroke={2.2} />
-        </button>
-        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>PLAN</span>
-        <div style={{ width: 24 }} />
-      </div>
-
-      {actionError && <div style={{ padding: "0 22px 8px", color: "#ff8a8a", fontSize: 13 }}>{actionError}</div>}
-
-      <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", padding: "0 0 8px" }}>
         <HorizontalSlidePager
           key={plan.id}
           count={slideCount}
@@ -281,7 +281,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
           ariaLabel="Plan-Übersicht und Tage"
           tabLabel={tabLabel}
           tabSize="lg"
-          tabListPadding="6px 22px 0"
+          tabListPadding="6px 0 0"
         >
           {[summarySlide, ...daySlides]}
         </HorizontalSlidePager>
@@ -289,7 +289,7 @@ export function PlanDetailScreen({ planId, onBack, onEdit, onDeleted }: PlanDeta
 
       <div
         style={{
-          padding: "10px 22px 0",
+          padding: screenFooterPadding(),
           paddingBottom: FOOTER_BAR_PADDING_BOTTOM,
           display: "flex",
           flexDirection: "row",

@@ -175,7 +175,7 @@ export function OnboardingWizard() {
       }}
     >
       {/* Header and Progress Bar */}
-      <div style={{ width: "100%", maxWidth: 460 }}>
+      <div style={{ width: "100%" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <AppLogo size={32} />
@@ -206,7 +206,6 @@ export function OnboardingWizard() {
       <div
         style={{
           width: "100%",
-          maxWidth: 460,
           flex: 1,
           display: "flex",
           flexDirection: "column",
@@ -541,7 +540,6 @@ export function OnboardingWizard() {
       <div
         style={{
           width: "100%",
-          maxWidth: 460,
           display: "flex",
           justifyContent: step > 0 ? "space-between" : "center",
           gap: 12,

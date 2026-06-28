@@ -1,7 +1,6 @@
 import { M } from "../theme";
 import { SCROLL_BOTTOM_PADDING } from "../lib/responsive";
-import { Icon } from "../components/Icon";
-import { MButton } from "../components/MButton";
+import { ScreenBackHeader } from "../components/ScreenScroll";
 import {
   BLOCK_ACCENT,
   BLOCK_GUIDE_HINTS,
@@ -62,20 +61,7 @@ const EFFICIENCY_TIPS = [
 export function AboutScreen({ onBack }: AboutScreenProps) {
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div
-        style={{
-          padding: "2px 22px 12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <MButton type="button" onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
-          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
-        </MButton>
-        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>UEBER REPHIVE</span>
-        <span style={{ width: 24 }} />
-      </div>
+      <ScreenBackHeader onBack={onBack} title="UEBER REPHIVE" />
 
       <div
         style={{

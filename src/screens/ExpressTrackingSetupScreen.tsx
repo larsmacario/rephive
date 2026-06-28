@@ -9,7 +9,8 @@ import { SwipeRevealRow } from "../components/SwipeRevealRow";
 import { ExerciseListRowDumbbellIcon, ExerciseListRowText } from "../components/ExerciseListRow";
 import { useExercises, fetchRecentExpressTrackingSessions } from "../lib/db";
 import { usePreferences } from "../lib/preferences";
-import { FOOTER_BAR_PADDING_BOTTOM } from "../lib/responsive";
+import { CONTENT_HORIZONTAL_PADDING, FOOTER_BAR_PADDING_BOTTOM } from "../lib/responsive";
+import { ScreenBackHeader } from "../components/ScreenScroll";
 import {
   buildExpressTrackingWorkout,
   extractExpressTemplatesFromSession,
@@ -137,20 +138,14 @@ export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingS
   const stepIndex = step === "source" ? 1 : 2;
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: M.bg }}>
-      <div style={{ padding: "8px 18px 12px", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <MButton type="button" variant="ghost" size="icon" onClick={step === "sets" ? () => setStep("source") : onBack} aria-label="Zurück">
-            <Icon name="chevL" size={22} stroke={2.2} color={M.mut} />
-          </MButton>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 24, color: M.fg }}>ExpressTracking</div>
-            <div style={{ fontSize: TYPE.bodySm, color: M.mut, marginTop: 2 }}>Schritt {stepIndex} von 2</div>
-          </div>
-        </div>
-      </div>
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <ScreenBackHeader
+        onBack={step === "sets" ? () => setStep("source") : onBack}
+        title="EXPRESSTRACKING"
+      />
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 18px 24px" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: `0 ${CONTENT_HORIZONTAL_PADDING}px 24px` }}>
+        <div style={{ fontSize: TYPE.bodySm, color: M.mut, marginBottom: 12 }}>Schritt {stepIndex} von 2</div>
         {step === "source" ? (
           <>
             <div style={{ fontSize: TYPE.body, color: M.mut, lineHeight: 1.5, marginBottom: 16 }}>
@@ -349,10 +344,9 @@ export function ExpressTrackingSetupScreen({ onBack, onStart }: ExpressTrackingS
       <div
         style={{
           flexShrink: 0,
-          padding: "10px 18px 0",
+          padding: `10px ${CONTENT_HORIZONTAL_PADDING}px 0`,
           paddingBottom: FOOTER_BAR_PADDING_BOTTOM,
           borderTop: "1px solid " + M.line2,
-          background: M.bg,
         }}
       >
         {step === "source" ? (

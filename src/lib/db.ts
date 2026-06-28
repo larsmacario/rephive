@@ -1700,6 +1700,284 @@ export function useBodyMeasurements(refreshKey = 0) {
   }, [user?.id, refreshKey]);
 }
 
+export type ProteinLogSource = "quick" | "manual" | "post_workout" | "barcode" | "photo";
+
+export interface ProteinLog {
+  id: string;
+  userId: string;
+  proteinG: number;
+  label?: string;
+  source: ProteinLogSource;
+  ean?: string;
+  amountG?: number;
+  loggedAt: string;
+  createdAt: string;
+}
+
+type DbProteinLog = Tables<"protein_logs">;
+
+function mapProteinLogRow(row: DbProteinLog): ProteinLog {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    proteinG: Number(row.protein_g),
+    label: row.label ?? undefined,
+    source: row.source as ProteinLogSource,
+    ean: row.ean ?? undefined,
+    amountG: row.amount_g !== null ? Number(row.amount_g) : undefined,
+    loggedAt: row.logged_at,
+    createdAt: row.created_at,
+  };
+}
+
+function localDayBounds(date: Date = new Date()): { start: string; end: string } {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 1);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+export function sumProteinToday(logs: ProteinLog[]): number {
+  return logs.reduce((sum, log) => sum + log.proteinG, 0);
+}
+
+export async function fetchProteinLogsForDay(userId: string, date: Date = new Date()): Promise<ProteinLog[]> {
+  const { start, end } = localDayBounds(date);
+  const { data, error } = await supabase
+    .from("protein_logs")
+    .select("*")
+    .eq("user_id", userId)
+    .gte("logged_at", start)
+    .lt("logged_at", end)
+    .order("logged_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapProteinLogRow);
+}
+
+export async function fetchProteinLogsSince(userId: string, since: Date): Promise<ProteinLog[]> {
+  const { data, error } = await supabase
+    .from("protein_logs")
+    .select("*")
+    .eq("user_id", userId)
+    .gte("logged_at", since.toISOString())
+    .order("logged_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapProteinLogRow);
+}
+
+export interface ProteinLogInput {
+  proteinG: number;
+  label?: string;
+  source: ProteinLogSource;
+  ean?: string;
+  amountG?: number;
+  loggedAt?: string;
+}
+
+export async function createProteinLog(userId: string, input: ProteinLogInput): Promise<string> {
+  const { data, error } = await supabase
+    .from("protein_logs")
+    .insert({
+      user_id: userId,
+      protein_g: input.proteinG,
+      label: input.label ?? null,
+      source: input.source,
+      ean: input.ean ?? null,
+      amount_g: input.amountG ?? null,
+      ...(input.loggedAt ? { logged_at: input.loggedAt } : {}),
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id;
+}
+
+export async function deleteProteinLog(id: string): Promise<void> {
+  const { error } = await supabase.from("protein_logs").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export function useProteinLogsToday(refreshKey = 0) {
+  const { user } = useAuth();
+  return useAsync(async () => {
+    if (!user) return [];
+    return fetchProteinLogsForDay(user.id);
+  }, [user?.id, refreshKey]);
+}
+
+export function useProteinLogsSince(since: Date | null, refreshKey = 0) {
+  const { user } = useAuth();
+  return useAsync(async () => {
+    if (!user || !since) return [];
+    return fetchProteinLogsSince(user.id, since);
+  }, [user?.id, since?.getTime(), refreshKey]);
+}
+
+export type FoodProductSource = "user_photo" | "manual";
+
+export interface FoodProduct {
+  ean: string;
+  name: string;
+  proteinPer100g: number;
+  carbsPer100g?: number;
+  fatPer100g?: number;
+  kcalPer100g?: number;
+  servingG?: number;
+  basis: "per_100g" | "per_serving";
+  source: FoodProductSource;
+  verified: boolean;
+  createdBy?: string;
+  createdAt: string;
+}
+
+type DbFoodProduct = Tables<"food_products">;
+
+function mapFoodProductRow(row: DbFoodProduct): FoodProduct {
+  return {
+    ean: row.ean,
+    name: row.name,
+    proteinPer100g: Number(row.protein_per_100g),
+    carbsPer100g: row.carbs_per_100g !== null ? Number(row.carbs_per_100g) : undefined,
+    fatPer100g: row.fat_per_100g !== null ? Number(row.fat_per_100g) : undefined,
+    kcalPer100g: row.kcal_per_100g !== null ? Number(row.kcal_per_100g) : undefined,
+    servingG: row.serving_g !== null ? Number(row.serving_g) : undefined,
+    basis: row.basis as FoodProduct["basis"],
+    source: row.source as FoodProductSource,
+    verified: row.verified,
+    createdBy: row.created_by ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export interface FoodProductInput {
+  ean: string;
+  name: string;
+  proteinPer100g: number;
+  carbsPer100g?: number;
+  fatPer100g?: number;
+  kcalPer100g?: number;
+  servingG?: number;
+  basis: "per_100g" | "per_serving";
+  source: FoodProductSource;
+}
+
+export async function fetchFoodProductByEan(ean: string): Promise<FoodProduct | null> {
+  const { data, error } = await supabase.from("food_products").select("*").eq("ean", ean).maybeSingle();
+  if (error) throw error;
+  return data ? mapFoodProductRow(data) : null;
+}
+
+export async function createFoodProduct(userId: string, input: FoodProductInput): Promise<string> {
+  const { data, error } = await supabase
+    .from("food_products")
+    .insert({
+      ean: input.ean,
+      name: input.name,
+      protein_per_100g: input.proteinPer100g,
+      carbs_per_100g: input.carbsPer100g ?? null,
+      fat_per_100g: input.fatPer100g ?? null,
+      kcal_per_100g: input.kcalPer100g ?? null,
+      serving_g: input.servingG ?? null,
+      basis: input.basis,
+      source: input.source,
+      verified: false,
+      created_by: userId,
+    })
+    .select("ean")
+    .single();
+  if (error) throw error;
+  return data.ean;
+}
+
+export async function fetchRecentFoodProducts(userId: string, limit = 5): Promise<FoodProduct[]> {
+  const { data: logs, error: logsError } = await supabase
+    .from("protein_logs")
+    .select("ean")
+    .eq("user_id", userId)
+    .not("ean", "is", null)
+    .order("logged_at", { ascending: false })
+    .limit(30);
+  if (logsError) throw logsError;
+
+  const seen = new Set<string>();
+  const eans: string[] = [];
+  for (const row of logs ?? []) {
+    if (!row.ean || seen.has(row.ean)) continue;
+    seen.add(row.ean);
+    eans.push(row.ean);
+    if (eans.length >= limit) break;
+  }
+  if (eans.length === 0) return [];
+
+  const { data, error } = await supabase.from("food_products").select("*").in("ean", eans);
+  if (error) throw error;
+  const byEan = new Map((data ?? []).map((row) => [row.ean, mapFoodProductRow(row)]));
+  return eans.map((ean) => byEan.get(ean)).filter((p): p is FoodProduct => !!p);
+}
+
+export function useFoodProduct(ean: string | null) {
+  return useAsync(async () => (ean ? fetchFoodProductByEan(ean) : null), [ean]);
+}
+
+export function useRecentFoodProducts(refreshKey = 0) {
+  const { user } = useAuth();
+  return useAsync(async () => {
+    if (!user) return [];
+    return fetchRecentFoodProducts(user.id);
+  }, [user?.id, refreshKey]);
+}
+
+export interface ExtractedNutritionLabel {
+  name: string;
+  proteinPer100g: number;
+  basis: "per_100g" | "per_serving";
+  servingG?: number;
+  carbsPer100g?: number;
+  fatPer100g?: number;
+  kcalPer100g?: number;
+  confidence: "high" | "low";
+}
+
+export async function extractNutritionLabel(input: {
+  imageBase64: string;
+  mediaType: "image/jpeg" | "image/png";
+  ean?: string;
+}): Promise<ExtractedNutritionLabel> {
+  const { data, error } = await supabase.functions.invoke("extract-nutrition-label", {
+    body: input,
+    timeout: 60_000,
+  });
+  if (error) {
+    if (error instanceof FunctionsHttpError) {
+      try {
+        const payload = await error.context.json();
+        if (payload && typeof payload === "object") {
+          if (payload.error === "consent_required") {
+            throw new Error(
+              typeof payload.message === "string"
+                ? payload.message
+                : "Für die Etikett-Erkennung ist deine Einwilligung zur KI-Nutzung erforderlich.",
+            );
+          }
+          if (typeof payload.error === "string") throw new Error(payload.error);
+          if (typeof payload.message === "string") throw new Error(payload.message);
+        }
+      } catch (parseErr) {
+        if (parseErr instanceof Error && parseErr.message !== error.message) throw parseErr;
+      }
+    }
+    if (error instanceof FunctionsFetchError) {
+      throw new Error("Verbindung zur Etikett-Erkennung fehlgeschlagen. Bitte erneut versuchen.");
+    }
+    throw new Error(error.message || "Fehler bei der Etikett-Erkennung");
+  }
+  if (data && typeof data === "object" && "error" in data && typeof (data as { error?: string }).error === "string") {
+    throw new Error((data as { error: string }).error);
+  }
+  return data as ExtractedNutritionLabel;
+}
+
 export interface BodyPhoto {
   id: string;
   userId: string;

@@ -3,11 +3,11 @@ import { M } from "../theme";
 import { fmt, TIMER_DEFAULTS, TIMER_MODES, type TimerMode } from "../lib/engine";
 import { createAiConsentGrant, hasAiConsent, usePreferences } from "../lib/preferences";
 import { TimerSoundPackPicker } from "../components/TimerSoundPackPicker";
-import { Icon } from "../components/Icon";
 import { TimerConfigPanel } from "../components/TimerConfigPanel";
 import { MStepper, MSwitch } from "../components/widgets";
 import { MButton } from "../components/MButton";
 import { SCROLL_BOTTOM_PADDING } from "../lib/responsive";
+import { ScreenBackHeader } from "../components/ScreenScroll";
 import { BottomSheet } from "../components/BottomSheet";
 import { AiConsentStep } from "../components/AiConsentStep";
 import { OwnerLabsSection } from "../components/settings/OwnerLabsSection";
@@ -123,22 +123,15 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div
-        style={{
-          padding: "2px 22px 12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
-          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
-        </MButton>
-        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>EINSTELLUNGEN</span>
-        <span style={{ width: 24, fontSize: 13, color: saving ? M.acc : "transparent", fontWeight: 700 }}>
-          {saving ? "…" : ""}
-        </span>
-      </div>
+      <ScreenBackHeader
+        onBack={onBack}
+        title="EINSTELLUNGEN"
+        trailing={
+          <span style={{ width: 24, fontSize: 13, color: saving ? M.acc : "transparent", fontWeight: 700 }}>
+            {saving ? "…" : ""}
+          </span>
+        }
+      />
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: `0 22px ${SCROLL_BOTTOM_PADDING}px` }}>
         <Section title="TRAINING">

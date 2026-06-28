@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { M } from "../theme";
-import { contentMaxWidth, useBreakpoint } from "../lib/responsive";
+import { contentColumnStyle, useBreakpoint } from "../lib/responsive";
 
 export interface PhoneShellProps {
   children: ReactNode;
@@ -13,7 +13,6 @@ export interface PhoneShellProps {
 // the real notch / gesture bar on a phone (insets are 0 on desktop).
 export function PhoneShell({ children, reserveBottomSafeArea = true }: PhoneShellProps) {
   const bp = useBreakpoint();
-  const maxW = contentMaxWidth(bp);
 
   return (
     <div
@@ -50,11 +49,9 @@ export function PhoneShell({ children, reserveBottomSafeArea = true }: PhoneShel
           display: "flex",
           flexDirection: "column",
           paddingTop: 8,
-          width: "100%",
-          maxWidth: maxW,
-          margin: maxW ? "0 auto" : undefined,
           overflow: "hidden",
           zIndex: 1,
+          ...contentColumnStyle(bp),
         }}
       >
         {children}

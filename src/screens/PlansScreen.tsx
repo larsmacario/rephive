@@ -4,7 +4,7 @@ import { usePlans } from "../lib/db";
 import { useNetwork } from "../lib/offline/networkStatus";
 import { Icon } from "../components/Icon";
 import { MTag } from "../components/widgets";
-import { floatNavContentInset } from "../components/FloatNav";
+import { ScreenHeader, ScreenScroll } from "../components/ScreenScroll";
 import { MButton } from "../components/MButton";
 
 export interface PlansScreenProps {
@@ -25,14 +25,7 @@ export function PlansScreen({ onOpenBuilder, onOpenPlan, refreshKey = 0 }: Plans
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div
-        style={{
-          padding: "4px 22px 12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
+      <ScreenHeader>
         <div>
           <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 30, lineHeight: 1 }}>Pläne</div>
           <div style={{ fontSize: 14, color: M.mut, marginTop: 3, fontWeight: 600 }}>
@@ -44,19 +37,9 @@ export function PlansScreen({ onOpenBuilder, onOpenPlan, refreshKey = 0 }: Plans
         <MButton onClick={onOpenBuilder} variant="primary" size="icon" aria-label="Plan erstellen">
           <Icon name="plus" size={18} stroke={2.6} color={M.accInk} />
         </MButton>
-      </div>
+      </ScreenHeader>
 
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: "auto",
-          padding: `0 22px ${floatNavContentInset("bottom")}`,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-        }}
-      >
+      <ScreenScroll style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {loading && list.length === 0 && (
           <div style={{ color: M.mut, fontSize: 14 }}>Pläne werden geladen…</div>
         )}
@@ -111,7 +94,7 @@ export function PlansScreen({ onOpenBuilder, onOpenPlan, refreshKey = 0 }: Plans
             </button>
           );
         })}
-      </div>
+      </ScreenScroll>
     </div>
   );
 }

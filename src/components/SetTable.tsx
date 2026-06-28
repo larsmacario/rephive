@@ -1,9 +1,10 @@
 import type { CSSProperties } from "react";
 import type { ExerciseMetric, SetLike } from "../lib/exerciseCatalog";
-import { DEFAULT_EXERCISE_METRIC } from "../lib/exerciseCatalog";
+import { DEFAULT_EXERCISE_METRIC, formatSetLine } from "../lib/exerciseCatalog";
 import type { SetField } from "../lib/exerciseSets";
-import { M } from "../theme";
+import { M, brandButtonStyle } from "../theme";
 import { Icon } from "./Icon";
+import { InlineDisclosureMenu, type InlineDisclosureMenuItem } from "./InlineDisclosureMenu";
 import { SetMetricFields, setFieldHeaders } from "./SetMetricFields";
 import { WARMUP_COLUMN_WIDTH, WarmUpSetToggle } from "./WarmUpSetToggle";
 
@@ -34,8 +35,10 @@ export interface SetTableProps {
   /** Mobile Plan Builder: metrics use their own large, full-width controls. */
   stacked?: boolean;
   size?: "md" | "lg";
-  /** Neutral card wrapper (TrackScreen). */
+  /** Neutral card wrapper (TrackScreen table layout). */
   wrapped?: boolean;
+  /** Track stacked cards: collapse when done; footer check button instead of inline check. */
+  collapseWhenDone?: boolean;
   /** Hint shown once above the table (history / exercise note). */
   hint?: string;
   hintSuggested?: boolean;
@@ -56,6 +59,7 @@ export function SetTable({
   stacked = false,
   size = "md",
   wrapped = false,
+  collapseWhenDone = false,
   hint,
   hintSuggested = false,
   onBumpSet,
@@ -75,6 +79,28 @@ export function SetTable({
   const actionsWidth = individualActionsWidth(variant, isLg);
   const warmUpChecked = Boolean(sets[0]?.warmUp);
   const canRemove = sets.length > 1;
+
+  const renderSetMenu = (si: number, s: SetTableSet, triggerSize: number, marginLeft = 0) => {
+    const menuItems: InlineDisclosureMenuItem[] = [];
+    if (s.done && onToggleDone) {
+      menuItems.push({
+        icon: <Icon name="edit" size={16} stroke={2} color={M.mut2} />,
+        label: "Bearbeiten",
+        onClick: () => onToggleDone(si),
+      });
+    }
+    return (
+      <InlineDisclosureMenu
+        triggerSize={triggerSize}
+        triggerMarginLeft={marginLeft}
+        menuItems={menuItems}
+        showDelete
+        deleteDisabled={!canRemove}
+        onDelete={() => onRemove(si)}
+        ariaLabel="Satz-Aktionen"
+      />
+    );
+  };
 
   const tableContent = (
     <>
@@ -124,33 +150,62 @@ export function SetTable({
         const suggested = isSuggestedRow(s);
 
         if (stacked) {
+          const collapsed = collapseWhenDone && Boolean(s.done);
+          const footerCheck = collapseWhenDone && variant === "tracked" && onToggleDone;
+
           return (
             <div
               key={si}
               style={{
-                marginTop: si === 0 ? 0 : 10,
-                padding: "12px",
+                marginTop: si === 0 ? 0 : 12,
+                padding: collapsed ? "10px 12px" : "12px",
                 border: "1px solid " + (suggested ? M.brandBorder : M.line2),
                 borderRadius: 14,
                 background: suggested ? M.brandSoft : M.card,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", minHeight: 44, marginBottom: 10 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  minHeight: collapsed ? 36 : 44,
+                  marginBottom: collapsed ? 0 : 10,
+                }}
+              >
                 <span
                   style={{
-                    flex: 1,
+                    flexShrink: 0,
                     fontFamily: M.disp,
                     fontWeight: 700,
-                    fontSize: 22,
+                    fontSize: collapsed ? 18 : 22,
                     color: s.done ? M.acc : si === 0 && s.warmUp ? M.acc : suggested ? M.brand : M.fg,
                   }}
                 >
                   Satz {setNumberLabel(si, s.warmUp)}
                 </span>
-                {si === 0 && (
-                  <WarmUpSetToggle layout="compact" size="lg" checked={warmUpChecked} onChange={onWarmUpChange} />
+                {collapsed ? (
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      marginLeft: 10,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: M.mut,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {formatSetLine(s, metric)}
+                  </span>
+                ) : (
+                  <span style={{ flex: 1 }} />
                 )}
-                {variant === "tracked" && onToggleDone ? (
+                {!collapsed && si === 0 && !footerCheck ? (
+                  <WarmUpSetToggle layout="compact" size="lg" checked={warmUpChecked} onChange={onWarmUpChange} />
+                ) : null}
+                {variant === "tracked" && onToggleDone && !collapseWhenDone ? (
                   <button
                     type="button"
                     onClick={() => onToggleDone(si)}
@@ -167,43 +222,58 @@ export function SetTable({
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
+                      flexShrink: 0,
                     }}
                   >
                     <Icon name="check" size={20} stroke={2.6} />
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => onRemove(si)}
-                  disabled={!canRemove}
-                  aria-label="Satz entfernen"
+                {renderSetMenu(si, s, 44, 8)}
+              </div>
+              {!collapsed ? (
+                <SetMetricFields
+                  set={s}
+                  metric={metric}
+                  layout="stack"
+                  size="lg"
+                  onBump={(field, delta) => onBumpSet(si, field, delta)}
+                  onSetValue={(field, value) => onSetValue(si, field, value)}
+                  muted={suggested}
+                />
+              ) : null}
+              {footerCheck && !collapsed ? (
+                <div
                   style={{
-                    width: 44,
-                    height: 44,
-                    marginLeft: 8,
-                    borderRadius: 11,
-                    border: "1px solid " + M.line2,
-                    background: "transparent",
-                    color: M.mut2,
-                    cursor: canRemove ? "pointer" : "not-allowed",
-                    opacity: canRemove ? 1 : 0.4,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
+                    gap: 8,
+                    marginTop: 12,
                   }}
                 >
-                  <Icon name="minus" size={18} stroke={2.2} />
-                </button>
-              </div>
-              <SetMetricFields
-                set={s}
-                metric={metric}
-                layout="stack"
-                size="lg"
-                onBump={(field, delta) => onBumpSet(si, field, delta)}
-                onSetValue={(field, value) => onSetValue(si, field, value)}
-                muted={suggested}
-              />
+                  {si === 0 ? (
+                    <WarmUpSetToggle layout="compact" size="lg" checked={warmUpChecked} onChange={onWarmUpChange} />
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => onToggleDone(si)}
+                    aria-label={suggested ? "Vorschlag bestätigen" : "Satz abschließen"}
+                    style={{
+                      ...brandButtonStyle(),
+                      flex: 1,
+                      minHeight: 48,
+                      padding: 0,
+                      borderRadius: 12,
+                      border: "none",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Icon name="check" size={22} stroke={2.6} color={M.brandInk} />
+                  </button>
+                </div>
+              ) : null}
             </div>
           );
         }
@@ -284,27 +354,7 @@ export function SetTable({
                   <Icon name="check" size={isLg ? 20 : 17} stroke={2.6} />
                 </button>
               ) : null}
-              <button
-                type="button"
-                onClick={() => onRemove(si)}
-                disabled={!canRemove}
-                aria-label="Satz entfernen"
-                style={{
-                  width: actionBtnSize,
-                  height: actionBtnSize,
-                  borderRadius: isLg ? 11 : 9,
-                  border: "1px solid " + M.line2,
-                  background: "transparent",
-                  color: M.mut2,
-                  cursor: canRemove ? "pointer" : "not-allowed",
-                  opacity: canRemove ? 1 : 0.4,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Icon name="minus" size={isLg ? 18 : 16} stroke={2.2} />
-              </button>
+              {renderSetMenu(si, s, actionBtnSize)}
             </div>
           </div>
         );
@@ -333,7 +383,7 @@ export function SetTable({
     </>
   );
 
-  if (!wrapped) {
+  if (!wrapped || stacked) {
     return <div style={{ width: "100%" }}>{tableContent}</div>;
   }
 

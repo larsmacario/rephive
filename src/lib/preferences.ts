@@ -58,7 +58,7 @@ export function normalizeSleepHours(raw: unknown): number {
   return Math.round(clamped * 2) / 2;
 }
 
-export const AI_CONSENT_VERSION = 1;
+export const AI_CONSENT_VERSION = 2;
 
 export interface AiConsent {
   grantedAt: string;
@@ -113,6 +113,8 @@ export interface UserPreferences {
   aiConsent: AiConsent | null;
   /** Montag-Datum (yyyy-mm-dd) der Woche, in der der Wochenplaner ausgeblendet wurde */
   weekPlannerDismissedWeek: string | null;
+  /** Montag-Datum (yyyy-mm-dd) der Woche, in der die Recovery-Wochenkarte ausgeblendet wurde */
+  recoveryWeekDismissedWeek: string | null;
 }
 
 export type UserPreferencesUpdate = Omit<Partial<UserPreferences>, "timerDefaults"> & {
@@ -143,6 +145,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   exerciseFeedback: null,
   aiConsent: null,
   weekPlannerDismissedWeek: null,
+  recoveryWeekDismissedWeek: null,
 };
 
 function mergeTimerDefaults(raw: unknown): Record<TimerMode, TimerCfg> {
@@ -222,6 +225,12 @@ export function mergePreferences(raw: Json | null | undefined): UserPreferences 
         : obj.weekPlannerDismissedWeek === null
           ? null
           : DEFAULT_PREFERENCES.weekPlannerDismissedWeek,
+    recoveryWeekDismissedWeek:
+      typeof obj.recoveryWeekDismissedWeek === "string"
+        ? obj.recoveryWeekDismissedWeek
+        : obj.recoveryWeekDismissedWeek === null
+          ? null
+          : DEFAULT_PREFERENCES.recoveryWeekDismissedWeek,
   };
 }
 
@@ -246,6 +255,7 @@ export function preferencesToJson(prefs: UserPreferences): Json {
     exerciseFeedback: prefs.exerciseFeedback ? (prefs.exerciseFeedback as unknown as Json) : null,
     aiConsent: prefs.aiConsent ? (prefs.aiConsent as unknown as Json) : null,
     weekPlannerDismissedWeek: prefs.weekPlannerDismissedWeek,
+    recoveryWeekDismissedWeek: prefs.recoveryWeekDismissedWeek,
   };
 }
 

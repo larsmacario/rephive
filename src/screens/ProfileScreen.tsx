@@ -6,6 +6,7 @@ import { usePreferences } from "../lib/preferences";
 import { MButton } from "../components/MButton";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { floatNavContentInset } from "../components/FloatNav";
+import { ScreenBackHeader } from "../components/ScreenScroll";
 import { UserAvatar } from "../components/UserAvatar";
 import { AvatarCropSheet } from "../components/AvatarCropSheet";
 import { AvatarActionSheet } from "../components/AvatarActionSheet";
@@ -318,26 +319,12 @@ export function ProfileScreen({ onBack, mode = "push" }: ProfileScreenProps) {
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div
-        style={{
-          padding: "2px 22px 12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <MButton
-          onClick={onBack}
-          variant="ghost"
-          size="icon"
-          aria-label="Zurück"
-          style={mode === "tab" ? { visibility: "hidden", pointerEvents: "none" } : undefined}
-        >
-          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
-        </MButton>
-        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>PROFIL</span>
-        <div aria-hidden style={{ width: 40, flexShrink: 0 }} />
-      </div>
+      <ScreenBackHeader
+        onBack={onBack}
+        title="PROFIL"
+        backHidden={mode === "tab"}
+        trailing={<span style={{ width: 40, flexShrink: 0 }} aria-hidden />}
+      />
 
       <input
         ref={fileInputRef}

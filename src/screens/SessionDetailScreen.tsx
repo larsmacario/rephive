@@ -11,6 +11,7 @@ import { SupersetBlock } from "../components/SupersetBlock";
 import { segmentExercises } from "../lib/superset";
 import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { MButton } from "../components/MButton";
+import { ScreenBackHeader } from "../components/ScreenScroll";
 export interface SessionDetailScreenProps {
   sessionId: string;
   trackLoading?: boolean;
@@ -79,20 +80,7 @@ export function SessionDetailScreen({
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div
-        style={{
-          padding: "2px 22px 12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <MButton onClick={onBack} variant="ghost" size="icon" aria-label="Zurück">
-          <Icon name="chevL" size={20} stroke={2.2} color={M.mut} />
-        </MButton>
-        <span style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>SESSION</span>
-        <div style={{ width: 24 }} />
-      </div>
+      <ScreenBackHeader onBack={onBack} title="SESSION" />
 
       {actionError && <div style={{ padding: "0 22px 8px", color: "#ff8a8a", fontSize: 13 }}>{actionError}</div>}
 

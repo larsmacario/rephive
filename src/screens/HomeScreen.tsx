@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type React from "react";
 import { brandSurface, M } from "../theme";
 import { planDayDisplayName } from "../data";
 import {
@@ -16,15 +17,16 @@ import {
   getDraftMetrics,
 } from "../lib/activeWorkout";
 import { fmtUp } from "../lib/engine";
-import { useActivePlan, useHomeStats, useWeeklyVolume, useBodyMeasurements } from "../lib/db";
+import { useActivePlan, useHomeStats, useWeeklyVolume, useBodyMeasurements, sumProteinToday, useProteinLogsToday, useProteinLogsSince, useSessions } from "../lib/db";
+import { computeRecoveryContext, computeWeeklyRecoveryStats, getWeekStartMonday } from "../lib/recoveryEngine";
+import { useRecoveryTarget } from "../lib/recoveryTarget";
 import { useNetwork } from "../lib/offline/networkStatus";
-import { useBreakpoint } from "../lib/responsive";
 import { Icon } from "../components/Icon";
+import { ScreenScroll } from "../components/ScreenScroll";
 import { usePreferences } from "../lib/preferences";
 import { WorkoutFinishSheet } from "../components/WorkoutFinishSheet";
 import { MStat } from "../components/widgets";
 import { MButton } from "../components/MButton";
-import { floatNavContentInset } from "../components/FloatNav";
 import { UserAvatar } from "../components/UserAvatar";
 import { WeekPlannerSheet } from "../components/WeekPlannerSheet";
 
@@ -40,6 +42,7 @@ export interface HomeScreenProps {
   onOpenStats: () => void;
   onOpenCalculator: () => void;
   onOpenBodyTracker: () => void;
+  onOpenRecovery: () => void;
   refreshKey?: number;
   trackLoading?: boolean;
 }
@@ -56,20 +59,28 @@ export function HomeScreen({
   onOpenStats,
   onOpenCalculator,
   onOpenBodyTracker,
+  onOpenRecovery,
   refreshKey = 0,
   trackLoading,
 }: HomeScreenProps) {
   const { profile, user } = useAuth();
   const { preferences, updatePreferences } = usePreferences();
-  const breakpoint = useBreakpoint();
-  const isDesktop = breakpoint === "desktop";
   const { isOnline } = useNetwork();
   const { data: activePlan, loading: planLoading, reload: reloadPlan, isStale: planStale } = useActivePlan();
   const { data: week, reload: reloadWeek } = useWeeklyVolume();
   const { data: stats, reload: reloadStats } = useHomeStats();
   const { data: measurements, reload: reloadMeasurements } = useBodyMeasurements(refreshKey);
+  const { data: proteinLogsToday, reload: reloadProteinLogs } = useProteinLogsToday(refreshKey);
+  const { proteinTargetG } = useRecoveryTarget();
+  const weekStartMonday = useMemo(() => getWeekStartMonday(), []);
+  const { data: proteinLogsWeek } = useProteinLogsSince(weekStartMonday, refreshKey);
+  const { data: sessions } = useSessions();
   const [finishSheet, setFinishSheet] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [recoveryDismissed, setRecoveryDismissed] = useState(false);
+  const [loggedRecoveryLabel, setLoggedRecoveryLabel] = useState<string | null>(null);
+  const [proteinRefreshKey, setProteinRefreshKey] = useState(0);
+  const { data: proteinLogsForFinish, reload: reloadProteinForFinish } = useProteinLogsToday(proteinRefreshKey);
   const [durationSec, setDurationSec] = useState(0);
   const [selectedIsoWeekday, setSelectedIsoWeekday] = useState(() => getTodayIsoWeekday());
   const [weekPlannerOpen, setWeekPlannerOpen] = useState(false);
@@ -89,7 +100,16 @@ export function HomeScreen({
     reloadWeek();
     reloadStats();
     reloadMeasurements();
-  }, [refreshKey, reloadPlan, reloadWeek, reloadStats, reloadMeasurements]);
+    reloadProteinLogs();
+  }, [refreshKey, reloadPlan, reloadWeek, reloadStats, reloadMeasurements, reloadProteinLogs]);
+
+  useEffect(() => {
+    if (finishSheet) {
+      setRecoveryDismissed(false);
+      setLoggedRecoveryLabel(null);
+      reloadProteinForFinish();
+    }
+  }, [finishSheet, reloadProteinForFinish]);
 
   useEffect(() => {
     setSelectedIsoWeekday(getTodayIsoWeekday());
@@ -146,6 +166,60 @@ export function HomeScreen({
   const isSunday = getTodayIsoWeekday() === 6;
   const weekPlannerDismissed = preferences.weekPlannerDismissedWeek === currentWeekKey;
   const showWeekPlannerCard = !!activePlan && isSunday && !weekPlannerDismissed;
+  const recoveryWeekDismissed = preferences.recoveryWeekDismissedWeek === currentWeekKey;
+  const weeklyRecoveryStats = useMemo(
+    () =>
+      computeWeeklyRecoveryStats(
+        (sessions ?? []).map((s) => s.performedAt),
+        (proteinLogsWeek ?? []).map((log) => log.loggedAt),
+      ),
+    [sessions, proteinLogsWeek],
+  );
+  const showRecoveryWeekCard =
+    isSunday && !recoveryWeekDismissed && weeklyRecoveryStats.trainingDays > 0;
+
+  const dismissRecoveryWeekCard = () => {
+    updatePreferences({ recoveryWeekDismissedWeek: currentWeekKey });
+  };
+
+  const proteinLoggedTodayG = useMemo(() => sumProteinToday(proteinLogsToday ?? []), [proteinLogsToday]);
+
+  const draftRecoveryContext = useMemo(() => {
+    if (!activeWorkout || !activeMetrics) return null;
+    return computeRecoveryContext({
+      doneSets: activeMetrics.doneSets,
+      volumeKg: activeMetrics.volumeKg,
+      blockTypes: activeWorkout.session.exercises.map((e) => e.blockType ?? "strength"),
+      proteinLoggedTodayG: sumProteinToday(proteinLogsForFinish ?? []),
+      proteinTargetG,
+    });
+  }, [activeWorkout, activeMetrics, proteinLogsForFinish, proteinTargetG]);
+
+  const handleRecoveryLogged = (label: string) => {
+    setLoggedRecoveryLabel(label);
+  };
+
+  const handleRecoveryRefresh = () => {
+    setProteinRefreshKey((k) => k + 1);
+    reloadProteinLogs();
+  };
+
+  const finishRecovery =
+    finishSheet &&
+    !recoveryDismissed &&
+    draftRecoveryContext?.showPostWorkoutBlock &&
+    user
+      ? {
+          sessionLine: draftRecoveryContext.sessionSummaryLine,
+          remainingG: draftRecoveryContext.remainingG,
+          suggestionPresetIds: draftRecoveryContext.postWorkoutSuggestions.map((s) => s.presetId),
+          userId: user.id,
+          onLogged: handleRecoveryLogged,
+          onRefresh: handleRecoveryRefresh,
+          onDismiss: () => setRecoveryDismissed(true),
+          loggedSuggestionLabel: loggedRecoveryLabel,
+        }
+      : null;
 
   const dismissWeekPlannerCard = () => {
     updatePreferences({ weekPlannerDismissedWeek: currentWeekKey });
@@ -252,6 +326,36 @@ export function HomeScreen({
         </MButton>
         <MButton onClick={dismissWeekPlannerCard} variant="secondary" size="md" style={{ flex: 1, background: M.panel }}>
           Später
+        </MButton>
+      </div>
+    </div>
+  ) : null;
+
+  const recoveryWeekCard = showRecoveryWeekCard ? (
+    <div
+      style={{
+        marginTop: 18,
+        padding: "18px 18px 16px",
+        borderRadius: 20,
+        background: M.card,
+        border: "1px solid " + M.line2,
+      }}
+    >
+      <div style={{ fontSize: 13, letterSpacing: 1.4, color: M.brand, fontWeight: 700 }}>RECOVERY</div>
+      <div style={{ fontFamily: M.disp, fontWeight: 700, fontSize: 22, lineHeight: 1.15, marginTop: 8 }}>
+        Diese Woche: {weeklyRecoveryStats.loggedDays} von {weeklyRecoveryStats.trainingDays} Trainingstagen
+      </div>
+      <div style={{ color: M.mut, fontSize: 14, marginTop: 10, lineHeight: 1.45 }}>
+        {weeklyRecoveryStats.loggedDays >= weeklyRecoveryStats.trainingDays
+          ? "Stark — du bist auf Kurs."
+          : "Nach dem Training reicht oft ein Tap im Finish-Dialog."}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+        <MButton onClick={onOpenRecovery} variant="primary" size="md" style={{ flex: 1 }}>
+          Recovery öffnen
+        </MButton>
+        <MButton onClick={dismissRecoveryWeekCard} variant="secondary" size="md" style={{ flex: 1, background: M.panel }}>
+          Ausblenden
         </MButton>
       </div>
     </div>
@@ -592,16 +696,40 @@ export function HomeScreen({
     </MButton>
   );
 
+  const recoverySubtitle =
+    proteinLoggedTodayG > 0
+      ? `${proteinLoggedTodayG} / ${proteinTargetG} g`
+      : proteinTargetG > 0
+        ? "Protein im Blick"
+        : "Ziel aus Plan oder Profil";
+
+  const recoveryLink = (
+    <MButton onClick={onOpenRecovery} variant="secondary" size="md" fullWidth style={homeCardLinkStyle}>
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          background: M.brandSoft,
+          color: M.brand,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flex: "0 0 auto",
+        }}
+      >
+        <Icon name="flame" size={18} stroke={2} />
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ color: M.fg, fontWeight: 600, fontSize: 14 }}>Recovery</div>
+        <div style={{ color: M.mut, fontSize: 13, marginTop: 1 }}>{recoverySubtitle}</div>
+      </div>
+      <Icon name="chevR" size={16} color={M.mut2} stroke={2.2} />
+    </MButton>
+  );
+
   return (
-    <div
-      style={{
-        flex: 1,
-        minHeight: 0,
-        overflowY: "auto",
-        padding: `4px 22px ${floatNavContentInset("bottom")}`,
-        position: "relative",
-      }}
-    >
+    <ScreenScroll page>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative" }}>
         <div>
           <div style={{ fontSize: 13, color: M.mut, fontWeight: 600 }}>
@@ -640,59 +768,38 @@ export function HomeScreen({
         </MButton>
       </div>
 
-      {isDesktop ? (
-        <>
-          {weekStrip}
-          {weekPlannerCard}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16, alignItems: "start" }}>
-            <div>
-              <div style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>HEUTE GEPLANT</div>
-              {todayCard}
-            </div>
-            <div>
-              <div style={{ fontSize: 13, letterSpacing: 1.5, color: M.mut, fontWeight: 700 }}>SCHNELLZUGRIFF</div>
-              {timerLink}
-              {calculatorLink}
-              {bodyTrackerLink}
-            </div>
-          </div>
-          {activeWorkoutCard}
-          {statsBlock}
-        </>
-      ) : (
-        <>
-          {weekStrip}
-          {weekPlannerCard}
-          <div
-            style={{
-              marginTop: 16,
-              fontSize: 13,
-              letterSpacing: 1.5,
-              color: M.mut,
-              fontWeight: 700,
-            }}
-          >
-            HEUTE GEPLANT
-          </div>
-          {todayCard}
-          {activeWorkoutCard}
-          {statsBlock}
-          <div
-            style={{
-              marginTop: 16,
-              fontSize: 13,
-              letterSpacing: 1.5,
-              color: M.mut,
-              fontWeight: 700,
-            }}
-          >
-            SCHNELLZUGRIFF
-          </div>
-          {timerLink}
-          {calculatorLink}
-          {bodyTrackerLink}
-        </>
-      )}
+      {weekStrip}
+      {weekPlannerCard}
+      <div
+        style={{
+          marginTop: 16,
+          fontSize: 13,
+          letterSpacing: 1.5,
+          color: M.mut,
+          fontWeight: 700,
+        }}
+      >
+        HEUTE GEPLANT
+      </div>
+      {todayCard}
+      {activeWorkoutCard}
+      {statsBlock}
+      <div
+        style={{
+          marginTop: 16,
+          fontSize: 13,
+          letterSpacing: 1.5,
+          color: M.mut,
+          fontWeight: 700,
+        }}
+      >
+        SCHNELLZUGRIFF
+      </div>
+      {timerLink}
+      {calculatorLink}
+      {bodyTrackerLink}
+      {recoveryLink}
+      {recoveryWeekCard}
       <WorkoutFinishSheet
         open={finishSheet && !!activeWorkout && !!activeMetrics}
         name={activeWorkout?.session.name ?? ""}
@@ -702,6 +809,7 @@ export function HomeScreen({
         volumeKg={activeMetrics?.volumeKg ?? 0}
         busy={saving}
         exercises={activeWorkout?.session.exercises.map((e) => e.name) ?? []}
+        recovery={finishRecovery}
         onSave={handleSaveActive}
         onDiscard={handleDiscardActive}
         onClose={() => setFinishSheet(false)}
@@ -713,6 +821,6 @@ export function HomeScreen({
         onClose={() => setWeekPlannerOpen(false)}
         onSaved={handleWeekPlannerSaved}
       />
-    </div>
+    </ScreenScroll>
   );
 }

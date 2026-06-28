@@ -9,6 +9,7 @@ const DATA_CATEGORIES = [
   "Fitnessziel und Trainingserfahrung",
   "Trainingshistorie (letzte abgeschlossene Einheiten)",
   "Übungs-Feedback (Bewertungen und Notizen)",
+  "Fotos von Nährwertetiketten (nur zur Erkennung, nicht gespeichert)",
 ] as const;
 
 export interface AiConsentStepProps {
@@ -60,7 +61,8 @@ export function AiConsentStep({
           Einwilligung zur KI-Nutzung
         </h2>
         <p style={{ color: M.mut, fontSize: 14, margin: 0, lineHeight: 1.5, textAlign: "center" }}>
-          Für die Erstellung deines Trainingsplans werden Daten an einen externen KI-Anbieter übermittelt.
+          Für Trainingsplan, Recovery-Produkterkennung und Etikett-Auswertung werden Daten an einen externen KI-Anbieter
+          übermittelt.
         </p>
       </div>
 
@@ -83,7 +85,7 @@ export function AiConsentStep({
           ZWECK
         </div>
         <p style={{ color: M.fg, fontSize: 14, margin: "0 0 12px 0", lineHeight: 1.45 }}>
-          Generierung eines personalisierten Trainingsplans inklusive begleitender Ernährungsempfehlungen.
+          Personalisierter Trainingsplan, Protein-Produkterkennung aus Etikett-Fotos (Fotos werden nicht gespeichert).
         </p>
 
         <div style={{ fontSize: 13, letterSpacing: 1.4, color: M.mut, fontWeight: 700, marginBottom: 8 }}>
