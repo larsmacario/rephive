@@ -914,7 +914,7 @@ export function HomeScreen({
     </MButton>
   );
 
-  const recoverySubtitle = `Protein ${proteinLoggedTodayG}/${proteinTargetG} g · Wasser ${formatWaterAmount(waterLoggedTodayMl)}/${formatWaterAmount(waterTargetMl)}`;
+  const recoverySubtitle = `Protein ${proteinLoggedTodayG} g · Wasser ${formatWaterAmount(waterLoggedTodayMl)}`;
 
   const recoveryLink = (
     <MButton onClick={() => onOpenRecovery("protein")} variant="secondary" size="md" fullWidth style={homeCardLinkStyle}>
